@@ -21,6 +21,47 @@ namespace Pars
 
             [[nodiscard]]
             static json::value
+            setWebhook
+            (
+                json::string_view url,
+                optstr certificate = {},
+                optstr ip_address  = {},
+                optint max_connections = {},
+                std::optional<json::array> allowed_updates = {},
+                optbool drop_pending_updates = {},
+                optstr  secret_token         = {}
+            )
+            {
+                json::object ob(ptr_);
+                json::object ob1(ptr_);
+                json::object ob2(ptr_);
+
+                ob = parse_ObjPairs_as_obj
+                   (
+                        p {"url", url}
+                   );
+
+
+                ob1 = parse_OptPairs_to_obj
+                    (
+                        op{"certificate", certificate},
+                        op{"ip_address",  ip_address},
+                        op{"max_connections", max_connections},
+                        op{"allowed_updates", allowed_updates},
+                        op{"drop_pending_updates", drop_pending_updates},
+                        op{"secret_token", secret_token}
+                    ); 
+
+                ob.insert(ob1.begin(), ob1.end());
+
+                ob2["setWebhook"] = { std::move(ob) };
+
+                return ob2;
+            }
+
+
+            [[nodiscard]]
+            static json::value
             get_webhook_request
             (
                 json::string_view url,
@@ -71,7 +112,7 @@ namespace Pars
 
                 ob1.insert(ob2.begin(), ob2.end());
 
-                ob ["get_webhook_request"] = { ob1 };
+                ob ["get_webhook_request"] = { std::move(ob1) };
 
                 return ob;
             }
@@ -225,6 +266,7 @@ namespace Pars
         TelegramEntities<Derived>::~TelegramEntities(){}
 
 
+
         struct SetWebHook : TelegramEntities<SetWebHook>
         {
             public:
@@ -260,7 +302,7 @@ namespace Pars
               drop_pending_updates(drop_pending_updates),
               secret_token(secret_token)
             {
-
+                
             }
 
             public:
@@ -269,6 +311,8 @@ namespace Pars
             std::optional<std::unordered_map<json::string, json::value>> 
             requested_fields(const json::value& val) 
             {
+                const size_t sz = 1;
+
                 auto opt = MainParser::check_pointer_validation(val, std::make_pair("/setWebhook", json::kind::object));
                 if(opt.has_value() == false)
                 {
@@ -281,8 +325,14 @@ namespace Pars
                     std::make_pair("/setWebhook/url", json::kind::uint64)
                 );
 
+                if(map.size() < sz)
+                {
+                    return std::nullopt;
+                }
+
                 return map;
             }
+
 
             [[nodiscard]]
             std::unordered_map<json::string, json::value>
@@ -301,7 +351,53 @@ namespace Pars
 
                 return map;
             } 
+            
+
+            [[nodiscard]]
+            void fields_from_map
+            (const std::unordered_map<json::string, json::value>& map)
+            {
+                MainParser::field_from_map
+                <json::kind::string>(map, std::make_pair("url", std::ref(url)));
+
+                MainParser::field_from_map
+                <json::kind::string>(map, std::make_pair("certificate", std::ref(certificate)));
+
+                MainParser::field_from_map
+                <json::kind::string>(map, std::make_pair("ip_address", std::ref(ip_address)));
+
+                MainParser::field_from_map
+                <json::kind::int64>(map, std::make_pair("max_connections", std::ref(max_connections)));
+
+                MainParser::field_from_map
+                <json::kind::array>(map, std::make_pair("allowed_updates", std::ref(allowed_updates)));
+
+                MainParser::field_from_map
+                <json::kind::bool_>(map, std::make_pair("drop_pending_updates", std::ref(drop_pending_updates)));
+
+                MainParser::field_from_map
+                <json::kind::string>(map, std::make_pair("secret_token", std::ref(secret_token)));
+            }
+
+
+            [[nodiscard]]
+            json::value
+            fields_to_value()
+            {
+                return TelegramRequestes::setWebhook
+                (
+                    url,
+                    certificate,
+                    ip_address,
+                    max_connections,
+                    allowed_updates,
+                    drop_pending_updates,
+                    secret_token
+                );
+            }
+
         };
+
 
 
         struct User : TelegramEntities<User>
@@ -365,6 +461,8 @@ namespace Pars
             std::optional<std::unordered_map<json::string, json::value>> 
             requested_fields(const json::value& val) 
             {
+                const size_t sz = 3;
+
                 auto opt = MainParser::check_pointer_validation(val, std::make_pair("/user", json::kind::object));
                 if(opt.has_value() == false)
                 {
@@ -379,6 +477,11 @@ namespace Pars
                     std::make_pair("/user/is_bot", json::kind::bool_),
                     std::make_pair("/user/first_name", json::kind::string)
                 );
+
+                if(map.size() < sz)
+                {
+                    return std::nullopt;
+                }
 
                 return map;
             }

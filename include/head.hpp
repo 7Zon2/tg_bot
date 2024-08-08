@@ -25,6 +25,30 @@
  using tcp = boost::asio::ip::tcp;       // from <boost/asio/ip/tcp.hpp>
 
 
+void print_endpoint(const tcp::endpoint& ep)
+{
+    print("address:", ep.address().to_string(),"\n");
+    print("port:", ep.port(),"\n");
+    print("protocol:", ep.protocol().protocol(),"\n");
+    print("protocol type:", ep.protocol().type(), "\n");
+    print("protocol family:", ep.protocol().family(),"\n");
+}
+
+
+void print_result_type(const tcp::resolver::results_type& res)
+{
+    print("\nserver endpoints:\n");
+    print("number of endpoints:", res.size(),"\n");
+    for(auto && i : res)
+    {
+        print("\nendpoint:\n");
+        print("service_name:",i.service_name(),"\n");
+        print("host_name:", i.host_name(),"\n");
+        print_endpoint(i.endpoint());
+    }
+}
+
+
 // Return a reasonable mime type based on the extension of a file.
 beast::string_view
 mime_type(beast::string_view path)

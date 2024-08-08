@@ -359,17 +359,17 @@ namespace Pars
 
 
         [[nodiscard]]
-        static std::string
+        static json::string
         serialize_to_string(const json::value& val)
         {
-            std::string str;
+            json::string str;
             ser_.reset(&val);
 
             while(! ser_.done())
             {
                 char buf[4096]{};
-                std::string_view vw = ser_.read(buf);
-                str.append(buf, vw.size());
+                json::string_view vw = ser_.read(buf);
+                str.append(vw);
             }
 
             return str;
@@ -389,7 +389,7 @@ namespace Pars
 
         template<is_all_json_entities...Types>
         [[nodiscard]]
-        static std::string
+        static json::string
         parse_all_json_as_string(Types&&...args)
         {
             json::value val;

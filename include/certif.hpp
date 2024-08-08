@@ -3,6 +3,26 @@
 
 namespace CRTF
 {
+    json::string 
+    load_cert(std::string_view filename)
+    {
+        static unsigned char buf[4096]{};
+        json::string str;
+
+        std::FILE* f = std::fopen(filename.data(), "r");
+        if(!f)
+            return {};
+
+        while(! std::feof(f))
+        {
+            size_t sz = std::fread(buf, sizeof(char), sizeof(buf), f);
+            str.append(buf, buf + sz);
+        }
+
+        std::fclose(f);
+        return str;
+    }
+
     void load_cert(ssl::context& ctx,const std::string& file)
     {
         boost::system::error_code er;

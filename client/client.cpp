@@ -6,11 +6,13 @@
 // Performs an HTTP GET and prints the response
 class session : public std::enable_shared_from_this<session>
 {
-    const std::string host_;
+    const json::string host_;
     const int version_;
-    std::string target_;
+    const json::string port_;
+    const json::string token_; 
+
+    json::string target_;
     tcp::resolver resolver_;
-    const std::string port_;
 
     beast::ssl_stream<beast::tcp_stream> stream_;
     beast::flat_buffer buffer_; // (Must persist between reads)
@@ -26,7 +28,6 @@ class session : public std::enable_shared_from_this<session>
         SHUTDOWN
     };
 
-    Events event_ = Events::POST;
 
  public:
 
@@ -37,50 +38,101 @@ class session : public std::enable_shared_from_this<session>
         std::string_view host,
         const int version,
         std::string_view port,
+        std::string_view token,
         net::any_io_executor ex,
         ssl::context& ctx
     )
     : 
       host_(host)
     , version_(version)
-    , resolver_(ex) 
     , port_(port)
+    , token_(token)
+    , resolver_(ex) 
     , stream_(ex, ctx)
     {
         print
         (
-            "host: ", host, "\n"
-            "port: ", port, "\n"
-            "version: ", version, "\n"
+            "host: ", host_, "\n"
+            "port: ", port_, "\n"
+            "version: ",  version_, "\n"
+            "token: "   , token_, "\n"
         );
     }
 
 
     public:
 
-    void SwitchEvent()
+    json::string
+    get_url_bot(std::string_view request)
     {
-        if(event_ == Events::GET)
-        {
-            event_ = Events::POST;
-        }
-        else if(event_ == Events::POST)
-        {
-            event_ = Events::GET;
-        }
-
+        json::string str{"http://"};
+        str.append(host_);
+        str.append("/bot");
+        str.append(token_);
+        str.append(request);
+        return str;
     }
 
 
-    void PrepareRequest()
+    void simple_requset()
+    {
+        req_.version(version_);
+        req_.method(http::verb::get);
+        req_.set(http::field::host, host_);
+        req_.set(http::field::user_agent, "lalala");
+        req_.target("/");
+    }
+
+
+    void shutdown()
+    {
+        stream_.async_shutdown
+        (
+            beast::bind_front_handler
+            (
+                &session::on_shutdown,
+                shared_from_this()
+            )
+        );
+    }
+
+    public:
+
+    void GetWebhookRequest()
+    {
+        req_.version(version_);
+        req_.method(http::verb::get);
+        req_.set(http::field::host, get_url_bot("getwebhookinfo"));
+    }
+
+
+    void SetWebhookRequest()
+    {
+        json::string certif = CRTF::load_cert("/home/zon/keys/certif/serv/host.crt");
+
+        json::string url = get_url_bot("setwebhook");
+
+        json::array arr{"Message", "Chat", "User", "ChatFullInfo"};
+
+        json::value val = Pars::TG::TelegramRequestes::setWebhook
+        (
+            url,
+            certif,
+            std::nullopt,
+            std::nullopt,
+            arr,
+            false
+        );
+
+        json::string data = Pars::MainParser::serialize_to_string(val);
+    }
+
+    void PrepareRequest(const Events ev, json::string_view data)
     {
         auto prepare_post = [&]()
         {
-            auto val = Pars::TG::TelegramRequestes::get_user_request(10,true,"Raven");
-            std::string str = Pars::MainParser::parse_all_json_as_string(std::move(val));
-            PostRequest(str,target_);
+            PostRequest(data,target_);
         };
-
 
         auto prepare_get = [&]()
         {
@@ -101,7 +153,7 @@ class session : public std::enable_shared_from_this<session>
         };
 
 
-        switch(event_)
+        switch(ev)
         {
             case Events::GET  : prepare_post(); return;
 
@@ -118,8 +170,8 @@ class session : public std::enable_shared_from_this<session>
     {
         req_.method(http::verb::post);
         req_.set(http::field::host, host_);
-        req_.set(http::field::content_type,"application/json");
-        req_.set(http::field::user_agent, "lalala");
+        req_.set(http::field::content_type,"multipart/form-data");
+        req_.set(http::field::user_agent, "Raven-Fairy");
         req_.target(target);
         req_.set(http::field::content_length, boost::lexical_cast<std::string>(data.size()));
         req_.set(http::field::body, data);
@@ -173,14 +225,19 @@ class session : public std::enable_shared_from_this<session>
 
 
     void
-    on_resolve(
+    on_resolve
+    (
         beast::error_code ec,
-        tcp::resolver::results_type results)
+        tcp::resolver::results_type results
+    )
     {
         if(ec)
             return fail(ec, "resolve");
 
+
+        print_result_type(results);
         print("resolving...\n");
+        
 
         // Set a timeout on the operation
         beast::get_lowest_layer(stream_).expires_after(std::chrono::seconds(30));
@@ -199,12 +256,14 @@ class session : public std::enable_shared_from_this<session>
 
 
     void
-    on_connect(beast::error_code ec, tcp::resolver::results_type::endpoint_type)
+    on_connect(beast::error_code ec, tcp::resolver::results_type::endpoint_type ep)
     {
         if(ec)
             return fail(ec, "connect");
 
-        print("Connecting...\n");
+        print("Connecting...\n\n", "connected endpoint:\n");
+        print_endpoint(ep);
+        print("\n\n");
 
         // Perform the SSL handshake
         stream_.async_handshake
@@ -230,9 +289,7 @@ class session : public std::enable_shared_from_this<session>
 
         print("Handshake...\n");
 
-
-        PrepareRequest();
-
+        GetWebhookRequest();
 
         // Send the HTTP request to the remote host
         http::async_write
@@ -284,12 +341,11 @@ class session : public std::enable_shared_from_this<session>
         std::size_t bytes_transferred
     )
     {
-        boost::ignore_unused(bytes_transferred);
+        print("\nreading...\n","bytes_transferred:", bytes_transferred,"\n");
 
         if(ec)
             return fail(ec, "read");
 
-        print("reading...\n");
 
         // Write the message to standard out
         std::cout << res_ << std::endl;
@@ -297,9 +353,8 @@ class session : public std::enable_shared_from_this<session>
         // Set a timeout on the operation
         beast::get_lowest_layer(stream_).expires_after(std::chrono::seconds(30));
 
-        SwitchEvent();
 
-        PrepareRequest();
+        shutdown();
 
         http::async_write
         (
@@ -337,14 +392,14 @@ class session : public std::enable_shared_from_this<session>
 int main(int argc, char** argv)
 {
   
-    if(argc <= 1)
-    {
-        std::cout<<"Please, input your bot-telegram token\n";
-        return 1;
-    }
+    // if(argc <= 1)
+    // {
+    //     std::cout<<"Please, input your bot-telegram token\n";
+    //     return 1;
+    // }
 
-    std::string host   = "localhost";
-    std::string port   = "8080";
+    std::string host   = "api.telegram.org";
+    std::string port   = "443";
     int version = 11;
 
     try
@@ -355,7 +410,7 @@ int main(int argc, char** argv)
 
         // The SSL context is required, and holds certificates
         ssl::context ctx{ssl::context::tlsv13_client};
-
+        
         // This holds the root certificate used for verification
         CRTF::load_cert(ctx,"/home/zon/keys/certif/serv/host.crt");
 
@@ -372,6 +427,7 @@ int main(int argc, char** argv)
             host,
             version,
             port,
+            "7462084054:AAFMMUI_V8jEdzWSu-OPmuD-nKaLqdrzFOU",
             net::make_strand(ioc),
             ctx
 
