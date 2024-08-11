@@ -229,7 +229,7 @@ handle_post
     else
     {
 
-        auto it = val.find_pointer("/user", er);
+        val.find_pointer("/user", er);
         if(er)
         {
             std::cout<<nullptr<<std::endl;

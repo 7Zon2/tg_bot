@@ -1,12 +1,13 @@
-#include "../include/tg_pars.hpp"
+#include <iostream>
 #include "../include/certif.hpp"
+#include "../include/entities/entities.hpp"
 
 using namespace Pars;
 using namespace TG;
 
 void test0()
 {
-        json::value v = TG::TelegramRequestes::get_user_request(1, true, "Raven", "Fairy");
+    json::value v = TG::TelegramRequestes::get_user_request(1, true, "Raven", "Fairy");
 
     Pars::MainParser::pretty_print(std::cout, v);
 
@@ -83,6 +84,7 @@ void test_api()
         Pars::MainParser::pretty_print(std::cout, val);
 
 }
+
 
 int main()
 {

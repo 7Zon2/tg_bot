@@ -1,7 +1,9 @@
 #include "head.hpp"
+#include "entities/entities.hpp"
 #include "certif.hpp"
 #include "tg_pars.hpp"
 #include "print.hpp"
+#include "coro_future.hpp"
 
 // Performs an HTTP GET and prints the response
 class session : public std::enable_shared_from_this<session>
@@ -19,18 +21,8 @@ class session : public std::enable_shared_from_this<session>
     http::request<http::string_body> req_;
     http::response<http::string_body> res_;
 
- private:
 
-    enum class Events : char
-    {
-        GET,
-        POST,
-        SHUTDOWN
-    };
-
-
- public:
-
+    public:
 
     explicit
     session
@@ -60,29 +52,9 @@ class session : public std::enable_shared_from_this<session>
     }
 
 
+    virtual ~session(){}
+
     public:
-
-    json::string
-    get_url_bot(std::string_view request)
-    {
-        json::string str{"http://"};
-        str.append(host_);
-        str.append("/bot");
-        str.append(token_);
-        str.append(request);
-        return str;
-    }
-
-
-    void simple_requset()
-    {
-        req_.version(version_);
-        req_.method(http::verb::get);
-        req_.set(http::field::host, host_);
-        req_.set(http::field::user_agent, "lalala");
-        req_.target("/");
-    }
-
 
     void shutdown()
     {
@@ -96,13 +68,124 @@ class session : public std::enable_shared_from_this<session>
         );
     }
 
+
+    void resolve()
+    {
+        // Look up the domain name
+        resolver_.async_resolve
+        (
+            host_.data(),
+            port_.data(),
+            beast::bind_front_handler
+            (
+                &session::on_resolve,
+                shared_from_this()
+            )
+        );
+    }
+
+
+    void connect(const tcp::resolver::results_type& results)
+    {
+        beast::get_lowest_layer(stream_).expires_after(std::chrono::seconds(30));
+
+        // Make the connection on the IP address we get from a lookup
+        beast::get_lowest_layer(stream_).async_connect
+        (
+            results,
+            beast::bind_front_handler
+            (
+                &session::on_connect,
+                shared_from_this()
+            )
+        );
+    }
+
+
+    void handshake()
+    {
+        // Perform the SSL handshake
+        stream_.async_handshake
+        (
+            ssl::stream_base::client,
+            beast::bind_front_handler
+            (
+                &session::on_handshake,
+                shared_from_this()
+            )
+        );
+    }
+
+
+    void write()
+    {
+        beast::get_lowest_layer(stream_).expires_after(std::chrono::seconds(30));
+
+        http::async_write
+        (
+            stream_, 
+            req_,
+            beast::bind_front_handler
+            (
+                &session::on_write,
+                shared_from_this()
+            )
+        );
+    }
+
+
+    void read()
+    {
+        http::async_read
+        (
+            stream_, 
+            buffer_, 
+            res_,
+            beast::bind_front_handler
+            (
+                &session::on_read,
+                shared_from_this()
+            )
+        );
+    }
+
     public:
+
+    json::string
+    get_url_bot_target(std::string_view request)
+    {
+        json::string str;
+        str.append("/bot");
+        str.append(token_);
+        str.append(request);
+        return str;
+    }
+
+
+    void set_target
+    (std::string_view target)
+    {
+        target_ = target;
+    }
+
+
+    protected:
+
+    void simple_requset()
+    {
+        req_.version(version_);
+        req_.method(http::verb::get);
+        req_.set(http::field::host, host_);
+        req_.set(http::field::user_agent, "lalala");
+        req_.target("/");
+    }
 
     void GetWebhookRequest()
     {
         req_.version(version_);
         req_.method(http::verb::get);
-        req_.set(http::field::host, get_url_bot("getwebhookinfo"));
+        req_.set(http::field::host, host_);
+        req_.target(get_url_bot_target("getwebhookinfo"));
     }
 
 
@@ -110,13 +193,13 @@ class session : public std::enable_shared_from_this<session>
     {
         json::string certif = CRTF::load_cert("/home/zon/keys/certif/serv/host.crt");
 
-        json::string url = get_url_bot("setwebhook");
+        json::string url = get_url_bot_target("setwebhook");
 
         json::array arr{"Message", "Chat", "User", "ChatFullInfo"};
 
         json::value val = Pars::TG::TelegramRequestes::setWebhook
         (
-            url,
+            "",
             certif,
             std::nullopt,
             std::nullopt,
@@ -125,52 +208,73 @@ class session : public std::enable_shared_from_this<session>
         );
 
         json::string data = Pars::MainParser::serialize_to_string(val);
+        PostRequest(data, url, "multipart/form-data");
     }
 
-    void PrepareRequest(const Events ev, json::string_view data)
-    {
-        auto prepare_post = [&]()
-        {
-            PostRequest(data,target_);
-        };
+    public:
 
-        auto prepare_get = [&]()
+    void start_get_webhook_request()
+    { 
+       auto play = [this]() -> std::future<void>
         {
-            GetRequest(target_);
-        };
-
-        auto prepare_shutdown = [&]()
-        {
-            // Gracefully close the stream
-            stream_.async_shutdown
+            co_await std::async(&session::GetWebhookRequest, this);
+            co_await std::async([this](){http::write(stream_, req_);});
+            co_await std::async([this](){res_.clear(), http::read(stream_, buffer_, res_);});
+            co_await std::async(&session::print_response, this);
+            auto var = co_await std::async
             (
-                beast::bind_front_handler
-                (
-                    &session::on_shutdown,
-                    shared_from_this()
-                )
+                [this]()
+                {
+                    return Pars::MainParser::parse_string_as_value(res_.body());
+                }
             );
+            auto map = co_await std::async
+            (
+                [&var, this]()
+                {
+                    auto map = Pars::TG::TelegramResponse::verify_fields(var);
+                    if (map.has_value() == false)
+                        throw std::runtime_error{"Failed verify_field in GetWebhookRequest\n"};
+                    else
+                        return std::move(map.value());
+                }
+            );
+
+            // if(! map["ok"].as_bool() || !map["error_code"].as_int64())
+            //     throw std::runtime_error{"Failed ResponseTelegram\n"};
+
+            //print("description TelegramResponse:\n", map["description"].as_string());
+            print("map:\n");
+            for(auto &&i : map)
+                print(i.first);
+            shutdown();
         };
 
-
-        switch(ev)
+        try
         {
-            case Events::GET  : prepare_post(); return;
-
-            case Events::POST : prepare_get(); return;
-
-            default: 
-                prepare_shutdown(); return;
+            auto fut = play();
+            fut.get();
         }
-
+        catch(const std::exception& e)
+        {
+            std::cerr << e.what() << '\n';
+            throw e;
+        }
+        
     }
 
+    public:
 
-    void PostRequest(std::string_view data, std::string_view target)
+    void PostRequest
+    (
+        std::string_view data, 
+        std::string_view target,
+        std::string_view content_type 
+    )
     {
         req_.method(http::verb::post);
         req_.set(http::field::host, host_);
-        req_.set(http::field::content_type,"multipart/form-data");
+        req_.set(http::field::content_type, content_type);
         req_.set(http::field::user_agent, "Raven-Fairy");
         req_.target(target);
         req_.set(http::field::content_length, boost::lexical_cast<std::string>(data.size()));
@@ -189,13 +293,7 @@ class session : public std::enable_shared_from_this<session>
         req_.target(target);
     }
 
-
-    void set_target
-    (std::string_view target)
-    {
-        target_ = target;
-    }
-
+    public:
 
     // Start the asynchronous operation
     void
@@ -209,20 +307,10 @@ class session : public std::enable_shared_from_this<session>
             return;
         }
 
-
-        // Look up the domain name
-        resolver_.async_resolve
-        (
-            host_.data(),
-            port_.data(),
-            beast::bind_front_handler
-            (
-                &session::on_resolve,
-                shared_from_this()
-            )
-        );
+        resolve();
     }
 
+    protected:
 
     void
     on_resolve
@@ -237,21 +325,8 @@ class session : public std::enable_shared_from_this<session>
 
         print_result_type(results);
         print("resolving...\n");
-        
 
-        // Set a timeout on the operation
-        beast::get_lowest_layer(stream_).expires_after(std::chrono::seconds(30));
-
-        // Make the connection on the IP address we get from a lookup
-        beast::get_lowest_layer(stream_).async_connect
-        (
-            results,
-            beast::bind_front_handler
-            (
-                &session::on_connect,
-                shared_from_this()
-            )
-        );
+        connect(results);
     }
 
 
@@ -265,16 +340,7 @@ class session : public std::enable_shared_from_this<session>
         print_endpoint(ep);
         print("\n\n");
 
-        // Perform the SSL handshake
-        stream_.async_handshake
-        (
-            ssl::stream_base::client,
-            beast::bind_front_handler
-            (
-                &session::on_handshake,
-                shared_from_this()
-            )
-        );
+        handshake();
     }
 
 
@@ -284,24 +350,20 @@ class session : public std::enable_shared_from_this<session>
         if(ec)
             return fail(ec, "handshake");
 
-        // Set a timeout on the operation
-        beast::get_lowest_layer(stream_).expires_after(std::chrono::seconds(30));
-
         print("Handshake...\n");
 
-        GetWebhookRequest();
+        try
+        {
+           start_get_webhook_request();
+        }
+        catch(const std::exception& e)
+        {
+            std::cerr << e.what() << '\n';
+            shutdown();
+        }
+        
 
-        // Send the HTTP request to the remote host
-        http::async_write
-        (
-            stream_, 
-            req_,
-            beast::bind_front_handler
-            (
-                &session::on_write,
-                shared_from_this()
-            )
-        );
+        write();
     }
 
 
@@ -319,18 +381,8 @@ class session : public std::enable_shared_from_this<session>
 
         print("writing...\n");
 
-        // Receive the HTTP response
-        http::async_read
-        (
-            stream_, 
-            buffer_, 
-            res_,
-            beast::bind_front_handler
-            (
-                &session::on_read,
-                shared_from_this()
-            )
-        );
+
+        read();
     }
 
 
@@ -346,26 +398,9 @@ class session : public std::enable_shared_from_this<session>
         if(ec)
             return fail(ec, "read");
 
+        print_response();
 
-        // Write the message to standard out
-        std::cout << res_ << std::endl;
-
-        // Set a timeout on the operation
-        beast::get_lowest_layer(stream_).expires_after(std::chrono::seconds(30));
-
-
-        shutdown();
-
-        http::async_write
-        (
-            stream_,
-            req_,
-            beast::bind_front_handler
-            (
-                &session::on_write,
-                shared_from_this()
-            )
-        );
+        write();
     }
 
 
@@ -384,6 +419,15 @@ class session : public std::enable_shared_from_this<session>
             return fail(ec, "shutdown");
 
         // If we get here then the connection is closed gracefully
+    }
+
+    public:
+
+    void print_response()
+    {
+        for(auto&& i : res_)
+            print(i.name_string());
+        print(res_,"\n");
     }
 };
 
