@@ -11,17 +11,19 @@ namespace Pars
             public:
 
             [[nodiscard]]
+            static
             std::optional<std::unordered_map<json::string, json::value>>  
             requested_fields(const json::value& val)
             {
-                return static_cast<Derived&>(*this).requested_fields(val); 
+                return Derived::requested_fields(val); 
             }
 
             [[nodiscard]]
+            static
             std::unordered_map<json::string, json::value> 
             optional_fields(const json::value& val)
             {
-                return static_cast<Derived&>(*this).optional_fields(val);
+                return Derived::optional_fields(val);
             }
 
             [[nodiscard]]
@@ -67,20 +69,21 @@ namespace Pars
             }
 
 
+            template<typename T>
+            requires std::is_same_v<std::decay_t<T>, Derived>
             [[nodiscard]]
-            static
-            std::optional<std::unordered_map<json::string, json::value>>
-            verify_fields(const json::value& val)
+            static 
+            std::optional<Derived>
+            verify_fields(const json::value& val, T&& obj)
             {
-                Derived der{};
 
-                auto req_map = der.requested_fields(val);
+                auto req_map = Derived::requested_fields(val);
                 if(! req_map.has_value())
                 {
                     return std::nullopt;
                 }
 
-                auto opt_map = der.optional_fields(val);
+                auto opt_map = Derived::optional_fields(val);
 
                 auto map = std::move(req_map.value());
 
@@ -89,9 +92,34 @@ namespace Pars
                     map.insert_or_assign(std::move(i.first), std::move(i.second));
                 }
 
-                return map; 
+                obj.fields_from_map(map);
+                return std::forward<T>(obj); 
             }
 
+
+            [[nodiscard]]
+            static 
+            std::optional<std::unordered_map<json::string,json::value>>
+            verify_fields(const json::value& val)
+            {
+
+                auto req_map = Derived::requested_fields(val);
+                if(! req_map.has_value())
+                {
+                    return std::nullopt;
+                }
+
+                auto opt_map = Derived::optional_fields(val);
+
+                auto map = std::move(req_map.value());
+
+                for(auto && i : opt_map)
+                {
+                    map.insert_or_assign(std::move(i.first), std::move(i.second));
+                }
+
+                return  map;
+            }
 
             virtual ~TelegramEntities() = 0;
         };

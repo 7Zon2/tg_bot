@@ -95,32 +95,62 @@ namespace Pars
         static inline json::serializer ser_{ptr_};
 
 
+        protected:
+
+        static void
+        find_type
+        (json::string_view name, const json::value& type)
+        {
+            if(type.is_array())
+                std::cout<<name<<" :is_array\n";
+            if(type.is_bool())
+                std::cout<<name<<" :is_bool\n";
+            if(type.is_double())
+                std::cout<<name<<" :is_double\n";
+            if(type.is_int64())
+                std::cout<<name<<" :is_int64\n";
+            if(type.is_null())
+                std::cout<<name<<" :is_null\n";
+            if(type.is_object())
+                std::cout<<name<<" :is_object\n";
+            if(type.is_string())
+                std::cout<<name<<" :is_string\n";
+            if(type.is_uint64())
+                std::cout<<name<<" :is_uint64\n";
+        }
+
         public:
 
         [[nodiscard]]
         static json::value
         try_parse_message(json::string_view vw)
         {
-            boost::system::error_code er;
-            pars_.reset();
-            pars_.write(vw, er);
-            if(er)
-            {  
-                pars_.reset();
-                return nullptr;
-            }
-
-            if(pars_.done() == false)  
+            try
             {
-                return nullptr;
+                pars_.reset();
+                pars_.write(vw);
+                if(pars_.done() == false)  
+                    throw std::runtime_error{"json parse message error\n"};
+
+                pars_.finish();
+                json::value v = pars_.release();
+                pars_.reset();
+                return v;
             }
+            catch(const std::exception& e)
+            {
+                std::cerr << e.what() << '\n';
+                pars_.reset();
+                throw e;
+            }
+        }
 
-            pars_.finish();
 
-            json::value v = pars_.release();
-            pars_.reset();
-
-            return v;
+        [[nodiscard]]
+        static json::value
+        try_parse_value(const json::value& val)
+        {
+            return try_parse_message(val.as_string());
         }
 
 
@@ -239,7 +269,7 @@ namespace Pars
             auto it = val.find_pointer(pair.first, er);
             if(er)
             {
-                return nullptr;
+                return std::nullopt;
             }
 
             std::optional<json::value> opt{};
@@ -354,8 +384,24 @@ namespace Pars
                 check_pointer_validation(val, std::make_pair(json::string_view{pointers.first}, pointers.second))),...);
 
             return map;
+        }
 
-        }//mapped_pointers_validation
+
+        static void
+        find_json_type
+        (const json::value& val, json::string_view name = {})
+        {
+            find_type(name, val);
+        }
+
+
+        static void 
+        find_json_type
+        (const std::unordered_map<json::string, json::value>& map)
+        {
+            for(auto&& i : map)
+                find_type(i.first, i.second);
+        }
 
 
         [[nodiscard]]

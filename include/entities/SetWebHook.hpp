@@ -47,6 +47,7 @@ namespace Pars
             public:
 
             [[nodiscard]]
+            static
             std::optional<std::unordered_map<json::string, json::value>> 
             requested_fields(const json::value& val) 
             {
@@ -74,6 +75,7 @@ namespace Pars
 
 
             [[nodiscard]]
+            static
             std::unordered_map<json::string, json::value>
             optional_fields(const json::value& val)
             {
@@ -92,7 +94,8 @@ namespace Pars
             } 
 
 
-            void fields_from_map
+            void 
+            fields_from_map
             (const std::unordered_map<json::string, json::value>& map)
             {
                 MainParser::field_from_map

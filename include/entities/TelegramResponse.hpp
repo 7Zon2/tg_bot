@@ -34,6 +34,7 @@ namespace Pars
             public:
 
             [[nodiscard]]
+            static 
             std::optional<std::unordered_map<json::string, json::value>> 
             requested_fields(const json::value& val)
             {
@@ -42,11 +43,12 @@ namespace Pars
                 auto map = MainParser::mapped_pointers_validation
                 (
                     val,
-                    std::make_pair("/ok", json::kind::object),
-                    std::make_pair("/result", json::kind::object),
-                    std::make_pair("/description", json::kind::object)
+                    std::make_pair("/ok", json::kind::bool_),
+                    std::make_pair("/error_code", json::kind::int64),
+                    std::make_pair("/description", json::kind::string)
                 );
 
+                print("TelegramResponse map size:", map.size(),"\n");
                 if(map.size() != sz)
                     return std::nullopt;
                 else
@@ -55,6 +57,7 @@ namespace Pars
 
             
             [[nodiscard]]
+            static 
             std::unordered_map<json::string, json::value>
             optional_fields(const json::value& val)
             {

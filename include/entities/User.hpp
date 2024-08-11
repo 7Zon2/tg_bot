@@ -63,6 +63,7 @@ namespace Pars
 
 
             [[nodiscard]]
+            static
             std::optional<std::unordered_map<json::string, json::value>> 
             requested_fields(const json::value& val) 
             {
@@ -93,6 +94,7 @@ namespace Pars
 
 
             [[nodiscard]]
+            static
             std::unordered_map<json::string, json::value>
             optional_fields(const json::value& val)
             {

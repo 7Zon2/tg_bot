@@ -215,39 +215,39 @@ class session : public std::enable_shared_from_this<session>
 
     void start_get_webhook_request()
     { 
+       using namespace Pars::TG;
+
        auto play = [this]() -> std::future<void>
         {
-            co_await std::async(&session::GetWebhookRequest, this);
-            co_await std::async([this](){http::write(stream_, req_);});
-            co_await std::async([this](){res_.clear(), http::read(stream_, buffer_, res_);});
-            co_await std::async(&session::print_response, this);
-            auto var = co_await std::async
+            co_await std::async(std::launch::async, &session::GetWebhookRequest, this);
+            co_await std::async(std::launch::async, [this](){http::write(stream_, req_);});
+            co_await std::async(std::launch::async, [this](){res_.clear(), http::read(stream_, buffer_, res_);});
+            co_await std::async(std::launch::async, &session::print_response, this);
+            json::value var = co_await std::async
             (
+                std::launch::async,
                 [this]()
                 {
                     return Pars::MainParser::parse_string_as_value(res_.body());
                 }
             );
-            auto map = co_await std::async
+
+            var = co_await std::async(std::launch::async, [&var]{ return Pars::MainParser::try_parse_value(var);});
+            TelegramResponse obj = co_await std::async
             (
+                std::launch::async,
                 [&var, this]()
                 {
-                    auto map = Pars::TG::TelegramResponse::verify_fields(var);
-                    if (map.has_value() == false)
+                    auto obj = TelegramResponse::verify_fields(var,TelegramResponse{});
+                    if (obj.has_value() == false)
                         throw std::runtime_error{"Failed verify_field in GetWebhookRequest\n"};
                     else
-                        return std::move(map.value());
+                        return std::move(obj.value());
                 }
             );
 
-            // if(! map["ok"].as_bool() || !map["error_code"].as_int64())
-            //     throw std::runtime_error{"Failed ResponseTelegram\n"};
-
-            //print("description TelegramResponse:\n", map["description"].as_string());
-            print("map:\n");
-            for(auto &&i : map)
-                print(i.first);
-            shutdown();
+            if (obj.ok == false)
+                throw std::runtime_error{"GetWebhook response failed\n"};
         };
 
         try
