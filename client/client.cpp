@@ -157,6 +157,7 @@ class session : public std::enable_shared_from_this<session>
         json::string str;
         str.append("/bot");
         str.append(token_);
+        str.append("/");
         str.append(request);
         return str;
     }
@@ -179,6 +180,7 @@ class session : public std::enable_shared_from_this<session>
         req_.set(http::field::user_agent, "lalala");
         req_.target("/");
     }
+
 
     void GetWebhookRequest()
     {
@@ -211,56 +213,73 @@ class session : public std::enable_shared_from_this<session>
         PostRequest(data, url, "multipart/form-data");
     }
 
+
+    template<typename T>
+    requires (std::is_base_of_v<Pars::TG::TelegramEntities<T>,T>)
+    std::future<T> start_request_response()
+    {
+        co_await std::async(std::launch::async, [this](){http::write(stream_, req_);});
+        co_await std::async(std::launch::async, [this](){res_.clear(), http::read(stream_, buffer_, res_);});
+        co_await std::async(std::launch::async, &session::print_response, this);
+        json::value var = co_await std::async
+        (
+            std::launch::async,
+            [this]()
+            {
+                return Pars::MainParser::parse_string_as_value(res_.body());
+            }
+        );
+        var      = co_await std::async(std::launch::async, [&var]{ return Pars::MainParser::try_parse_value(var);});
+        auto obj = co_await std::async
+        (
+            std::launch::async,
+            [&var, this]()
+            {
+                auto obj = T::verify_fields(var,T{});
+                if (obj.has_value() == false)
+                    throw std::runtime_error{"Failed verify_fields\n"};
+                else
+                    return std::move(obj.value());
+            }
+        );
+        co_return obj;
+    }
+
     public:
 
     void start_get_webhook_request()
     { 
-       using namespace Pars::TG;
-
-       auto play = [this]() -> std::future<void>
-        {
-            co_await std::async(std::launch::async, &session::GetWebhookRequest, this);
-            co_await std::async(std::launch::async, [this](){http::write(stream_, req_);});
-            co_await std::async(std::launch::async, [this](){res_.clear(), http::read(stream_, buffer_, res_);});
-            co_await std::async(std::launch::async, &session::print_response, this);
-            json::value var = co_await std::async
-            (
-                std::launch::async,
-                [this]()
-                {
-                    return Pars::MainParser::parse_string_as_value(res_.body());
-                }
-            );
-
-            var = co_await std::async(std::launch::async, [&var]{ return Pars::MainParser::try_parse_value(var);});
-            TelegramResponse obj = co_await std::async
-            (
-                std::launch::async,
-                [&var, this]()
-                {
-                    auto obj = TelegramResponse::verify_fields(var,TelegramResponse{});
-                    if (obj.has_value() == false)
-                        throw std::runtime_error{"Failed verify_field in GetWebhookRequest\n"};
-                    else
-                        return std::move(obj.value());
-                }
-            );
-
-            if (obj.ok == false)
-                throw std::runtime_error{"GetWebhook response failed\n"};
-        };
-
+        using namespace Pars::TG;
         try
         {
-            auto fut = play();
-            fut.get();
+            GetWebhookRequest();
+            TelegramResponse obj = start_request_response<TelegramResponse>().get();
+            if (obj.ok == false)
+                throw std::runtime_error{"GetWebhook response failed\n"};
         }
         catch(const std::exception& e)
         {
             std::cerr << e.what() << '\n';
             throw e;
         }
-        
+    }
+
+
+    void start_set_webhook_request()
+    {
+        using namespace Pars::TG;
+        try
+        {
+            SetWebhookRequest();
+            TelegramResponse obj = start_request_response<TelegramResponse>().get();
+            if (obj.ok == false)
+                throw std::runtime_error{"SetWebhook response failed\n"};
+        }
+        catch(const std::exception& e)
+        {
+            std::cerr << e.what() << '\n';
+            throw e;
+        }
     }
 
     public:
@@ -358,11 +377,19 @@ class session : public std::enable_shared_from_this<session>
         }
         catch(const std::exception& e)
         {
-            std::cerr << e.what() << '\n';
-            shutdown();
+            try
+            {
+                std::cerr << e.what() << '\n';
+                start_set_webhook_request();
+                start_get_webhook_request();
+            }
+            catch(const std::exception& e)
+            {
+                std::cerr << e.what() << '\n';
+                shutdown();
+            }
         }
         
-
         write();
     }
 

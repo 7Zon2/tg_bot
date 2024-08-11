@@ -16,7 +16,6 @@
     {
         std::future<T> get_return_object() noexcept
         {
-            std::cout<<"get_return_object\n";
             return this->get_future();
         }
 
@@ -24,7 +23,6 @@
         std::suspend_never 
         initial_suspend() const noexcept
         {
-            std::cout<<"initial_suspend\n";
             return{};
         }
 
@@ -32,7 +30,6 @@
         std::suspend_never
         final_suspend() const noexcept   
         {
-            std::cout<<"final_suspend\n";
             return {};
         }
 
@@ -40,7 +37,6 @@
         void return_value(T& value) noexcept
                                     (std::is_nothrow_copy_constructible_v<T>)
         {
-            std::cout<<"return_value\n";
             this->set_value(value);
         }
 
@@ -70,7 +66,6 @@ struct std::coroutine_traits<std::future<void>, Args...>
         std::future<void> 
         get_return_object()
         {
-            std::cout<<"get_return_object\n";
             return this->get_future();
         }
 
@@ -102,7 +97,6 @@ auto operator co_await (std::future<T> future) noexcept
     {
         bool await_ready() const noexcept
         {
-            std::cout<<"await_ready()\n";
             using namespace std::chrono_literals;
             return this->wait_for(0s) != std::future_status::timeout;
         }
@@ -111,7 +105,6 @@ auto operator co_await (std::future<T> future) noexcept
         void
         await_suspend(std::coroutine_handle<> coro) const
         {
-            std::cout<<"await_suspend\n";
             std::thread([this, coro]
             {
                 this->wait();
@@ -121,7 +114,6 @@ auto operator co_await (std::future<T> future) noexcept
 
         T await_resume()
         {
-            std::cout<<"await_resume\n";
             return this->get();
         }
     };

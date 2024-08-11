@@ -48,7 +48,6 @@ namespace Pars
                     std::make_pair("/description", json::kind::string)
                 );
 
-                print("TelegramResponse map size:", map.size(),"\n");
                 if(map.size() != sz)
                     return std::nullopt;
                 else
