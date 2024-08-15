@@ -6,6 +6,7 @@ namespace Pars
 {
     namespace TG
     {
+        using optobj  = std::optional<json::object>;
         using optstrw = std::optional<json::string_view>;
         using optbool = std::optional<bool>;
         using optstr  = std::optional<json::string>;
@@ -17,21 +18,61 @@ namespace Pars
 
         struct TelegramRequestes : MainParser
         {
+
+            [[nodiscard]]
+            static json::value
+            getUpdates
+            (
+                optint offset = {},
+                optint limit  = {},
+                optint timeout= {},
+                std::optional<json::array> allowed_updates = {}
+            )
+            {
+                
+            }
+
+            [[nodiscard]]
+            static json::value
+            deletewebhook
+            (
+                bool drop_pending_updates
+            )
+            {
+                json::object ob(ptr_);
+                ob["drop_pending_updates"] = drop_pending_updates;
+                return ob;
+            }
+
+
             [[nodiscard]]
             static json::value
             TelegramResponse
             (
                 bool ok,
-                bool result,
-                json::string_view description
+                optint error_code,
+                optstrw description,
+                optobj result
             )
             {
-                return parse_ObjPairs_as_obj
+                json::object ob(ptr_);
+                ob = parse_ObjPairs_as_obj(p{"ok", ok});
+
+                json::object ob2(ptr_);
+                ob2 = parse_OptPairs_as_obj
                 (
-                    p("ok", ok),
-                    p("result", result),
-                    p("description", description)
+                    op("error_code",  error_code),
+                    op("description", description)
                 );
+
+                ob.insert(ob2.begin(), ob2.end());
+
+                if (result.has_value())
+                {
+                    json::object res = std::move(result.has_value());
+                    ob.insert(res.begin(), res.end());
+                }
+                return ob;
             }
 
 
@@ -58,7 +99,7 @@ namespace Pars
                    );
 
 
-                ob1 = parse_OptPairs_to_obj
+                ob1 = parse_OptPairs_as_obj
                     (
                         op{"certificate", certificate},
                         op{"ip_address",  ip_address},
@@ -70,7 +111,7 @@ namespace Pars
 
                 ob.insert(ob1.begin(), ob1.end());
 
-                ob2["setWebhook"] = { std::move(ob) };
+                ob2["setwebhook"] = { std::move(ob) };
 
                 return ob2;
             }
@@ -104,7 +145,7 @@ namespace Pars
                     );
 
 
-                ob2 = parse_OptPairs_to_obj
+                ob2 = parse_OptPairs_as_obj
                     (
                         op {"ip_address",ip_address},
                         op {"last_error_date",last_error_date},
@@ -163,7 +204,7 @@ namespace Pars
                             p{"first_name",  first_name}
                         );
 
-                ob_2 =  parse_OptPairs_to_obj
+                ob_2 =  parse_OptPairs_as_obj
                         (
                             op {"last_name", last_name},
                             op {"username",  username},

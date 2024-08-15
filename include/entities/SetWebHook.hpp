@@ -53,7 +53,7 @@ namespace Pars
             {
                 const size_t sz = 1;
 
-                auto opt = MainParser::check_pointer_validation(val, std::make_pair("/setWebhook", json::kind::object));
+                auto opt = MainParser::check_pointer_validation(val, std::make_pair("/setwebhook", json::kind::object));
                 if(opt.has_value() == false)
                 {
                     return std::nullopt;
@@ -62,7 +62,7 @@ namespace Pars
                 auto map = MainParser::mapped_pointers_validation
                 (
                     val,
-                    std::make_pair("/setWebhook/url", json::kind::uint64)
+                    std::make_pair("/setwebhook/url", json::kind::uint64)
                 );
 
                 if(map.size() < sz)
@@ -82,12 +82,12 @@ namespace Pars
                 auto map = MainParser::mapped_pointers_validation
                 (
                     val,
-                    std::make_pair("/setWebhook/certificate", json::kind::string),
-                    std::make_pair("/setWebhook/ip_address", json::kind::string),
-                    std::make_pair("/setWebhook/max_connections", json::kind::int64),
-                    std::make_pair("/setWebhook/allowed_updates", json::kind::array),
-                    std::make_pair("/setWebhook/drop_pending_updates", json::kind::bool_),
-                    std::make_pair("/setWebhook/secret_token", json::kind::string)
+                    std::make_pair("/setwebhook/certificate", json::kind::string),
+                    std::make_pair("/setwebhook/ip_address", json::kind::string),
+                    std::make_pair("/setwebhook/max_connections", json::kind::int64),
+                    std::make_pair("/setwebhook/allowed_updates", json::kind::array),
+                    std::make_pair("/setwebhook/drop_pending_updates", json::kind::bool_),
+                    std::make_pair("/setwebhook/secret_token", json::kind::string)
                 );
 
                 return map;
@@ -136,7 +136,6 @@ namespace Pars
                     secret_token
                 );
             }
-
         };
         
     }//namespace TG

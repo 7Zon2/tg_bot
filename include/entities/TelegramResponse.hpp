@@ -10,8 +10,9 @@ namespace Pars
             public:
 
             bool ok;
-            int error_code;
-            json::string description; 
+            optint error_code;
+            optstr description;
+            optobj result; 
 
             public:
 
@@ -20,13 +21,15 @@ namespace Pars
             TelegramResponse
             (
                 bool ok,
-                int error_code,
-                json::string_view description
+                optint error_code,
+                optstrw description,
+                optobj result
             )
             :
                 ok(ok),
                 error_code(error_code),
-                description(description)
+                description(description),
+                result(result)
                 {
 
                 }
@@ -38,14 +41,12 @@ namespace Pars
             std::optional<std::unordered_map<json::string, json::value>> 
             requested_fields(const json::value& val)
             {
-                const size_t sz = 3;
+                const size_t sz = 1;
 
                 auto map = MainParser::mapped_pointers_validation
                 (
                     val,
-                    std::make_pair("/ok", json::kind::bool_),
-                    std::make_pair("/error_code", json::kind::int64),
-                    std::make_pair("/description", json::kind::string)
+                    std::make_pair("/ok", json::kind::bool_)
                 );
 
                 if(map.size() != sz)
@@ -60,7 +61,14 @@ namespace Pars
             std::unordered_map<json::string, json::value>
             optional_fields(const json::value& val)
             {
-                return {};
+                auto map = MainParser::mapped_pointers_validation
+                (
+                    val, 
+                    std::make_pair("/error_code", json::kind::int64),
+                    std::make_pair("/description", json::kind::string),
+                    std::make_pair("/result", json::kind::object)
+                );
+                return map;
             }
 
 
@@ -75,6 +83,9 @@ namespace Pars
 
                 MainParser::field_from_map
                 <json::kind::string>(map, std::make_pair("description", std::ref(description)));
+
+                MainParser::field_from_map
+                <json::kind::object>(map, std::make_pair("result", std::ref(result)));
             }
 
             
@@ -86,7 +97,8 @@ namespace Pars
                 (
                     ok,
                     error_code,
-                    description
+                    description,
+                    result
                 );
             }
         };

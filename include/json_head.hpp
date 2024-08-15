@@ -545,35 +545,37 @@ namespace Pars
         {
             std::FILE* f = std::fopen(filename.data(),"r");
             if(f == nullptr)
-                return nullptr;
+                throw std::runtime_error{"file is not opened\n"};
 
-            boost::system::error_code ec;
-            do
+            try
             {
-                char buf[4096]{};
-                auto const nread = std::fread(buf,sizeof(char),sizeof(buf),f);
-                pars_.write( buf, nread, ec );
+                do
+                {
+                    char buf[4096]{};
+                    auto const nread = std::fread(buf,sizeof(char),sizeof(buf),f);
+                    pars_.write( buf, nread);
+                }
+                while( ! std::feof(f));
+
+                pars_.finish();
+
+                std::fclose(f);
+
+                return pars_.release();
             }
-            while( ! std::feof(f));
-
-            if( ec )
-                return nullptr;
-
-            pars_.finish( ec );
-
-            if( ec )
-                return nullptr;
-
-            std::fclose(f);
-
-            return pars_.release();
+            catch(const std::exception& e)
+            {
+                std::fclose(f);
+                std::cerr << e.what() << '\n';
+                throw e;
+            }
         }
 
 
         template<is_optional_pair...Types>
         [[nodiscard]]
         static json::object
-        parse_OptPairs_to_obj(Types&&...args)
+        parse_OptPairs_as_obj(Types&&...args)
         {
             json::object ob(ptr_);
 

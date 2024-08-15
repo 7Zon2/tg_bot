@@ -1,6 +1,12 @@
 #pragma once
 #include "tg_pars.hpp"
 
+#define FIELD_NAME(field) #field
+
+#define JS_POINTER(method, field) "/"#method"/"#field
+
+#define MAKE_PAIR(field) std::make_pair(FIELD_NAME(field), std::ref(field))
+
 namespace Pars
 {
     namespace TG
@@ -31,6 +37,13 @@ namespace Pars
             fields_from_map(const std::unordered_map<json::string, json::value>& map)
             {
                 return static_cast<Derived&>(*this).fields_from_map(map);
+            }
+
+            [[nodiscard]]
+            json::string
+            fields_to_url()
+            {
+                return static_cast<Derived&>(*this).fields_to_url();
             }
 
             public:

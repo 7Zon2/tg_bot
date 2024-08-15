@@ -6,7 +6,7 @@ namespace Pars
 {
     namespace TG
     {
-        struct Webhook : TelegramEntities<Webhook>
+        struct WebhookInfo : TelegramEntities<WebhookInfo>
         {
             public:
 
@@ -22,9 +22,9 @@ namespace Pars
 
             public:
 
-            Webhook() {}
+            WebhookInfo() {}
 
-            Webhook
+            WebhookInfo
             (
                 json::string_view url,
                 bool has_custom_certificate,

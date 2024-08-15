@@ -136,6 +136,8 @@ class session : public std::enable_shared_from_this<session>
 
     void read()
     {
+        beast::get_lowest_layer(stream_).expires_after(std::chrono::seconds(1000));
+
         http::async_read
         (
             stream_, 
@@ -159,6 +161,7 @@ class session : public std::enable_shared_from_this<session>
         str.append(token_);
         str.append("/");
         str.append(request);
+        str.append("?");
         return str;
     }
 
@@ -191,28 +194,28 @@ class session : public std::enable_shared_from_this<session>
     }
 
 
+    void DeleteWebhookRequest(const bool del)
+    {
+        json::value val = Pars::TG::TelegramRequestes::deletewebhook
+        (
+            del
+        );
+        json::string data = Pars::MainParser::serialize_to_string(val);
+        json::string target = get_url_bot_target("deletewebhook");
+        PostRequest(data, target,"application/json",false);
+    }
+
+
     void SetWebhookRequest()
     {
         json::string certif = CRTF::load_cert("/home/zon/keys/certif/serv/host.crt");
 
-        json::string url = get_url_bot_target("setwebhook");
+        json::string target = get_url_bot_target("setwebhook");
 
-        json::array arr{"Message", "Chat", "User", "ChatFullInfo"};
-
-        json::value val = Pars::TG::TelegramRequestes::setWebhook
-        (
-            "",
-            certif,
-            std::nullopt,
-            std::nullopt,
-            arr,
-            false
-        );
-
-        json::string data = Pars::MainParser::serialize_to_string(val);
-        PostRequest(data, url, "multipart/form-data");
+        PostRequest("", target, "multipart/form-data",true);
     }
 
+    public:
 
     template<typename T>
     requires (std::is_base_of_v<Pars::TG::TelegramEntities<T>,T>)
@@ -247,58 +250,133 @@ class session : public std::enable_shared_from_this<session>
 
     public:
 
-    void start_get_webhook_request()
+    [[nodiscard]]
+    Pars::TG::deletewebhook 
+    start_delete_web_hook(const bool del)
+    {
+        try
+        {
+            using namespace Pars::TG;
+            DeleteWebhookRequest(del);
+            deletewebhook obj = start_request_response<deletewebhook>().get();
+            req_.clear();
+            return obj;
+        }
+        catch(const std::exception& e)
+        {
+            req_.clear();
+            std::cerr << e.what() << '\n';
+            throw e;
+        }
+    }
+
+
+    [[nodiscard]]
+    Pars::TG::TelegramResponse 
+    start_get_webhook_request()
     { 
         using namespace Pars::TG;
         try
         {
             GetWebhookRequest();
             TelegramResponse obj = start_request_response<TelegramResponse>().get();
+            req_.clear();
             if (obj.ok == false)
                 throw std::runtime_error{"GetWebhook response failed\n"};
+            return obj;
         }
         catch(const std::exception& e)
         {
+            req_.clear();
             std::cerr << e.what() << '\n';
             throw e;
         }
     }
 
 
-    void start_set_webhook_request()
+    [[nodiscard]]
+    Pars::TG::TelegramResponse 
+    start_set_webhook_request()
     {
         using namespace Pars::TG;
         try
         {
             SetWebhookRequest();
             TelegramResponse obj = start_request_response<TelegramResponse>().get();
+            req_.clear();
             if (obj.ok == false)
                 throw std::runtime_error{"SetWebhook response failed\n"};
+            return obj;
         }
         catch(const std::exception& e)
         {
+            req_.clear();
             std::cerr << e.what() << '\n';
             throw e;
         }
     }
 
+
+    void start_check_updates(const Pars::TG::WebhookInfo& info)
+    {
+        for(size_t i = 0; i < info.pending_update_count; i++)
+        {
+
+        }
+    }
+
     public:
+
+    [[nodiscard]]
+    std::string PrepareMultiPart(std::string_view data)
+    {
+        #define MULTI_PART_BOUNDARY "Fairy"
+        #define CRLF "\r\n"
+
+        req_.set(http::field::content_type,"multipart/form-data; boundary=" MULTI_PART_BOUNDARY);
+
+        std::string temp
+        {
+            "--" MULTI_PART_BOUNDARY CRLF
+            R"(Content-Disposition: form-data; name="file"; filename=somefile)" CRLF
+            "Content-Type: application/octet-stream" CRLF CRLF
+        };
+        temp.append(data);
+        temp+=CRLF;
+        temp+="--" MULTI_PART_BOUNDARY "--" CRLF;
+
+        #undef MULTI_PART_BOUNDARY
+        #undef CRLF
+        return temp;
+    }
 
     void PostRequest
     (
         std::string_view data, 
         std::string_view target,
-        std::string_view content_type 
+        std::string_view content_type, 
+        bool multipart
     )
     {
         req_.method(http::verb::post);
         req_.set(http::field::host, host_);
-        req_.set(http::field::content_type, content_type);
+        if(multipart)
+        {
+            std::string file = PrepareMultiPart(data);
+            req_.body() = file;
+            print("PreparedMultiRequest:\n\n");
+            std::cout<<req_<<std::endl;
+        }
+        else
+        {
+            req_.set(http::field::content_type, content_type);
+            req_.set(http::field::content_length, boost::lexical_cast<std::string>(data.size()));
+            req_.set(http::field::body, data);
+            req_.body() = data;
+        }
         req_.set(http::field::user_agent, "Raven-Fairy");
         req_.target(target);
-        req_.set(http::field::content_length, boost::lexical_cast<std::string>(data.size()));
-        req_.set(http::field::body, data);
-        req_.body() = data;
+
         req_.prepare_payload();
     }
 
@@ -373,24 +451,22 @@ class session : public std::enable_shared_from_this<session>
 
         try
         {
-           start_get_webhook_request();
+           
+           if(resp.result.has_value() == false)
+           {
+                shutdown();
+                return;
+           }
+
         }
         catch(const std::exception& e)
         {
-            try
-            {
-                std::cerr << e.what() << '\n';
-                start_set_webhook_request();
-                start_get_webhook_request();
-            }
-            catch(const std::exception& e)
-            {
-                std::cerr << e.what() << '\n';
-                shutdown();
-            }
+            std::cerr << e.what() << '\n';
+            shutdown();
+            return;
         }
         
-        write();
+        read();
     }
 
 
@@ -452,9 +528,16 @@ class session : public std::enable_shared_from_this<session>
 
     void print_response()
     {
+        print("Response:\n\n====================================================================================\n");
         for(auto&& i : res_)
-            print(i.name_string());
-        print(res_,"\n");
+        {
+            print
+            (
+                "field name: ",  i.name_string(),"\t",
+                "field value: ", i.value(),"\n"
+            );
+        }
+        print(res_,"\n=========================================================================================\n");
     }
 };
 
