@@ -51,7 +51,7 @@ namespace Pars
                     for(auto&& i : allowed_updates.value())
                     {
                         updates += FIELD_NAME(allowed_updates)"=";
-                        updates += (MainParser::parse_all_json_as_string(i));
+                        updates += i;
                         updates += "&";
                     }
                 }
