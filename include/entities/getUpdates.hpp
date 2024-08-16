@@ -14,8 +14,6 @@ namespace Pars
 
             public:
 
-            getUpdates(){}
-
             getUpdates
             (
                 optint offset = {},
@@ -33,6 +31,41 @@ namespace Pars
             }
 
             public:
+
+            [[nodiscard]]
+            json::string
+            fields_to_url()
+            {
+                json::string off{FIELD_NAME(offset)"="};
+                off += MainParser::parse_opt_as_string(offset);
+
+                json::string lim{FIELD_NAME(limit)"="};
+                lim += MainParser::parse_opt_as_string(limit);
+
+                json::string time{FIELD_NAME(timeout)"="};
+                time += MainParser::parse_opt_as_string(timeout);
+
+                json::string updates;
+                if (allowed_updates.has_value())
+                {
+                    for(auto&& i : allowed_updates.value())
+                    {
+                        updates += FIELD_NAME(allowed_updates)"=";
+                        updates += (MainParser::parse_all_json_as_string(i));
+                        updates += "&";
+                    }
+                }
+                updates.pop_back();
+
+                json::string req{"/getupdates?"};
+                req += std::move(off);
+                req += std::move(lim);
+                req += std::move(time);
+                req += std::move(updates);
+
+                return req;
+            }
+
 
             [[nodiscard]]
             static 

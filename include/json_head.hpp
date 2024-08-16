@@ -83,6 +83,14 @@ namespace Pars
     };
 
 
+    template<typename T>
+    concept as_string_opt  = requires (T&& arg)
+    {
+        requires std::is_same_v<std::optional<std::decay_t<decltype(arg.value())>>, std::decay_t<T>>;
+        std::to_string(arg.value());
+    };
+
+
     struct MainParser
     {
 
@@ -582,6 +590,19 @@ namespace Pars
             (((args.second.has_value()) ? ob.insert({{args.first, args.second.value()}}) : void()),...);
 
             return ob;
+        }
+
+
+        template<typename T>
+        requires requires(T&& arg)
+        {
+            requires std::is_same_v<std::optional<std::remove_reference_t<decltype(arg.value())>>, std::remove_reference_t<T>>;
+        }
+        [[nodiscard]]
+        static json::string
+        parse_opt_as_string(T&& arg)
+        {   
+            return (arg.has_value()) ? json::string{std::to_string(arg.value())} : json::string{};
         }
 
 

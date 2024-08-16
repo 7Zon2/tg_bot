@@ -16,6 +16,16 @@ namespace Pars
         using p       = std::pair<json::string,json::value>;
 
 
+        #define FIELD_NAME(field) #field
+
+        #define JS_POINTER(method, field) "/"#method"/"#field
+
+        #define MAKE_PAIR(field) std::make_pair(FIELD_NAME(field), std::ref(field))
+
+        #define MAKE_OP(field) op{FIELD_NAME(field), field}
+
+
+
         struct TelegramRequestes : MainParser
         {
 
@@ -29,8 +39,21 @@ namespace Pars
                 std::optional<json::array> allowed_updates = {}
             )
             {
+                json::object ob(ptr_);
+                ob = parse_OptPairs_as_obj
+                (
+                    MAKE_OP(offset),
+                    MAKE_OP(limit),
+                    MAKE_OP(timeout),
+                    MAKE_OP(allowed_updates)           
+                );
+
+                json::object ob2(ptr_);
+                ob2["getipdates"] = std::move(ob);
                 
+                return ob2;
             }
+
 
             [[nodiscard]]
             static json::value

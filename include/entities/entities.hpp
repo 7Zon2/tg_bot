@@ -4,3 +4,4 @@
 #include "WebHook.hpp"
 #include "User.hpp"
 #include "deleteWebhook.hpp"
+#include "getUpdates.hpp"

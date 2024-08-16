@@ -1,11 +1,6 @@
 #pragma once
 #include "tg_pars.hpp"
 
-#define FIELD_NAME(field) #field
-
-#define JS_POINTER(method, field) "/"#method"/"#field
-
-#define MAKE_PAIR(field) std::make_pair(FIELD_NAME(field), std::ref(field))
 
 namespace Pars
 {

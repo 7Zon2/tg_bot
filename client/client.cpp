@@ -5,6 +5,11 @@
 #include "print.hpp"
 #include "coro_future.hpp"
 
+
+template<typename T>
+concept is_getUpdates = std::is_same_v<std::remove_reference_t<T>, Pars::TG::getUpdates>;
+
+
 // Performs an HTTP GET and prints the response
 class session : public std::enable_shared_from_this<session>
 {
@@ -206,6 +211,14 @@ class session : public std::enable_shared_from_this<session>
     }
 
 
+    template<typename T>
+    requires std::is_same_v<std::remove_reference_t<T>, Pars::TG::getUpdates>
+    void GetUpdatesRequest(T&& obj)
+    {
+        PostRequest("", obj.fields_to_url(),"application/json", false);
+    }
+
+
     void SetWebhookRequest()
     {
         json::string certif = CRTF::load_cert("/home/zon/keys/certif/serv/host.crt");
@@ -249,6 +262,27 @@ class session : public std::enable_shared_from_this<session>
     }
 
     public:
+
+    template<is_getUpdates T>
+    [[nodiscard]]
+    Pars::TG:: getUpdates 
+    start_getUpdates(T&& obj)
+    {
+        using namespace Pars::TG;
+        try
+        {
+            GetUpdatesRequest(obj);
+            getUpdates obj = start_request_response<getUpdates>().get();
+            req_.clear();
+            return obj;
+        }
+        catch(const std::exception& e)
+        {
+            req_.clear();
+            std::cerr << e.what() << '\n';
+            throw e;
+        }
+    }
 
     [[nodiscard]]
     Pars::TG::deletewebhook 
@@ -451,13 +485,7 @@ class session : public std::enable_shared_from_this<session>
 
         try
         {
-           
-           if(resp.result.has_value() == false)
-           {
-                shutdown();
-                return;
-           }
-
+           auto resp = start_getUpdates(Pars::TG::getUpdates{});
         }
         catch(const std::exception& e)
         {
