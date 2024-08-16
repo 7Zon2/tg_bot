@@ -3,6 +3,8 @@
 #include <boost/json.hpp>
 #include <optional>
 #include <concepts>
+#include <iterator>
+#include <ranges>
 #include "print.hpp"
 
 
@@ -91,6 +93,20 @@ namespace Pars
     };
 
 
+    template<typename T>
+    concept is_iterator = requires()
+    {
+        requires std::is_base_of_v<std::input_iterator_tag, typename std::iterator_traits<T>::iterator_category>;
+    };
+
+
+    template<typename T>
+    concept is_back_inserter = requires (T&& t)
+    {
+        std::back_inserter(t);
+    };
+
+
     struct MainParser
     {
 
@@ -106,7 +122,7 @@ namespace Pars
         protected:
 
         static void
-        find_type
+        find_and_print_type
         (json::string_view name, const json::value& type)
         {
             if(type.is_array())
@@ -268,6 +284,28 @@ namespace Pars
         }
 
 
+        template<std::ranges::viewable_range T>
+        [[nodiscard]]
+        static json::array
+        parse_range_to_jsonArray(T&& ran)
+        {
+            std::ranges::ref_view r(ran);
+            return json::array{r.begin(), r.end(), ptr_};
+        }
+
+
+        template<is_back_inserter T>
+        static void
+        parse_jsonArray_to_container(T&& obj, const json::array& arr)
+        {
+            auto back = std::back_inserter(obj);
+            for(auto&& i : arr)
+            {
+                *back = {json::serialize(i)};
+            }
+        }
+
+
         [[nodiscard]]
         static std::optional<json::value>
         check_pointer_validation(const json::value& val, std::pair<json::string_view, json::kind> pair)
@@ -396,19 +434,19 @@ namespace Pars
 
 
         static void
-        find_json_type
+        find_and_print_json_type
         (const json::value& val, json::string_view name = {})
         {
-            find_type(name, val);
+            find_and_print_type(name, val);
         }
 
 
         static void 
-        find_json_type
+        find_and_print_json_type
         (const std::unordered_map<json::string, json::value>& map)
         {
             for(auto&& i : map)
-                find_type(i.first, i.second);
+                find_and_print_type(i.first, i.second);
         }
 
 

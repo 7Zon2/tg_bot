@@ -10,7 +10,7 @@ namespace Pars
             optint offset{};
             optint limit{};
             optint timeout{};
-            std::optional<json::array> allowed_updates{};
+            std::optional<std::vector<json::string>> allowed_updates{};
 
             public:
 
@@ -19,7 +19,7 @@ namespace Pars
                 optint offset = {},
                 optint limit  = {},
                 optint timeout= {},
-                std::optional<json::array> allowed_updates = {}
+                std::optional<std::vector<json::string>> allowed_updates = {}
             )
             :
              offset(offset),
@@ -58,9 +58,9 @@ namespace Pars
                 updates.pop_back();
 
                 json::string req{"/getupdates?"};
-                req += std::move(off);
-                req += std::move(lim);
-                req += std::move(time);
+                req += std::move(off);  req += "&";
+                req += std::move(lim);  req += "&"; 
+                req += std::move(time); req += "&";
                 req += std::move(updates);
 
                 return req;
@@ -105,8 +105,12 @@ namespace Pars
                 MainParser::field_from_map
                 <json::kind::int64>(map, MAKE_PAIR(timeout));
 
+                json::array arr;
+
                 MainParser::field_from_map
-                <json::kind::array>(map, MAKE_PAIR(allowed_updates));
+                <json::kind::array>(map, std::make_pair(FIELD_NAME(allowed_updates), std::ref(arr)));
+
+                MainParser::parse_jsonArray_to_container(allowed_updates.value(), arr);
             }
 
 

@@ -36,7 +36,7 @@ namespace Pars
                 optint offset = {},
                 optint limit  = {},
                 optint timeout= {},
-                std::optional<json::array> allowed_updates = {}
+                std::optional<std::vector<json::string>> allowed_updates = {}
             )
             {
                 json::object ob(ptr_);
@@ -44,13 +44,22 @@ namespace Pars
                 (
                     MAKE_OP(offset),
                     MAKE_OP(limit),
-                    MAKE_OP(timeout),
-                    MAKE_OP(allowed_updates)           
+                    MAKE_OP(timeout)        
                 );
 
+                json::array arr;
+                if(allowed_updates.has_value())
+                {
+                    for(auto&& i : allowed_updates.value())
+                    {
+                        arr.push_back(i);
+                    }
+                }
+
+                ob.insert_or_assign("allowed_updates", std::move(arr));
+
                 json::object ob2(ptr_);
-                ob2["getipdates"] = std::move(ob);
-                
+                ob2["getupdates"] = std::move(ob);
                 return ob2;
             }
 

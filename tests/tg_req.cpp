@@ -86,10 +86,18 @@ void test_api()
 }
 
 
+void get_updates_test()
+{
+    std::vector<json::string> arr{"first", "second", "third"};
+    getUpdates obj{1,2,3, std::move(arr)};
+    json::string url = obj.fields_to_url();
+    print(url,"\n");
+}
+
+
 int main()
 {
-
-    test_api();
+    get_updates_test();
 
     return 0;
 }
