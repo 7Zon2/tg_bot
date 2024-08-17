@@ -34,7 +34,7 @@ namespace Pars
 
             [[nodiscard]]
             json::string
-            fields_to_url()
+            fields_to_url() const
             {
                 json::string off{FIELD_NAME(offset)"="};
                 off += MainParser::parse_opt_as_string(offset);
@@ -54,8 +54,8 @@ namespace Pars
                         updates += i;
                         updates += "&";
                     }
+                    updates.pop_back();
                 }
-                updates.pop_back();
 
                 json::string req{"/getupdates?"};
                 req += std::move(off);  req += "&";

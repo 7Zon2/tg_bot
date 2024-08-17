@@ -159,14 +159,11 @@ class session : public std::enable_shared_from_this<session>
     public:
 
     json::string
-    get_url_bot_target(std::string_view request)
+    get_url_bot_target()
     {
         json::string str;
         str.append("/bot");
         str.append(token_);
-        str.append("/");
-        str.append(request);
-        str.append("?");
         return str;
     }
 
@@ -195,7 +192,7 @@ class session : public std::enable_shared_from_this<session>
         req_.version(version_);
         req_.method(http::verb::get);
         req_.set(http::field::host, host_);
-        req_.target(get_url_bot_target("getwebhookinfo"));
+        req_.target(get_url_bot_target());
     }
 
 
@@ -206,16 +203,17 @@ class session : public std::enable_shared_from_this<session>
             del
         );
         json::string data = Pars::MainParser::serialize_to_string(val);
-        json::string target = get_url_bot_target("deletewebhook");
+        json::string target = get_url_bot_target();
         PostRequest(data, target,"application/json",false);
     }
 
 
-    template<typename T>
-    requires std::is_same_v<std::remove_reference_t<T>, Pars::TG::getUpdates>
-    void GetUpdatesRequest(T&& obj)
+
+    void GetUpdatesRequest(const Pars::TG::getUpdates& obj)
     {
-        PostRequest("", obj.fields_to_url(),"application/json", false);
+        json::string url = get_url_bot_target();
+        url += obj.fields_to_url();
+        PostRequest("", url, "application/json", false);
     }
 
 
@@ -223,7 +221,7 @@ class session : public std::enable_shared_from_this<session>
     {
         json::string certif = CRTF::load_cert("/home/zon/keys/certif/serv/host.crt");
 
-        json::string target = get_url_bot_target("setwebhook");
+        json::string target = get_url_bot_target();
 
         PostRequest("", target, "multipart/form-data",true);
     }
@@ -263,15 +261,14 @@ class session : public std::enable_shared_from_this<session>
 
     public:
 
-    template<is_getUpdates T>
     [[nodiscard]]
     Pars::TG:: getUpdates 
-    start_getUpdates(T&& obj)
+    start_getUpdates(const Pars::TG::getUpdates& upd)
     {
         using namespace Pars::TG;
         try
         {
-            GetUpdatesRequest(obj);
+            GetUpdatesRequest(upd);
             getUpdates obj = start_request_response<getUpdates>().get();
             req_.clear();
             return obj;
@@ -350,15 +347,6 @@ class session : public std::enable_shared_from_this<session>
         }
     }
 
-
-    void start_check_updates(const Pars::TG::WebhookInfo& info)
-    {
-        for(size_t i = 0; i < info.pending_update_count; i++)
-        {
-
-        }
-    }
-
     public:
 
     [[nodiscard]]
@@ -391,7 +379,7 @@ class session : public std::enable_shared_from_this<session>
         std::string_view content_type, 
         bool multipart
     )
-    {
+    {  
         req_.method(http::verb::post);
         req_.set(http::field::host, host_);
         if(multipart)

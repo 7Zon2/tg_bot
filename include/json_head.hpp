@@ -290,7 +290,11 @@ namespace Pars
         parse_range_to_jsonArray(T&& ran)
         {
             std::ranges::ref_view r(ran);
-            return json::array{r.begin(), r.end(), ptr_};
+
+            if constexpr ( ! std::is_reference_v<T> && std::is_rvalue_reference_v<T>)
+                return json::array{std::make_move_iterator(r.begin()), std::make_move_iterator(r.end()), ptr_};
+            else
+                return json::array{r.begin(), r.end(), ptr_};
         }
 
 
@@ -518,9 +522,9 @@ namespace Pars
         {
             size_t sz = sizeof(T) + sizeof(U);
 
-            json::object obj_(sz,ptr_);
+            json::object obj_(sz, ptr_);
 
-            obj_.emplace(key,obj);
+            obj_.emplace(key, obj);
 
             return obj_;
         }
@@ -557,7 +561,7 @@ namespace Pars
                 arr.emplace_back(*b);
             }
 
-        return arr;
+            return arr;
         }
 
 
@@ -638,7 +642,7 @@ namespace Pars
         }
         [[nodiscard]]
         static json::string
-        parse_opt_as_string(T&& arg)
+        parse_opt_as_string(const T& arg) 
         {   
             return (arg.has_value()) ? json::string{std::to_string(arg.value())} : json::string{};
         }
@@ -648,7 +652,7 @@ namespace Pars
         requires (std::is_same_v<typename It::value_type, json::object>)
         [[nodiscard]]
         static json::object
-        merge_json_obj(It beg, It end)
+        merge_json_obj(It beg, It end) 
         {
             json::object obj{ptr_};
 
