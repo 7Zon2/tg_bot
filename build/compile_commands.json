@@ -1,12 +1,14 @@
 [
 {
-  "directory": "/home/zon/vs_code/http_serv/http/build",
-  "command": "/usr/bin/g++ -DBOOST_CONTAINER_DYN_LINK -DBOOST_CONTAINER_NO_LIB -DBOOST_JSON_DYN_LINK -DBOOST_JSON_NO_LIB -I/home/zon/vs_code/http_serv/http/include -g -pthread -Wall -O0 -g -std=gnu++20 -o serv/CMakeFiles/serv.dir/serv.cpp.o -c /home/zon/vs_code/http_serv/http/serv/serv.cpp",
-  "file": "/home/zon/vs_code/http_serv/http/serv/serv.cpp"
+  "directory": "/home/zon/vs_code/tg_bot/build/serv",
+  "command": "/usr/bin/c++  -I/home/zon/my_libs/boost_1_86_0 -I/home/zon/vs_code/tg_bot/include -g -std=gnu++20 -pthread -Wall -O0 -g -o CMakeFiles/serv.dir/serv.cpp.o -c /home/zon/vs_code/tg_bot/serv/serv.cpp",
+  "file": "/home/zon/vs_code/tg_bot/serv/serv.cpp",
+  "output": "serv/CMakeFiles/serv.dir/serv.cpp.o"
 },
 {
-  "directory": "/home/zon/vs_code/http_serv/http/build",
-  "command": "/usr/bin/g++ -DBOOST_CONTAINER_DYN_LINK -DBOOST_CONTAINER_NO_LIB -DBOOST_JSON_DYN_LINK -DBOOST_JSON_NO_LIB -I/home/zon/vs_code/http_serv/http/include -g -pthread -Wall -O0 -g -std=gnu++20 -o client/CMakeFiles/cl.dir/client.cpp.o -c /home/zon/vs_code/http_serv/http/client/client.cpp",
-  "file": "/home/zon/vs_code/http_serv/http/client/client.cpp"
+  "directory": "/home/zon/vs_code/tg_bot/build/client",
+  "command": "/usr/bin/c++  -I/home/zon/my_libs/boost_1_86_0 -I/home/zon/vs_code/tg_bot/include -g -std=gnu++20 -pthread -Wall -O0 -g -o CMakeFiles/cl.dir/client.cpp.o -c /home/zon/vs_code/tg_bot/client/client.cpp",
+  "file": "/home/zon/vs_code/tg_bot/client/client.cpp",
+  "output": "client/CMakeFiles/cl.dir/client.cpp.o"
 }
 ]

@@ -17,6 +17,7 @@ class session : public std::enable_shared_from_this<session>
     const int version_;
     const json::string port_;
     const json::string token_; 
+    const json::string certif_;
 
     json::string target_;
     tcp::resolver resolver_;
@@ -219,7 +220,7 @@ class session : public std::enable_shared_from_this<session>
 
     void SetWebhookRequest()
     {
-        json::string certif = CRTF::load_cert("/home/zon/keys/certif/serv/host.crt");
+        json::string certif = CRTF::load_cert(certif_);
 
         json::string target = get_url_bot_target();
 
@@ -249,8 +250,8 @@ class session : public std::enable_shared_from_this<session>
             std::launch::async,
             [&var, this]()
             {
-                auto obj = T::verify_fields(var,T{});
-                if (obj.has_value() == false)
+                std::optional<T> obj = T::verify_fields(var,T{});
+                if (! obj.has_value())
                     throw std::runtime_error{"Failed verify_fields\n"};
                 else
                     return std::move(obj.value());
@@ -561,12 +562,17 @@ class session : public std::enable_shared_from_this<session>
 
 int main(int argc, char** argv)
 {
-  
-    // if(argc <= 1)
-    // {
-    //     std::cout<<"Please, input your bot-telegram token\n";
-    //     return 1;
-    // }
+
+    if(argc != 2)
+    {
+      print
+      (
+        "Please, input your bot-telegram token\n"
+      );
+      return 1;
+    }
+
+    std::string bot_token = argv[1];
 
     std::string host   = "api.telegram.org";
     std::string port   = "443";
@@ -581,9 +587,6 @@ int main(int argc, char** argv)
         // The SSL context is required, and holds certificates
         ssl::context ctx{ssl::context::tlsv13_client};
         
-        // This holds the root certificate used for verification
-        CRTF::load_cert(ctx,"/home/zon/keys/certif/serv/host.crt");
-
         ctx.set_default_verify_paths();
 
         // Verify the remote server's certificate
@@ -597,7 +600,7 @@ int main(int argc, char** argv)
             host,
             version,
             port,
-            "7462084054:AAFMMUI_V8jEdzWSu-OPmuD-nKaLqdrzFOU",
+            bot_token,
             net::make_strand(ioc),
             ctx
 

@@ -110,7 +110,8 @@ namespace Pars
                 MainParser::field_from_map
                 <json::kind::array>(map, std::make_pair(FIELD_NAME(allowed_updates), std::ref(arr)));
 
-                MainParser::parse_jsonArray_to_container(allowed_updates.value(), arr);
+                allowed_updates = std::vector<json::string>{};
+                MainParser::parse_jsonArray_to_container(allowed_updates.value(), arr); 
             }
 
 

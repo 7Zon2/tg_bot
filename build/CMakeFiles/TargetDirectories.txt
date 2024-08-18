@@ -1,8 +1,8 @@
-/home/zon/vs_code/http_serv/http/build/CMakeFiles/edit_cache.dir
-/home/zon/vs_code/http_serv/http/build/CMakeFiles/rebuild_cache.dir
-/home/zon/vs_code/http_serv/http/build/serv/CMakeFiles/serv.dir
-/home/zon/vs_code/http_serv/http/build/serv/CMakeFiles/edit_cache.dir
-/home/zon/vs_code/http_serv/http/build/serv/CMakeFiles/rebuild_cache.dir
-/home/zon/vs_code/http_serv/http/build/client/CMakeFiles/cl.dir
-/home/zon/vs_code/http_serv/http/build/client/CMakeFiles/edit_cache.dir
-/home/zon/vs_code/http_serv/http/build/client/CMakeFiles/rebuild_cache.dir
+/home/zon/vs_code/tg_bot/build/CMakeFiles/edit_cache.dir
+/home/zon/vs_code/tg_bot/build/CMakeFiles/rebuild_cache.dir
+/home/zon/vs_code/tg_bot/build/serv/CMakeFiles/serv.dir
+/home/zon/vs_code/tg_bot/build/serv/CMakeFiles/edit_cache.dir
+/home/zon/vs_code/tg_bot/build/serv/CMakeFiles/rebuild_cache.dir
+/home/zon/vs_code/tg_bot/build/client/CMakeFiles/cl.dir
+/home/zon/vs_code/tg_bot/build/client/CMakeFiles/edit_cache.dir
+/home/zon/vs_code/tg_bot/build/client/CMakeFiles/rebuild_cache.dir

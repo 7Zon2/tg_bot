@@ -58,7 +58,7 @@ namespace CRTF
 
         ctx.use_certificate_chain_file(cert);
 
-        ctx.use_private_key_file(key,ssl::context::file_format::pem);
+        ctx.use_private_key_file(key, ssl::context::file_format::pem);
     }
 
 }//namespace CRTF
