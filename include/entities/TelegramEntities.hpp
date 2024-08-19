@@ -36,7 +36,7 @@ namespace Pars
 
             [[nodiscard]]
             json::string
-            fields_to_url() const
+            fields_to_url() 
             {
                 return static_cast<Derived&>(*this).fields_to_url();
             }

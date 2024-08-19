@@ -5,3 +5,5 @@
 #include "User.hpp"
 #include "deleteWebhook.hpp"
 #include "getUpdates.hpp"
+#include "Message.hpp"
+#include "Chat.hpp"

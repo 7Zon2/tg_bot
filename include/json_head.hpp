@@ -145,6 +145,25 @@ namespace Pars
 
         public:
 
+        template<typename...T>
+        requires (std::is_convertible_v<T, json::string>&&...&& true)
+        [[nodiscard]]
+        static json::string
+        concat_string(const unsigned char del, T&&...str)
+        {
+            json::string temp;
+
+            auto handle = [del, &temp]<typename U>(U&& str)
+            {
+                temp += std::forward<U>(str);
+                temp += del;
+            };
+
+            (handle(std::forward<T>(str)),...);
+            return temp;
+        }
+
+
         [[nodiscard]]
         static json::value
         try_parse_message(json::string_view vw)
@@ -644,7 +663,10 @@ namespace Pars
         static json::string
         parse_opt_as_string(const T& arg) 
         {   
-            return (arg.has_value()) ? json::string{std::to_string(arg.value())} : json::string{};
+            if constexpr (std::is_same_v<std::remove_reference_t<decltype(std::declval<T>().value())>, json::string>)
+                return json::string{arg.value()};
+            else
+                return (arg.has_value()) ? json::string{std::to_string(arg.value())} : json::string{};
         }
 
 

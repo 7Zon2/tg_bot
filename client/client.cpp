@@ -210,7 +210,9 @@ class session : public std::enable_shared_from_this<session>
 
 
 
-    void GetUpdatesRequest(const Pars::TG::getUpdates& obj)
+    template<typename T>
+    requires (std::is_same_v<std::remove_reference_t<T>, Pars::TG::getUpdates>)
+    void GetUpdatesRequest(T&& obj)
     {
         json::string url = get_url_bot_target();
         url += obj.fields_to_url();
@@ -262,9 +264,11 @@ class session : public std::enable_shared_from_this<session>
 
     public:
 
+    template<typename T>
+    requires (std::is_same_v<std::remove_reference_t<T>, Pars::TG::getUpdates>)
     [[nodiscard]]
     Pars::TG:: getUpdates 
-    start_getUpdates(const Pars::TG::getUpdates& upd)
+    start_getUpdates(T&& upd)
     {
         using namespace Pars::TG;
         try

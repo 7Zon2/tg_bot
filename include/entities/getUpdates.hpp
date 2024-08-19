@@ -34,7 +34,7 @@ namespace Pars
 
             [[nodiscard]]
             json::string
-            fields_to_url() const
+            fields_to_url() 
             {
                 json::string off{FIELD_NAME(offset)"="};
                 off += MainParser::parse_opt_as_string(offset);

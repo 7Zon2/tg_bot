@@ -1,0 +1,170 @@
+#pragma once
+#include "TelegramEntities.hpp"
+
+namespace Pars
+{
+    namespace TG
+    {
+        struct chat : TelegramEntities<chat>
+        {
+            size_t id;
+            json::string type;
+            optstr title;
+            optstr username;
+            optstr first_name;
+            optstr last_name;
+            optbool is_forum;
+
+            public:
+
+            chat(){}
+
+            chat
+            (
+                const size_t id,
+                json::string_view type,
+                optstr title = {},
+                optstr username = {},
+                optstr first_name = {},
+                optstr last_name  = {},
+                optbool is_forum  = {}
+            )
+            :
+                id(id),
+                type(type),
+                title(title),
+                username(username),
+                first_name(first_name),
+                last_name(last_name),
+                is_forum(is_forum)    
+            {
+               
+            }
+
+            public:
+
+            [[nodiscard]]
+            json::string
+            fields_to_url() 
+            {
+                json::string id_{FIELD_NAME(id)"="};
+                id_ += std::to_string(id);
+
+                json::string type_{FIELD_NAME(type)"="};
+                type_+=type;
+
+                json::string title_{FIELD_NAME(title)"="};
+                title_ += MainParser::parse_opt_as_string(title);
+
+                json::string username_{FIELD_NAME(username_), "="};
+                username_ = MainParser::parse_opt_as_string(username);
+
+                json::string first_name_{FIELD_NAME(first_name),"="};
+                first_name_ += MainParser::parse_opt_as_string(first_name);
+
+                json::string last_name_{FIELD_NAME(last_name),"="};
+                last_name_ += MainParser::parse_opt_as_string(last_name);
+
+                json::string is_forum_{FIELD_NAME(is_forum),"="};
+                is_forum_ += MainParser::parse_opt_as_string(is_forum);
+
+                json::string req{"/chat?"};
+                req += MainParser::concat_string
+                (   
+                    '&',
+                     std::move(id_),
+                     std::move(type_),
+                     std::move(title_),
+                     std::move(username_),
+                     std::move(first_name_),
+                     std::move(last_name_),
+                     std::move(is_forum_)
+                );
+
+                return req;
+            }
+
+
+            [[nodiscard]]
+            static
+            std::optional<std::unordered_map<json::string, json::value>>
+            requested_fields(const json::value& val)
+            {
+                const size_t sz = 2;
+                auto map = MainParser::mapped_pointers_validation
+                (
+                    val,
+                    std::make_pair(JS_POINTER(chat, id), json::kind::uint64),
+                    std::make_pair(JS_POINTER(chat, type), json::kind::string)
+                );            
+
+                if (map.size() != sz)
+                    return std::nullopt;
+                else
+                    return map;
+            }
+
+
+            [[nodiscard]]
+            static
+            std::unordered_map<json::string, json::value>
+            optional_fields(const json::value& val)
+            {
+                return MainParser::mapped_pointers_validation
+                (
+                    val,
+                    std::make_pair(JS_POINTER(chat, title), json::kind::string),
+                    std::make_pair(JS_POINTER(chat, username), json::kind::string),
+                    std::make_pair(JS_POINTER(chat, first_name), json::kind::string),
+                    std::make_pair(JS_POINTER(chat, last_name), json::kind::string),
+                    std::make_pair(JS_POINTER(chat, is_forum),  json::kind::bool_)
+                );
+            }
+
+
+            void 
+            fields_from_map
+            (const std::unordered_map<json::string, json::value>&  map)
+            {
+                MainParser::field_from_map
+                <json::kind::uint64>(map, MAKE_PAIR(id));
+
+                MainParser::field_from_map
+                <json::kind::string>(map, MAKE_PAIR(type));
+
+                MainParser::field_from_map
+                <json::kind::string>(map, MAKE_PAIR(title));
+
+                MainParser::field_from_map
+                <json::kind::string>(map, MAKE_PAIR(username));
+
+                MainParser::field_from_map
+                <json::kind::string>(map, MAKE_PAIR(first_name));
+
+                MainParser::field_from_map
+                <json::kind::string>(map, MAKE_PAIR(last_name));
+
+                MainParser::field_from_map
+                <json::kind::bool_>(map, MAKE_PAIR(is_forum));
+            }
+
+
+            [[nodiscard]]
+            json::value
+            fields_to_value()
+            {
+                return TelegramRequestes::chat
+                (
+                    id,
+                    type,
+                    title,
+                    username,
+                    first_name,
+                    last_name,
+                    is_forum
+                );
+            }
+
+        };
+    }
+}
