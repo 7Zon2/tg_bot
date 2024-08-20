@@ -16,7 +16,7 @@ namespace Pars
         using p       = std::pair<json::string,json::value>;
 
 
-        #define FIELD_NAME(field) #field
+        #define FIELD_NAME(field)  #field
 
         #define JS_POINTER(method, field) "/"#method"/"#field
 
@@ -28,6 +28,22 @@ namespace Pars
 
         struct TelegramRequestes : MainParser
         {
+            protected:
+
+            [[nodiscard]]
+            static json::value
+            MessageOrigin
+            (
+                json::string_view type,
+                size_t date
+            )
+            {
+                json::object ob(ptr_);
+                ob[FIELD_NAME(messageorigin)] = parse_ObjPairs_as_obj(PAIR(type), PAIR(date));
+                return ob;
+            }
+
+            public:
 
             [[nodiscard]]
             static json::value
@@ -100,6 +116,96 @@ namespace Pars
 
                 json::object res(ptr_);
                 res[FIELD_NAME(chat)] = std::move(ob);
+                return res;
+            }
+
+
+            [[nodiscard]]
+            static json::value
+            MessageOriginUser
+            (
+                json::string_view type,
+                size_t date,
+                User& user
+            )
+            {
+                auto ob  = MessageOrigin(type, date).as_object();
+                auto ob2 = user.fields_to_value().as_object();
+
+                auto b = std::make_move_iterator(ob2.begin());
+                auto e = std:: make_move_iterator(ob2.end());
+
+                ob.insert(b,e);
+
+                json::object res(ptr_);
+                res[FIELD_NAME(MessageOriginuser)] = std::move(ob);
+
+                return res;
+            }
+
+
+            [[nodiscard]]
+            static json::value
+            MessageOriginHiddenUser
+            (
+                json::string_view type,
+                size_t date,
+                json::string_view sender_user_name
+            )
+            {
+                auto ob = MessageOrigin(type, date).as_object();
+                ob.emplace(FIELD_NAME(sender_user_name), sender_user_name);
+
+                json::object res(ptr_);
+                res[FIELD_NAME(MessageOriginHiddenUser)] = std::move(ob);
+                return res;
+            }
+
+
+            [[nodiscard]]
+            static json::value
+            MessageOriginChat
+            (
+                json::string_view type,
+                size_t date,
+                TG::chat &sender_chat,
+                optstrw author_signature = {}
+            )
+            {
+                auto ob = MessageOrigin(type, date).as_object();
+                auto send_ob = sender_chat.fields_to_value().as_object();
+
+                auto b = std::make_move_iterator(send_ob.begin());
+                auto e = std::make_move_iterator(send_ob.end());
+
+                ob.insert(b,e);
+
+                if (author_signature.has_value())
+                    ob.emplace(FIELD_NAME(author_signature), author_signature.value());
+
+                json::object res(ptr_);
+                res[FIELD_NAME(MessageOriginChat)] = std::move(ob); 
+                return res;
+            }
+
+
+            [[nodiscard]]
+            static json::value
+            MessageOriginChannel
+            (
+                json::string_view type,
+                size_t date,
+                TG::chat& chat,
+                size_t message_id,
+                optstrw author_signature = {}
+
+            )
+            {
+                auto ob = MessageOriginChat(type, date, chat, author_signature).as_object();
+                ob.emplace(FIELD_NAME(message_id), message_id);
+
+                json::object res(ptr_);
+                res[FIELD_NAME(messageoriginchannel)] = std::move(ob);
                 return res;
             }
 
