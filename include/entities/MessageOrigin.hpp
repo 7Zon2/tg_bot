@@ -1,23 +1,15 @@
 #pragma once
 #include "TelegramEntities.hpp"
-#include"Chat.hpp"
-#include "User.hpp"
-
+#include "concept_entities.hpp"
 
 namespace Pars
 {
     namespace TG
     {
-
-        template<typename T>
-        concept is_user = std::is_same_v<std::remove_reference_t<T>, User>;
-
-        template<typename T>
-        concept is_chat = std::is_same_v<std::remove_reference_t<T>, chat>;
-
-
         struct MessageOrigin : TelegramEntities<MessageOrigin>
         {
+            using TelegramEntities::operator=;
+
             json::string type;
             size_t date;
 
@@ -56,6 +48,13 @@ namespace Pars
                     std::make_pair(type_, json::kind::string),
                     std::make_pair(date_, json::kind::uint64)
                 );
+
+                if (sz!=map.size())
+                {
+                    return std::nullopt;
+                }
+
+                return map;
             }
 
 
@@ -67,15 +66,16 @@ namespace Pars
             }
 
 
-            virtual void 
+            template<is_fields_map T>
+            void 
             fields_from_map
-            (const std::unordered_map<json::string, json::value>& map)
+            (T&& map)
             {
                 MainParser::field_from_map
-                <json::kind::string>(map, MAKE_PAIR(type));
+                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(type));
 
                 MainParser::field_from_map
-                <json::kind::uint64>(map, MAKE_PAIR(date));
+                <json::kind::uint64>(std::forward<T>(map), MAKE_PAIR(date));
             }
         };
 
@@ -84,13 +84,16 @@ namespace Pars
 
         struct MessageOriginUser : MessageOrigin
         {
+
+            using MessageOrigin::operator=;
+
             User sender_user;
 
             public:
 
             MessageOriginUser(){}
 
-            template<is_user T>
+            template<TG::is_user T>
             MessageOriginUser
             (
                 json::string_view type,
@@ -99,19 +102,21 @@ namespace Pars
             )
             :
              MessageOrigin(type, date),
-             sender_user(std:forward<T>(user))
+             sender_user(std::forward<T>(user))
              {
 
              }
 
              public:
 
+
+            template<as_json_value T>
             [[nodiscard]]
             static 
-            std::optional<std::unordered_map<json::string, json::value>>
-            requested_fields(const json::value& val)
+            opt_fields_map
+            requested_fields(T&& val)
             {
-                auto map = MessageOrigin::requested_fields(val, FIELD_NAME(messageoriginuser));
+                auto map = MessageOrigin::requested_fields(std::forward<T>(val), FIELD_NAME(messageoriginuser));
                 if(map.has_value() == false)
                 {
                     return map;
@@ -119,7 +124,7 @@ namespace Pars
 
                 auto map2 = MainParser::mapped_pointers_validation
                 (
-                    val,
+                    std::forward<T>(val),
                     std::make_pair(JS_POINTER(messageoriginuser, sender_user), json::kind::object)
                 );
 
@@ -131,7 +136,7 @@ namespace Pars
                 auto & map_ = map.value();
                 auto b = std::make_move_iterator(map2.begin());
                 auto e = std::make_move_iterator(map2.end());
-                map_.emplace(b,e);
+                map_.insert(b,e);
 
                 return std::move(map_);
             }
@@ -145,14 +150,15 @@ namespace Pars
             }
 
 
+            template<is_fields_map T>
             void
             fields_from_map
-            (const std::unordered_map<json::string, json::value> & map)
+            (T && map)
             {
-                MessageOrigin::fields_from_map(map);
+                MessageOrigin::fields_from_map(std::forward<T>(map));
 
                 MainParser::field_from_map
-                <json::kind::object>(map, MAKE_PAIR(sender_user));
+                <json::kind::object>(std::forward<T>(map), MAKE_PAIR(sender_user));
             }
 
 
@@ -172,6 +178,8 @@ namespace Pars
 
         struct MessageOriginHiddenUser : MessageOrigin
         {
+            using MessageOrigin::operator=;
+
             json::string sender_user_name;
 
             public:
@@ -193,12 +201,13 @@ namespace Pars
 
             public:
 
+            template<as_json_value T>
             [[nodiscard]]
             static 
-            std::optional<std::unordered_map<json::string, json::value>>
-            requested_fields(const json::value& val)
+            opt_fields_map
+            requested_fields(T&& val)
             {
-                auto map = MessageOrigin::requested_fields(val, FIELD_NAME(MessageOriginHiddenUser));
+                auto map = MessageOrigin::requested_fields(std::forward<T>(val), FIELD_NAME(MessageOriginHiddenUser));
                 if(map.has_value() == false)
                 {
                     return map;
@@ -206,7 +215,7 @@ namespace Pars
 
                 auto map2 = MainParser::mapped_pointers_validation
                 (
-                    val,
+                    std::forward<T>(val),
                     std::make_pair(JS_POINTER(messageoriginhiddenuser, sender_user_name), json::kind::string)
                 );
 
@@ -218,28 +227,30 @@ namespace Pars
                 auto & map_ = map.value();
                 auto b = std::make_move_iterator(map2.begin());
                 auto e = std::make_move_iterator(map2.end());
-                map_.emplace(b,e);
+                map_.insert(b,e);
 
                 return std::move(map_);
             }
 
 
+            template<as_json_value T>
             static
-            std::unordered_map<json::string, json::value>
-            optional_fields(const json::value& val)
+            fields_map
+            optional_fields(T&& val)
             {
-                return MessageOrigin::optional_fields(val);
+                return MessageOrigin::optional_fields(std::forward<T>(val));
             }
 
 
+            template<is_fields_map T>
             void
             fields_from_map
-            (const std::unordered_map<json::string, json::value> & map)
+            (T && map)
             {
-                MessageOrigin::fields_from_map(map);
+                MessageOrigin::fields_from_map(std::forward<T>(map));
 
                 MainParser::field_from_map
-                <json::kind::string>(map, MAKE_PAIR(sender_user_name));
+                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(sender_user_name));
             }
 
 
@@ -259,8 +270,10 @@ namespace Pars
 
         struct MessageOriginChat : MessageOrigin
         {
+            using MessageOrigin::operator=;
+
             TG::chat sender_chat;
-            optstrw  author_signature = {};
+            optstr  author_signature = {};
 
             public:
 
@@ -310,7 +323,7 @@ namespace Pars
                 auto & map_ = map.value();
                 auto b = std::make_move_iterator(map2.begin());
                 auto e = std::make_move_iterator(map2.end());
-                map_.emplace(b,e);
+                map_.insert(b,e);
 
                 return std::move(map_);
             }
@@ -328,17 +341,18 @@ namespace Pars
             }
 
 
+            template<is_fields_map T>
             void
             fields_from_map
-            (const std::unordered_map<json::string, json::value> & map)
+            (T && map)
             {
-                MessageOrigin::fields_from_map(map);
+                MessageOrigin::fields_from_map(std::forward<T>(map));
 
                 MainParser::field_from_map
-                <json::kind::object>(map, MAKE_PAIR(sender_chat));
+                <json::kind::object>(std::forward<T>(map), MAKE_PAIR(sender_chat));
 
                 MainParser::field_from_map
-                <json::kind::string>(map, MAKE_PAIR(author_signature));
+                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(author_signature));
             }
 
 

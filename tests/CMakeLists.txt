@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 3.20)
 
 project(tests)
 
+set(BOOST_ROOT  /home/zon/my_libs/boost_1_86_0)
+
 find_package(Boost REQUIRED)
 find_package(Boost REQUIRED COMPONENTS json)
 find_package(OpenSSL REQUIRED)

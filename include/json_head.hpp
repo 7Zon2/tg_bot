@@ -107,6 +107,16 @@ namespace Pars
     };
 
 
+    using fields_map = std::unordered_map<json::string, json::value>;
+    using opt_fields_map = std::optional<fields_map>;
+
+    template<typename T>
+    concept is_fields_map = std::is_same_v<std::remove_reference_t<T>, fields_map>;
+
+    template<typename T>
+    concept is_opt_fields_map = std::is_same_v<std::remove_reference_t<T>, opt_fields_map>;
+
+
     struct MainParser
     {
 
@@ -189,19 +199,20 @@ namespace Pars
         }
 
 
+        template<as_json_value T>
         [[nodiscard]]
         static json::value
-        try_parse_value(const json::value& val)
+        try_parse_value(T&& val)
         {
-            return try_parse_message(val.as_string());
+            return try_parse_message(std::forward<T>(val.as_string()));
         }
 
 
-        template<json::kind type>
+        template<json::kind type, as_json_value T>
         [[nodiscard]]
         static auto
         value_to_type
-        (const json::value& val)
+        (T&&  val)
         {
             if constexpr( type == json::kind::bool_)
             {
@@ -209,7 +220,7 @@ namespace Pars
 
                 if (val.is_bool())
                 {
-                    op = val.as_bool();
+                    op = std::forward<T>(val.as_bool());
                     return op;
                 }
 
@@ -221,7 +232,7 @@ namespace Pars
 
                 if(val.is_double())
                 {
-                    op = val.as_double();
+                    op = std::forward<T>(val.as_double());
                     return op;
                 } 
 
@@ -233,7 +244,7 @@ namespace Pars
 
                 if(val.is_uint64())
                 {
-                    op = val.as_uint64();
+                    op = std::forward<T>(val.as_uint64());
                     return op;
                 }
 
@@ -245,7 +256,7 @@ namespace Pars
 
                 if(val.is_int64())
                 {
-                    op = val.as_int64();
+                    op = std::forward<T>(val.as_int64());
                     return op;
                 }
 
@@ -257,7 +268,7 @@ namespace Pars
 
                 if(val.is_string())
                 {
-                    op = val.as_string();
+                    op = std::forward<T>(val.as_string());
                     return op;
                 }
 
@@ -269,7 +280,7 @@ namespace Pars
 
                 if(val.is_object())
                 {
-                    op = val.as_object();
+                    op = std::forward<T>(val.as_object());
                     return op;
                 }
 
@@ -281,7 +292,7 @@ namespace Pars
 
                 if(val.is_array())
                 {
-                    op = val.as_array();
+                    op = std::forward<T>(val.as_array());
                     return op;
                 }
 
@@ -329,9 +340,10 @@ namespace Pars
         }
 
 
+        template<as_json_value T>
         [[nodiscard]]
         static std::optional<json::value>
-        check_pointer_validation(const json::value& val, std::pair<json::string_view, json::kind> pair)
+        check_pointer_validation(T&& val, std::pair<json::string_view, json::kind> pair)
         {
             boost::system::error_code er;
 
@@ -346,21 +358,21 @@ namespace Pars
             json::kind t = it->kind();
             switch(t)
             {
-                case json::kind::array   : {(t == pair.second)  ? opt =  it->as_array()   : opt = std::nullopt; break;}
+                case json::kind::array   : {(t == pair.second)  ? opt =  std::forward<T>(it->as_array())   : opt = std::nullopt; break;}
 
-                case json::kind::bool_   : {(t == pair.second)  ? opt =  it->as_bool()    : opt = std::nullopt; break;}
+                case json::kind::bool_   : {(t == pair.second)  ? opt =  std::forward<T>(it->as_bool())    : opt = std::nullopt; break;}
 
-                case json::kind::double_ : {(t == pair.second)  ? opt =  it->as_double()  : opt = std::nullopt; break;}
+                case json::kind::double_ : {(t == pair.second)  ? opt =  std::forward<T>(it->as_double())  : opt = std::nullopt; break;}
 
-                case json::kind::int64   : {(t == pair.second)  ? opt =  it->as_int64()   : opt = std::nullopt; break;}
+                case json::kind::int64   : {(t == pair.second)  ? opt =  std::forward<T>(it->as_int64())   : opt = std::nullopt; break;}
 
                 case json::kind::null    : {(t == pair.second)  ? opt =  nullptr          : opt = std::nullopt; break;}
 
-                case json::kind::object  : {(t == pair.second)  ? opt =  it->as_object()  : opt = std::nullopt; break;}
+                case json::kind::object  : {(t == pair.second)  ? opt =  std::forward<T>(it->as_object())  : opt = std::nullopt; break;}
 
-                case json::kind::string  : {(t == pair.second)  ? opt =  it->as_string()  : opt = std::nullopt; break;}
+                case json::kind::string  : {(t == pair.second)  ? opt =  std::forward<T>(it->as_string())  : opt = std::nullopt; break;}
 
-                case json::kind::uint64  : {(t == pair.second)  ? opt =  it->as_uint64()  : opt = std::nullopt; break;}
+                case json::kind::uint64  : {(t == pair.second)  ? opt =  std::forward<T>(it->as_uint64())  : opt = std::nullopt; break;}
 
                 default:
                     break;
@@ -371,18 +383,30 @@ namespace Pars
 
    
 
-        template<json::kind Kind, typename T>
+        template<json::kind Kind, typename T, is_fields_map MAP>
         static bool 
         field_from_map
         (
-            const std::unordered_map<json::string, json::value>& map,
+            MAP&& map,
             std::pair<const char*, T>&& field
         )
         {
             auto it = map.find(field.first);
             if(it != map.end())
             {
-                auto op = value_to_type<Kind>(it->second);
+                using ret = std::remove_reference_t<decltype(value_to_type<Kind>(it->second))>;
+                ret op;
+
+                if constexpr (std::is_lvalue_reference_v<MAP>)
+                {
+                    op = value_to_type<Kind>(it->second);
+                }
+                else if constexpr (std::is_rvalue_reference_v<MAP> || (std::is_reference_v<MAP> == false))
+                {
+                    auto move_it = std::make_move_iterator(it);
+                    op = value_to_type<Kind>(std::move(move_it->second));
+                }
+
                 if(op.has_value())
                 {
                     field.second = std::move(op.value());
@@ -394,13 +418,13 @@ namespace Pars
         }
 
 
-        template<as_json_view...Types>
+        template<as_json_value VAL, as_json_view...Types>
         [[nodiscard]]
-        static std::unordered_map<json::string, json::value>
-        mapped_pointers_validation(const json::value& val, std::pair<Types, json::kind>&&...pointers)
+        static fields_map
+        mapped_pointers_validation(VAL && val, std::pair<Types, json::kind>&&...pointers)
         {
 
-            std::unordered_map<json::string, json::value> map;
+            fields_map map;
 
             auto cleanUp_pointer = [](json::string_view vw) -> json::string
             {
@@ -450,7 +474,7 @@ namespace Pars
             }; 
 
             ((adapter)(json::string_view{pointers.first}, 
-                check_pointer_validation(val, std::make_pair(json::string_view{pointers.first}, pointers.second))),...);
+                check_pointer_validation(std::forward<VAL>(val), std::make_pair(json::string_view{pointers.first}, pointers.second))),...);
 
             return map;
         }
@@ -466,7 +490,7 @@ namespace Pars
 
         static void 
         find_and_print_json_type
-        (const std::unordered_map<json::string, json::value>& map)
+        (const fields_map& map)
         {
             for(auto&& i : map)
                 find_and_print_type(i.first, i.second);

@@ -95,9 +95,20 @@ void get_updates_test()
 }
 
 
+void eq_test()
+{
+    Pars::TG::User us;
+    json::object ob;
+    ob.emplace("id", 10);
+    ob.emplace("is_bot", true);
+    us = ob;
+    json::string str = us.fields_to_url();
+    print(str,"\n");
+}
+
+
 int main()
 {
-    get_updates_test();
-
+    eq_test();
     return 0;
 }

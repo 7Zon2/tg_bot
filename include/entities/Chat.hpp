@@ -7,6 +7,8 @@ namespace Pars
     {
         struct chat : TelegramEntities<chat>
         {
+            using TelegramEntities::operator = ;
+
             size_t id;
             json::string type;
             optstr title;
@@ -85,15 +87,16 @@ namespace Pars
             }
 
 
+            template<as_json_value T>
             [[nodiscard]]
             static
-            std::optional<std::unordered_map<json::string, json::value>>
-            requested_fields(const json::value& val)
+            opt_fields_map
+            requested_fields(T&& val)
             {
                 const size_t sz = 2;
                 auto map = MainParser::mapped_pointers_validation
                 (
-                    val,
+                    std::forward<T>(val),
                     std::make_pair(JS_POINTER(chat, id), json::kind::uint64),
                     std::make_pair(JS_POINTER(chat, type), json::kind::string)
                 );            
@@ -105,14 +108,15 @@ namespace Pars
             }
 
 
+            template<as_json_value T>
             [[nodiscard]]
             static
-            std::unordered_map<json::string, json::value>
-            optional_fields(const json::value& val)
+            fields_map
+            optional_fields(T&& val)
             {
                 return MainParser::mapped_pointers_validation
                 (
-                    val,
+                    std::forward<T>(val),
                     std::make_pair(JS_POINTER(chat, title), json::kind::string),
                     std::make_pair(JS_POINTER(chat, username), json::kind::string),
                     std::make_pair(JS_POINTER(chat, first_name), json::kind::string),
@@ -122,30 +126,31 @@ namespace Pars
             }
 
 
+            template<is_fields_map T>
             void 
             fields_from_map
-            (const std::unordered_map<json::string, json::value>&  map)
+            (T&&  map)
             {
                 MainParser::field_from_map
-                <json::kind::uint64>(map, MAKE_PAIR(id));
+                <json::kind::uint64>(std::forward<T>(map), MAKE_PAIR(id));
 
                 MainParser::field_from_map
-                <json::kind::string>(map, MAKE_PAIR(type));
+                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(type));
 
                 MainParser::field_from_map
-                <json::kind::string>(map, MAKE_PAIR(title));
+                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(title));
 
                 MainParser::field_from_map
-                <json::kind::string>(map, MAKE_PAIR(username));
+                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(username));
 
                 MainParser::field_from_map
-                <json::kind::string>(map, MAKE_PAIR(first_name));
+                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(first_name));
 
                 MainParser::field_from_map
-                <json::kind::string>(map, MAKE_PAIR(last_name));
+                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(last_name));
 
                 MainParser::field_from_map
-                <json::kind::bool_>(map, MAKE_PAIR(is_forum));
+                <json::kind::bool_>(std::forward<T>(map), MAKE_PAIR(is_forum));
             }
 
 
@@ -164,7 +169,6 @@ namespace Pars
                     is_forum
                 );
             }
-
         };
     }
 }

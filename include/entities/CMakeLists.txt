@@ -9,4 +9,6 @@ add_library( Entities INTERFACE
     User.hpp
     WebHook.hpp
     entities.hpp
+    deleteWebhook.hpp
+    tg_message.hpp
 )

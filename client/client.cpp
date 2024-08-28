@@ -252,11 +252,15 @@ class session : public std::enable_shared_from_this<session>
             std::launch::async,
             [&var, this]()
             {
-                std::optional<T> obj = T::verify_fields(var,T{});
-                if (! obj.has_value())
+                auto opt_map = T::verify_fields(var);
+                if (! opt_map.has_value())
                     throw std::runtime_error{"Failed verify_fields\n"};
                 else
-                    return std::move(obj.value());
+                {
+                    T obj{};
+                    obj.fields_from_map(opt_map.value());
+                    return obj;
+                }
             }
         );
         co_return obj;

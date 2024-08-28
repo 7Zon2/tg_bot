@@ -1,7 +1,0 @@
-[
-{
-  "directory": "/home/zon/vs_code/http_serv/http/tests/build",
-  "command": "/usr/bin/c++ -DBOOST_CONTAINER_DYN_LINK -DBOOST_CONTAINER_NO_LIB -DBOOST_JSON_DYN_LINK -DBOOST_JSON_NO_LIB -I/home/zon/vs_code/http_serv/http/tests/../include -g -pthread -Wall -O0 -g -std=gnu++20 -o CMakeFiles/main.dir/tg_req.cpp.o -c /home/zon/vs_code/http_serv/http/tests/tg_req.cpp",
-  "file": "/home/zon/vs_code/http_serv/http/tests/tg_req.cpp"
-}
-]

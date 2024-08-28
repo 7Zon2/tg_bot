@@ -1,6 +1,7 @@
 #pragma once
 #include "json_head.hpp"
 #include <optional>
+#include "entities/concept_entities.hpp"
 
 namespace Pars
 {
@@ -120,13 +121,14 @@ namespace Pars
             }
 
 
+            template<TG::is_user T>
             [[nodiscard]]
             static json::value
             MessageOriginUser
             (
                 json::string_view type,
                 size_t date,
-                User& user
+                T&& user
             )
             {
                 auto ob  = MessageOrigin(type, date).as_object();
@@ -135,7 +137,7 @@ namespace Pars
                 auto b = std::make_move_iterator(ob2.begin());
                 auto e = std:: make_move_iterator(ob2.end());
 
-                ob.insert(b,e);
+                ob.insert(b,e);                                                                 
 
                 json::object res(ptr_);
                 res[FIELD_NAME(MessageOriginuser)] = std::move(ob);
@@ -162,13 +164,14 @@ namespace Pars
             }
 
 
+            template<TG::is_chat T>
             [[nodiscard]]
             static json::value
             MessageOriginChat
             (
                 json::string_view type,
                 size_t date,
-                TG::chat &sender_chat,
+                T &&sender_chat,
                 optstrw author_signature = {}
             )
             {

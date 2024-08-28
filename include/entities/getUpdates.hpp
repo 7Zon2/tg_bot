@@ -92,23 +92,24 @@ namespace Pars
             }
 
 
+            template<is_fields_map T>
             void 
             fields_from_map
-            (const std::unordered_map<json::string, json::value>& map)
+            (T&& map)
             {
                 MainParser::field_from_map
-                <json::kind::int64>(map, MAKE_PAIR(offset));
+                <json::kind::int64>(std::forward<T>(map), MAKE_PAIR(offset));
 
                 MainParser::field_from_map
-                <json::kind::int64>(map, MAKE_PAIR(limit));
+                <json::kind::int64>(std::forward<T>(map), MAKE_PAIR(limit));
 
                 MainParser::field_from_map
-                <json::kind::int64>(map, MAKE_PAIR(timeout));
+                <json::kind::int64>(std::forward<T>(map), MAKE_PAIR(timeout));
 
                 json::array arr;
 
                 MainParser::field_from_map
-                <json::kind::array>(map, std::make_pair(FIELD_NAME(allowed_updates), std::ref(arr)));
+                <json::kind::array>(std::forward<T>(map), std::make_pair(FIELD_NAME(allowed_updates), std::ref(arr)));
 
                 allowed_updates = std::vector<json::string>{};
                 MainParser::parse_jsonArray_to_container(allowed_updates.value(), arr); 

@@ -9,6 +9,8 @@ namespace Pars
         {
             public:
 
+            using TelegramEntities::operator = ;
+
             uint64_t id;
             bool is_bot;
             json::string first_name;
@@ -62,14 +64,15 @@ namespace Pars
             public:
 
 
+            template<as_json_value T>
             [[nodiscard]]
             static
-            std::optional<std::unordered_map<json::string, json::value>> 
-            requested_fields(const json::value& val) 
+            opt_fields_map 
+            requested_fields(T&& val) 
             {
                 const size_t sz = 3;
 
-                auto opt = MainParser::check_pointer_validation(val, std::make_pair("/user", json::kind::object));
+                auto opt = MainParser::check_pointer_validation(std::forward<T>(val), std::make_pair("/user", json::kind::object));
                 if(opt.has_value() == false)
                 {
                     return std::nullopt;
@@ -78,7 +81,7 @@ namespace Pars
 
                 auto map = MainParser::mapped_pointers_validation
                 (
-                    val,
+                    std::forward<T>(val),
                     std::make_pair("/user/id", json::kind::uint64),
                     std::make_pair("/user/is_bot", json::kind::bool_),
                     std::make_pair("/user/first_name", json::kind::string)
@@ -93,14 +96,15 @@ namespace Pars
             }
 
 
+            template<as_json_value T>
             [[nodiscard]]
             static
-            std::unordered_map<json::string, json::value>
-            optional_fields(const json::value& val)
+            fields_map
+            optional_fields(T&& val)
             {
                 auto map = MainParser::mapped_pointers_validation
                 (
-                    val,
+                    std::forward<T>(val),
                     std::make_pair("/user/last_name", json::kind::string),
                     std::make_pair("/user/username",  json::kind::string),
                     std::make_pair("/user/language_code", json::kind::string),
@@ -116,44 +120,45 @@ namespace Pars
             }
 
 
+            template<as_json_value T>
             void fields_from_map
-            (const std::unordered_map<json::string, json::value>& map)
+            (T && map)
             {
                 MainParser::field_from_map
-                <json::kind::uint64>(  map,  std::make_pair("id", std::ref(id)));
+                <json::kind::uint64>( std::forward<T>(map),  std::make_pair("id", std::ref(id)));
 
                 MainParser::field_from_map
-                <json::kind::bool_>(   map,  std::make_pair("is_bot", std::ref(is_bot)));
+                <json::kind::bool_>( std::forward<T>(map),  std::make_pair("is_bot", std::ref(is_bot)));
 
                 MainParser::field_from_map
-                <json::kind::string>(  map,  std::make_pair("first_name", std::ref(first_name)));
+                <json::kind::string>( std::forward<T>(map),  std::make_pair("first_name", std::ref(first_name)));
 
                 MainParser::field_from_map
-                <json::kind::string>(  map,  std::make_pair("last_name", std::ref(last_name)));
+                <json::kind::string>( std::forward<T>(map),  std::make_pair("last_name", std::ref(last_name)));
 
                 MainParser::field_from_map
-                <json::kind::string>(  map,  std::make_pair("username",  std::ref(username)));
+                <json::kind::string>( std::forward<T>(map),  std::make_pair("username",  std::ref(username)));
 
                 MainParser::field_from_map
-                <json::kind::string>(  map,  std::make_pair("language_code", std::ref(language_code)));
+                <json::kind::string>(  std::forward<T>(map),  std::make_pair("language_code", std::ref(language_code)));
 
                 MainParser::field_from_map
-                <json::kind::bool_>(   map,  std::make_pair("is_premium", std::ref(is_premium)));
+                <json::kind::bool_>(   std::forward<T>(map),  std::make_pair("is_premium", std::ref(is_premium)));
 
                 MainParser::field_from_map
-                <json::kind::bool_>(   map,  std::make_pair("added_to_attachment_menu", std::ref(added_to_attachment_menu)));
+                <json::kind::bool_>(   std::forward<T>(map),  std::make_pair("added_to_attachment_menu", std::ref(added_to_attachment_menu)));
 
                 MainParser::field_from_map
-                <json::kind::bool_>(   map,  std::make_pair("can_join_groups", std::ref(can_join_groups)));
+                <json::kind::bool_>(   std::forward<T>(map),  std::make_pair("can_join_groups", std::ref(can_join_groups)));
 
                 MainParser::field_from_map
-                <json::kind::bool_>(   map,  std::make_pair("can_read_all_group_messages", std::ref(can_read_all_group_messages)));
+                <json::kind::bool_>(   std::forward<T>(map),  std::make_pair("can_read_all_group_messages", std::ref(can_read_all_group_messages)));
 
                 MainParser::field_from_map
-                <json::kind::bool_>(   map,  std::make_pair("supports_inline_queries", std::ref(supports_inline_queries)));
+                <json::kind::bool_>(   std::forward<T>(map),  std::make_pair("supports_inline_queries", std::ref(supports_inline_queries)));
 
                 MainParser::field_from_map
-                <json::kind::bool_>(   map,  std::make_pair("can_connect_to_business", std::ref(can_connect_to_business)));
+                <json::kind::bool_>(   std::forward<T>(map),  std::make_pair("can_connect_to_business", std::ref(can_connect_to_business)));
             }
 
             public:
