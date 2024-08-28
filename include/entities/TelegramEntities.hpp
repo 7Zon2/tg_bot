@@ -23,21 +23,23 @@ namespace Pars
             }
             
 
+            template<as_json_value T>
             [[nodiscard]]
             static
             opt_fields_map
-            requested_fields(const json::value& val)
+            requested_fields(T&& val)
             {
-                return Derived::requested_fields(val); 
+                return Derived::requested_fields(std::forward<T>(val)); 
             }
 
 
+            template<as_json_value T>
             [[nodiscard]]
             static
             fields_map
-            optional_fields(const json::value& val)
+            optional_fields(T&& val)
             {
-                return Derived::optional_fields(val);
+                return Derived::optional_fields(std::forward<T>(val));
             }
 
 

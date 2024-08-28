@@ -36,16 +36,17 @@ namespace Pars
 
             public:
 
+            template<as_json_value T>
             [[nodiscard]]
             static 
-            std::optional<std::unordered_map<json::string, json::value>> 
-            requested_fields(const json::value& val)
+            opt_fields_map 
+            requested_fields(T&& val)
             {
                 const size_t sz = 1;
 
                 auto map = MainParser::mapped_pointers_validation
                 (
-                    val,
+                    std::forward<T>(val),
                     std::make_pair("/ok", json::kind::bool_)
                 );
 
@@ -56,14 +57,15 @@ namespace Pars
             } 
 
             
+            template<as_json_value T>
             [[nodiscard]]
             static 
-            std::unordered_map<json::string, json::value>
-            optional_fields(const json::value& val)
+            fields_map
+            optional_fields(T&& val)
             {
                 auto map = MainParser::mapped_pointers_validation
                 (
-                    val, 
+                    std::forward<T>(val), 
                     std::make_pair("/error_code", json::kind::int64),
                     std::make_pair("/description", json::kind::string),
                     std::make_pair("/result", json::kind::object)
@@ -72,20 +74,21 @@ namespace Pars
             }
 
 
+            template<is_fields_map T>
             void fields_from_map
-            (const std::unordered_map<json::string, json::value>& map)
+            (T&& map)
             {
                 MainParser::field_from_map
-                <json::kind::bool_>(map, std::make_pair("ok", std::ref(ok)));
+                <json::kind::bool_>(std::forward<T>(map), std::make_pair("ok", std::ref(ok)));
 
                 MainParser::field_from_map
-                <json::kind::uint64>(map, std::make_pair("error_code", std::ref(error_code)));
+                <json::kind::uint64>(std::forward<T>(map), std::make_pair("error_code", std::ref(error_code)));
 
                 MainParser::field_from_map
-                <json::kind::string>(map, std::make_pair("description", std::ref(description)));
+                <json::kind::string>(std::forward<T>(map), std::make_pair("description", std::ref(description)));
 
                 MainParser::field_from_map
-                <json::kind::object>(map, std::make_pair("result", std::ref(result)));
+                <json::kind::object>(std::forward<T>(map), std::make_pair("result", std::ref(result)));
             }
 
             

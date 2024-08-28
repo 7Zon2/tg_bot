@@ -204,7 +204,7 @@ namespace Pars
         static json::value
         try_parse_value(T&& val)
         {
-            return try_parse_message(std::forward<T>(val.as_string()));
+            return try_parse_message(std::forward<T>(val).as_string());
         }
 
 
@@ -220,7 +220,7 @@ namespace Pars
 
                 if (val.is_bool())
                 {
-                    op = std::forward<T>(val.as_bool());
+                    op = std::forward<T>(val).as_bool();
                     return op;
                 }
 
@@ -232,7 +232,7 @@ namespace Pars
 
                 if(val.is_double())
                 {
-                    op = std::forward<T>(val.as_double());
+                    op = std::forward<T>(val).as_double();
                     return op;
                 } 
 
@@ -244,7 +244,7 @@ namespace Pars
 
                 if(val.is_uint64())
                 {
-                    op = std::forward<T>(val.as_uint64());
+                    op = std::forward<T>(val).as_uint64();
                     return op;
                 }
 
@@ -256,7 +256,7 @@ namespace Pars
 
                 if(val.is_int64())
                 {
-                    op = std::forward<T>(val.as_int64());
+                    op = std::forward<T>(val).as_int64();
                     return op;
                 }
 
@@ -268,7 +268,7 @@ namespace Pars
 
                 if(val.is_string())
                 {
-                    op = std::forward<T>(val.as_string());
+                    op = std::forward<T>(val).as_string();
                     return op;
                 }
 
@@ -280,7 +280,7 @@ namespace Pars
 
                 if(val.is_object())
                 {
-                    op = std::forward<T>(val.as_object());
+                    op = std::forward<T>(val).as_object();
                     return op;
                 }
 
@@ -292,7 +292,7 @@ namespace Pars
 
                 if(val.is_array())
                 {
-                    op = std::forward<T>(val.as_array());
+                    op = std::forward<T>(val).as_array();
                     return op;
                 }
 
@@ -358,21 +358,21 @@ namespace Pars
             json::kind t = it->kind();
             switch(t)
             {
-                case json::kind::array   : {(t == pair.second)  ? opt =  std::forward<T>(it->as_array())   : opt = std::nullopt; break;}
+                case json::kind::array   : {(t == pair.second)  ? opt =  std::forward<T>(*it).as_array()   : opt = std::nullopt; break;}
 
-                case json::kind::bool_   : {(t == pair.second)  ? opt =  std::forward<T>(it->as_bool())    : opt = std::nullopt; break;}
+                case json::kind::bool_   : {(t == pair.second)  ? opt =  std::forward<T>(*it).as_bool()    : opt = std::nullopt; break;}
 
-                case json::kind::double_ : {(t == pair.second)  ? opt =  std::forward<T>(it->as_double())  : opt = std::nullopt; break;}
+                case json::kind::double_ : {(t == pair.second)  ? opt =  std::forward<T>(*it).as_double()  : opt = std::nullopt; break;}
 
-                case json::kind::int64   : {(t == pair.second)  ? opt =  std::forward<T>(it->as_int64())   : opt = std::nullopt; break;}
+                case json::kind::int64   : {(t == pair.second)  ? opt =  std::forward<T>(*it).as_int64()   : opt = std::nullopt; break;}
 
                 case json::kind::null    : {(t == pair.second)  ? opt =  nullptr          : opt = std::nullopt; break;}
 
-                case json::kind::object  : {(t == pair.second)  ? opt =  std::forward<T>(it->as_object())  : opt = std::nullopt; break;}
+                case json::kind::object  : {(t == pair.second)  ? opt =  std::forward<T>(*it).as_object()  : opt = std::nullopt; break;}
 
-                case json::kind::string  : {(t == pair.second)  ? opt =  std::forward<T>(it->as_string())  : opt = std::nullopt; break;}
+                case json::kind::string  : {(t == pair.second)  ? opt =  std::forward<T>(*it).as_string()  : opt = std::nullopt; break;}
 
-                case json::kind::uint64  : {(t == pair.second)  ? opt =  std::forward<T>(it->as_uint64())  : opt = std::nullopt; break;}
+                case json::kind::uint64  : {(t == pair.second)  ? opt =  std::forward<T>(*it).as_uint64()  : opt = std::nullopt; break;}
 
                 default:
                     break;

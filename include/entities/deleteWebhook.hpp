@@ -18,30 +18,32 @@ namespace Pars
             :drop_pending_updates(drop_pending_updates){}
 
 
-
+            template<as_json_value T>
             [[nodiscard]]
             static 
-            std::optional<std::unordered_map<json::string, json::value>> 
-            requested_fields(const json::value& val)
+            opt_fields_map 
+            requested_fields(T&& val)
             {
-               return TelegramResponse::verify_fields(val);
+               return TelegramResponse::verify_fields(std::forward<T>(val));
             }
 
 
+            template<as_json_value T>
             [[nodiscard]]
             static 
             std::unordered_map<json::string, json::value>
-            optional_fields(const json::value& val)
+            optional_fields(T&& val)
             {
                 return {};
             }
 
 
+            template<is_fields_map T>
             void fields_from_map
-            (const std::unordered_map<json::string, json::value>& map)
+            (T&& map)
             {
                 MainParser::field_from_map
-                <json::kind::bool_>(map, std::make_pair("drop_pending_updates", std::ref(drop_pending_updates)));
+                <json::kind::bool_>(std::forward<T>(map), std::make_pair("drop_pending_updates", std::ref(drop_pending_updates)));
             }
 
 

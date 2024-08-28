@@ -67,23 +67,25 @@ namespace Pars
             }
 
 
+            template<as_json_value T>
             [[nodiscard]]
             static 
-            std::optional<std::unordered_map<json::string, json::value>>
-            requested_fields(const json::value& val)
+            opt_fields_map
+            requested_fields(T&& val)
             {
                 return std::unordered_map<json::string, json::value>{};
             }
 
 
+            template<as_json_value T>
             [[nodiscard]]
             static
-            std::unordered_map<json::string, json::value>
-            optional_fields(const json::value& val)
+            fields_map
+            optional_fields(T&& val)
             {
                 return MainParser::mapped_pointers_validation
                 (
-                    val,
+                    std::forward<T>(val),
                     std::make_pair(JS_POINTER(getupdates, offset), json::kind::int64),
                     std::make_pair(JS_POINTER(getupdates, limit), json::kind::int64),
                     std::make_pair(JS_POINTER(getupdates, timeout), json::kind::int64),

@@ -46,14 +46,16 @@ namespace Pars
 
             public:
 
+
+            template<as_json_value T>
             [[nodiscard]]
             static
-            std::optional<std::unordered_map<json::string, json::value>> 
-            requested_fields(const json::value& val) 
+            opt_fields_map
+            requested_fields(T&& val) 
             {
                 const size_t sz = 1;
 
-                auto opt = MainParser::check_pointer_validation(val, std::make_pair("/setwebhook", json::kind::object));
+                auto opt = MainParser::check_pointer_validation(std::forward<T>(val), std::make_pair("/setwebhook", json::kind::object));
                 if(opt.has_value() == false)
                 {
                     return std::nullopt;
@@ -74,14 +76,15 @@ namespace Pars
             }
 
 
+            template<as_json_value T>
             [[nodiscard]]
             static
-            std::unordered_map<json::string, json::value>
-            optional_fields(const json::value& val)
+            fields_map
+            optional_fields(T&& val)
             {
                 auto map = MainParser::mapped_pointers_validation
                 (
-                    val,
+                    std::forward<T>(val),
                     std::make_pair("/setwebhook/certificate", json::kind::string),
                     std::make_pair("/setwebhook/ip_address", json::kind::string),
                     std::make_pair("/setwebhook/max_connections", json::kind::int64),
@@ -94,30 +97,31 @@ namespace Pars
             } 
 
 
+            template<is_fields_map T>
             void 
             fields_from_map
-            (const std::unordered_map<json::string, json::value>& map)
+            (T&& map)
             {
                 MainParser::field_from_map
-                <json::kind::string>(map, std::make_pair("url", std::ref(url)));
+                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(url));
 
                 MainParser::field_from_map
-                <json::kind::string>(map, std::make_pair("certificate", std::ref(certificate)));
+                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(certificate));
 
                 MainParser::field_from_map
-                <json::kind::string>(map, std::make_pair("ip_address", std::ref(ip_address)));
+                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(ip_address));
 
                 MainParser::field_from_map
-                <json::kind::int64>(map, std::make_pair("max_connections", std::ref(max_connections)));
+                <json::kind::int64>(std::forward<T>(map), MAKE_PAIR(max_connections));
 
                 MainParser::field_from_map
-                <json::kind::array>(map, std::make_pair("allowed_updates", std::ref(allowed_updates)));
+                <json::kind::array>(std::forward<T>(map), MAKE_PAIR(allowed_updates));
 
                 MainParser::field_from_map
-                <json::kind::bool_>(map, std::make_pair("drop_pending_updates", std::ref(drop_pending_updates)));
+                <json::kind::bool_>(std::forward<T>(map), MAKE_PAIR(drop_pending_updates));
 
                 MainParser::field_from_map
-                <json::kind::string>(map, std::make_pair("secret_token", std::ref(secret_token)));
+                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(secret_token));
             }
 
 

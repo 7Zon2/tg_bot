@@ -25,10 +25,11 @@ namespace Pars
             public:
 
 
+            template<as_json_value T>
             [[nodiscard]]
             static 
-            std::optional<std::unordered_map<json::string, json::value>>
-            requested_fields(const json::value& val, json::string_view method)
+            opt_fields_map
+            requested_fields(T&& val, json::string_view method)
             {
                 const size_t sz = 2;
 
@@ -44,7 +45,7 @@ namespace Pars
 
                 auto map =  MainParser::mapped_pointers_validation
                 (
-                    val,
+                    std::forward<T>(val),
                     std::make_pair(type_, json::kind::string),
                     std::make_pair(date_, json::kind::uint64)
                 );
@@ -58,9 +59,10 @@ namespace Pars
             }
 
 
+            template<as_json_value T>
             static
-            std::unordered_map<json::string, json::value>
-            optional_fields(const json::value& val)
+            fields_map
+            optional_fields(T&& val)
             {
                 return {};
             }
@@ -142,11 +144,12 @@ namespace Pars
             }
 
 
+            template<as_json_value T>
             static
-            std::unordered_map<json::string, json::value>
-            optional_fields(const json::value& val)
+            fields_map
+            optional_fields(T&& val)
             {
-                return MessageOrigin::optional_fields(val);
+                return MessageOrigin::optional_fields(std::forward<T>(val));
             }
 
 
@@ -298,12 +301,13 @@ namespace Pars
             public:
 
 
+            template<as_json_value T>
             [[nodiscard]]
             static 
-            std::optional<std::unordered_map<json::string, json::value>>
-            requested_fields(const json::value& val)
+            opt_fields_map
+            requested_fields(T&& val)
             {
-                auto map = MessageOrigin::requested_fields(val, FIELD_NAME(MessageOriginHiddenUser));
+                auto map = MessageOrigin::requested_fields(std::forward<T>(val), FIELD_NAME(MessageOriginHiddenUser));
                 if(map.has_value() == false)
                 {
                     return map;
@@ -311,7 +315,7 @@ namespace Pars
 
                 auto map2 = MainParser::mapped_pointers_validation
                 (
-                    val,
+                    std::forward<T>(val),
                     std::make_pair(JS_POINTER(MessageOriginChat, sender_chat), json::kind::object)
                 );
 
@@ -328,14 +332,16 @@ namespace Pars
                 return std::move(map_);
             }
 
+
+            template<as_json_value T>
             [[nodiscard]]
             static
-            std::unordered_map<json::string, json::value>
-            optional_fields(const json::value& val)
+            fields_map
+            optional_fields(T&& val)
             {
                 return MainParser::mapped_pointers_validation
                 (
-                    val,
+                    std::forward<T>(val),
                     std::make_pair(JS_POINTER(messageoriginchat, author_signature), json::kind::string)
                 );
             }
