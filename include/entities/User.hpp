@@ -24,6 +24,9 @@ namespace Pars
             optbool supports_inline_queries      = {};
             optbool can_connect_to_business      = {};
 
+            static inline size_t req_fields  = 3;
+            static inline size_t opt_fields  = 9; 
+
             public:
 
             User(){}

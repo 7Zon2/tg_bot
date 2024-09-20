@@ -2,30 +2,60 @@
 #include "json_head.hpp"
 #include <optional>
 #include "entities/concept_entities.hpp"
+#include <boost/algorithm/string.hpp>
+
+template<typename T, typename U>
+constexpr auto&& forward_like(U&& u) noexcept
+{
+    constexpr bool is_const = std::is_const_v<std::remove_reference_t<T>>;
+    if constexpr (std::is_lvalue_reference_v<T&&>)
+    {
+        if constexpr (is_const)
+            return std::as_const(u);
+        else
+            return static_cast<U&>(u);
+    }
+    else
+    {
+        if constexpr (is_const)
+            return std::move(std::as_const(u));
+        else
+            return std::move(u);
+    }
+}
+
 
 namespace Pars
 {
     namespace TG
-    {
-        using optobj  = std::optional<json::object>;
-        using optstrw = std::optional<json::string_view>;
-        using optbool = std::optional<bool>;
-        using optstr  = std::optional<json::string>;
-        using optint  = std::optional<int64_t>;
-        using optuint = std::optional<uint64_t>;
-        using op      = std::pair<json::string,std::optional<json::value>>;
-        using p       = std::pair<json::string,json::value>;
+    {   
+        using optarray = std::optional<json::array>;
+        using optobj   = std::optional<json::object>;
+        using optstrw  = std::optional<json::string_view>;
+        using optbool  = std::optional<bool>;
+        using optstr   = std::optional<json::string>;
+        using optint   = std::optional<int64_t>;
+        using optuint  = std::optional<uint64_t>;
+        using op       = std::pair<json::string,std::optional<json::value>>;
+        using p        = std::pair<json::string,json::value>;
 
 
-        #define FIELD_NAME(field)  #field
+        #define FIELD_NAME(field)  json::string{boost::algorithm::to_lower(json::string_view{#field})}
 
-        #define JS_POINTER(method, field) "/"#method"/"#field
+        #define JS_POINTER(method, field) json::string{boost::algorithm::to_lower(json::string_view{"/"#method"/"#field})}
 
         #define MAKE_PAIR(field) std::make_pair(FIELD_NAME(field), std::ref(field))
 
         #define MAKE_OP(field)  op{FIELD_NAME(field), field}
 
         #define PAIR(field)     p{FIELD_NAME(field), field}
+
+        #define URL_USER_INFO(field, value) json::string{"@"#field":" value}
+
+        #define URL_FIELD(field, value)     json::string{#field"=" value}
+
+        #define URL_REQUEST(field) json::string{"/"#field"?"}
+
 
         struct TelegramRequestes : MainParser
         {
@@ -176,7 +206,7 @@ namespace Pars
             )
             {
                 auto ob = MessageOrigin(type, date).as_object();
-                auto send_ob = sender_chat.fields_to_value().as_object();
+                auto send_ob = std::forward_like<T>(sender_chat.fields_to_value().as_object());
 
                 auto b = std::make_move_iterator(send_ob.begin());
                 auto e = std::make_move_iterator(send_ob.end());
@@ -233,7 +263,7 @@ namespace Pars
                 bool ok,
                 optint error_code,
                 optstrw description,
-                optobj result
+                optarray result
             )
             {
                 json::object ob(ptr_);
@@ -243,7 +273,7 @@ namespace Pars
                 ob2 = parse_OptPairs_as_obj
                 (
                     MAKE_OP(error_code),
-                    MAKE_OP(description)
+                    MAKE_OP(std::move(description))
                 );
 
                 auto b = std::make_move_iterator(ob2.begin());
@@ -252,9 +282,8 @@ namespace Pars
 
                 if (result.has_value())
                 {
-                    auto beg = result.value().begin();
-                    auto end = result.value().end();
-                    ob.insert(beg, end);
+                    json::value val_arr{std::move(result.value())};
+                    ob.emplace("result", std::move(val_arr));
                 }
                 return ob;
             }
@@ -413,6 +442,75 @@ namespace Pars
                 ob[FIELD_NAME(user)] = { std::move(ob_1) };
                 return ob;
             }
+
+
+            [[nodiscard]]
+            static json::value
+            forwardMessage
+            (
+                json::string_view chat_id,
+                json::string_view from_chat_id,
+                int message_id,
+                optint message_thread_id,
+                optbool disable_notification,
+                optbool protect
+            )
+            {
+                json::object ob{ptr_};
+                json::object ob_1(ptr_);
+
+                ob_1 =  parse_ObjPairs_as_obj
+                    (
+                        PAIR(chat_id),
+                        PAIR(from_chat_id),
+                        PAIR(message_id)
+                    );
+
+                json::object ob_2{ptr_};
+                ob_2 = parse_OptPairs_as_obj
+                      (
+                        MAKE_OP(message_thread_id),
+                        MAKE_OP(disable_notification),
+                        MAKE_OP(protect)
+                      );
+
+                
+
+                auto b = std::make_move_iterator(ob_2.begin());
+                auto e = std::make_move_iterator(ob_2.end());
+                ob_1.insert(b, e);
+
+                ob[FIELD_NAME(forwardMessage)] = { std::move(ob_1) };
+                return ob;
+            }
+
+
+            [[nodiscard]]
+            json::value
+            linkPreviewOptions
+            (
+                optbool is_disabled = {},
+                optstrw url = {},
+                optbool prefer_small_media = {},
+                optbool prefer_large_media = {},
+                optbool show_above_text = {}
+            )
+            {
+                json::object ob{ptr_};
+                ob = parse_OptPairs_as_obj
+                    (
+                        MAKE_OP(is_disabled),
+                        MAKE_OP(url),
+                        MAKE_OP(prefer_small_media),
+                        MAKE_OP(prefer_large_media),
+                        MAKE_OP(show_above_text)
+                    );
+
+               json::object ob_2(ptr_);
+               ob_2[FIELD_NAME(linkPreviewOptions)] = std::move(ob);
+               return ob_2;
+            }
+
         };
     };//namespace TG
 

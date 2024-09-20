@@ -20,6 +20,10 @@ namespace Pars
             optint max_connections                         = {};
             std::optional<std::vector<json::string>> allowed_updates = {}; 
 
+
+            static inline size_t req_fields = 3;
+            static inline size_t opt_fields = 6;
+
             public:
 
             WebhookInfo() {}

@@ -11,14 +11,17 @@ namespace Pars
             using TelegramEntities::operator=;
 
             json::string type;
-            size_t date;
+            size_t date_;
+
+            static inline size_t req_fields = 2;
+            static inline size_t opt_fields = 0;
 
             public:
 
             MessageOrigin(){}
 
             MessageOrigin(json::string_view type, const size_t date)
-                : type(type), date(date){}
+                : type(type), date_(date){}
 
             virtual ~MessageOrigin() = 0;
 
@@ -31,8 +34,6 @@ namespace Pars
             opt_fields_map
             requested_fields(T&& val, json::string_view method)
             {
-                const size_t sz = 2;
-
                 json::string meth{"/"};
                 meth+=method;
                 meth+="/";
@@ -50,7 +51,7 @@ namespace Pars
                     std::make_pair(date_, json::kind::uint64)
                 );
 
-                if (sz!=map.size())
+                if (req_fields!=map.size())
                 {
                     return std::nullopt;
                 }
@@ -77,7 +78,7 @@ namespace Pars
                 <json::kind::string>(std::forward<T>(map), MAKE_PAIR(type));
 
                 MainParser::field_from_map
-                <json::kind::uint64>(std::forward<T>(map), MAKE_PAIR(date));
+                <json::kind::uint64>(std::forward<T>(map), std::make_pair("date",std::ref(date_)));
             }
         };
 
@@ -90,6 +91,9 @@ namespace Pars
             using MessageOrigin::operator=;
 
             User sender_user;
+
+            static inline size_t req_fields = 3;
+            static inline size_t opt_fields = 0;
 
             public:
 
@@ -172,7 +176,7 @@ namespace Pars
                 return TelegramRequestes::MessageOriginUser
                 (
                     type,
-                    date,
+                    date_,
                     sender_user
                 );
             }
@@ -184,6 +188,9 @@ namespace Pars
             using MessageOrigin::operator=;
 
             json::string sender_user_name;
+
+            static inline size_t req_fields = 3;
+            static inline size_t opt_fields = 0;
 
             public:
 
@@ -264,7 +271,7 @@ namespace Pars
                 return TelegramRequestes::MessageOriginHiddenUser
                 (
                     type,
-                    date,
+                    date_,
                     sender_user_name
                 );
             }
@@ -277,6 +284,9 @@ namespace Pars
 
             TG::chat sender_chat;
             optstr  author_signature = {};
+
+            static inline size_t req_fields = 3;
+            static inline size_t opt_fields = 1;
 
             public:
 
@@ -369,7 +379,7 @@ namespace Pars
                 return TelegramRequestes::MessageOriginChat
                 (
                     type,
-                    date,
+                    date_,
                     sender_chat,
                     author_signature
                 );

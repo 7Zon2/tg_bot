@@ -22,8 +22,14 @@ namespace Pars
             optint  sender_boost_count;
             optuser sender_business_bot;
             optstr  business_connection_id;
-            //MessageOrigin
+            std::optional<std::reference_wrapper<MessageOrigin>> forward_origin;
+            optbool is_topic_message;
+            optbool is_automatic_forward;
+            std::optional<std::reference_wrapper<message>> reply_to_message;
              
+
+             static inline size_t req_fields = 3;
+             static inline size_t opt_fields = 10;
         };
     }
 }

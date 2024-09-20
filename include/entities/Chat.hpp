@@ -17,6 +17,9 @@ namespace Pars
             optstr last_name;
             optbool is_forum;
 
+            static inline size_t req_fields = 2;
+            static inline size_t opt_fields = 5;
+
             public:
 
             chat(){}
@@ -130,7 +133,7 @@ namespace Pars
             void 
             fields_from_map
             (T&&  map)
-            {
+            {   
                 MainParser::field_from_map
                 <json::kind::uint64>(std::forward<T>(map), MAKE_PAIR(id));
 

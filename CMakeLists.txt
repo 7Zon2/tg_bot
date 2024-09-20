@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.20)
 
 project(http)
 
-set(BOOST_ROOT  /home/zon/my_libs/boost_1_86_0)
+set(BOOST_ROOT /home/zon/my_libs/boost_1_86_0)
 
 find_package(Boost REQUIRED)
 

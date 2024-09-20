@@ -6,12 +6,16 @@ namespace Pars
 {
     namespace TG
     {
-        class User;
-        class chat;
-        class message;
-        class deletewebhook;
-        class SetWebHook;
-        class MessageOrigin;
+        struct User;
+        struct chat;
+        struct message;
+        struct deletewebhook;
+        struct SetWebHook;
+        struct MessageOrigin;
+        struct TelegramResponse;
+
+        template<typename T>
+        concept is_TelegramResponse = std::is_same_v<std::remove_reference_t<T>, TelegramResponse>;
 
         template<typename T>
         concept is_chat   = std::is_same_v<std::remove_reference_t<T>, chat>;

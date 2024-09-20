@@ -12,7 +12,12 @@ namespace Pars
             optint timeout{};
             std::optional<std::vector<json::string>> allowed_updates{};
 
+            static const constexpr size_t req_fields = 0;
+            static const constexpr size_t opt_fields = 4;
+
             public:
+
+            getUpdates(){}
 
             getUpdates
             (
@@ -25,7 +30,7 @@ namespace Pars
              offset(offset),
              limit(limit),
              timeout(timeout),
-             allowed_updates(allowed_updates)
+             allowed_updates(std::move(allowed_updates))
             {
 
             }

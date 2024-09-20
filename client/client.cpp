@@ -231,9 +231,45 @@ class session : public std::enable_shared_from_this<session>
 
     public:
 
-    template<typename T>
-    requires (std::is_base_of_v<Pars::TG::TelegramEntities<T>,T>)
-    std::future<T> start_request_response()
+    template<Pars::TG::is_TelegramResponse T>
+    void parse_result(T&& response)
+    {
+        if (! response.ok)
+        {
+            return;
+        }
+
+        Pars::TG::TelegramResponse res = std::forward<T>(response);
+
+
+        try
+        {
+            if (res.description.has_value())
+            {
+                json::string_view vw = res.description.value();
+                print("description:\n", vw);
+            }
+
+            if (! res.result.has_value())
+            {
+                print("result array is empty\n");
+                return;
+            }
+
+            json::array& arr = res.result.value();
+            //size_t update_id = res.result[0];
+            //Pars::TG::message mes = forward_like<T>(arr[1]);
+        }
+        catch(const std::exception& ex)
+        {
+            print(ex.what());
+            return;
+        }
+    }
+
+    template<typename Res>
+    requires (std::is_base_of_v<Pars::TG::TelegramEntities<Res>,Res>)
+    std::future<Res> start_request_response()
     {
         co_await std::async(std::launch::async, [this](){http::write(stream_, req_);});
         co_await std::async(std::launch::async, [this](){res_.clear(), http::read(stream_, buffer_, res_);});
@@ -252,12 +288,12 @@ class session : public std::enable_shared_from_this<session>
             std::launch::async,
             [&var, this]()
             {
-                auto opt_map = T::verify_fields(var);
+                auto opt_map = Res::verify_fields(var);
                 if (! opt_map.has_value())
                     throw std::runtime_error{"Failed verify_fields\n"};
                 else
                 {
-                    T obj{};
+                    Res obj{};
                     obj.fields_from_map(opt_map.value());
                     return obj;
                 }
@@ -271,14 +307,14 @@ class session : public std::enable_shared_from_this<session>
     template<typename T>
     requires (std::is_same_v<std::remove_reference_t<T>, Pars::TG::getUpdates>)
     [[nodiscard]]
-    Pars::TG:: getUpdates 
+    Pars::TG::TelegramResponse 
     start_getUpdates(T&& upd)
     {
         using namespace Pars::TG;
         try
         {
             GetUpdatesRequest(upd);
-            getUpdates obj = start_request_response<getUpdates>().get();
+            TelegramResponse obj = start_request_response<TelegramResponse>().get();
             req_.clear();
             return obj;
         }
@@ -483,6 +519,7 @@ class session : public std::enable_shared_from_this<session>
         try
         {
            auto resp = start_getUpdates(Pars::TG::getUpdates{});
+           parse_result(std::move(resp));
         }
         catch(const std::exception& e)
         {
@@ -589,20 +626,15 @@ int main(int argc, char** argv)
     try
     {
          
-        // The io_context is required for all I/O
         net::io_context ioc;
 
-        // The SSL context is required, and holds certificates
         ssl::context ctx{ssl::context::tlsv13_client};
         
         ctx.set_default_verify_paths();
 
-        // Verify the remote server's certificate
         ctx.set_verify_mode(ssl::verify_peer);
 
-        // Launch the asynchronous operation
-        // The session is constructed with a strand to
-        // ensure that handlers do not execute concurrently.
+
         std::make_shared<session>
         (
             host,
@@ -614,8 +646,6 @@ int main(int argc, char** argv)
 
         )->run();
 
-        // Run the I/O service. The call will return when
-        // the get operation is complete.
         ioc.run();
     }
     catch(const std::exception& e)

@@ -12,7 +12,10 @@ namespace Pars
             bool ok;
             optint error_code;
             optstr description;
-            optobj result; 
+            optarray result; 
+
+            static inline size_t req_fields = 1;
+            static inline size_t opt_fields = 3;
 
             public:
 
@@ -23,13 +26,13 @@ namespace Pars
                 bool ok,
                 optint error_code,
                 optstrw description,
-                optobj result
+                optarray result
             )
             :
                 ok(ok),
                 error_code(error_code),
-                description(description),
-                result(result)
+                description(std::move(description)),
+                result(std::move(result))
                 {
 
                 }
@@ -42,15 +45,13 @@ namespace Pars
             opt_fields_map 
             requested_fields(T&& val)
             {
-                const size_t sz = 1;
-
                 auto map = MainParser::mapped_pointers_validation
                 (
                     std::forward<T>(val),
                     std::make_pair("/ok", json::kind::bool_)
                 );
 
-                if(map.size() != sz)
+                if(map.size() != req_fields)
                     return std::nullopt;
                 else
                     return map;                
@@ -68,7 +69,7 @@ namespace Pars
                     std::forward<T>(val), 
                     std::make_pair("/error_code", json::kind::int64),
                     std::make_pair("/description", json::kind::string),
-                    std::make_pair("/result", json::kind::object)
+                    std::make_pair("/result", json::kind::array)
                 );
                 return map;
             }
@@ -88,7 +89,7 @@ namespace Pars
                 <json::kind::string>(std::forward<T>(map), std::make_pair("description", std::ref(description)));
 
                 MainParser::field_from_map
-                <json::kind::object>(std::forward<T>(map), std::make_pair("result", std::ref(result)));
+                <json::kind::array>(std::forward<T>(map), std::make_pair("result", std::ref(result)));
             }
 
             

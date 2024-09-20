@@ -11,6 +11,9 @@ namespace Pars
         {
             public:
 
+            static inline size_t req_fields = Derived::req_fields;
+            static inline size_t opt_fields = Derived::opt_fields;
+
             template<is_all_json_entities T>
             void operator=(T&& val)
             {

@@ -15,21 +15,21 @@ namespace Pars
 {   
 
     template<typename T>
-    concept as_json_value = std::is_same_v<json::value, std::decay_t<T>>;
+    concept as_json_value = std::is_same_v<json::value, std::remove_reference_t<T>>;
 
     template<typename T>
-    concept as_json_array = std::is_same_v<json::array, std::decay_t<T>>;
+    concept as_json_array = std::is_same_v<json::array, std::remove_reference_t<T>>;
 
     template<typename T>
-    concept as_json_object  = std::is_same_v<json::object, std::decay_t<T>>;
+    concept as_json_object  = std::is_same_v<json::object, std::remove_reference_t<T>>;
 
     template<typename T>
-    concept as_json_string =std::is_same_v<json::string, std::decay_t<T>>;
+    concept as_json_string =std::is_same_v<json::string, std::remove_reference_t<T>>;
 
     template<typename T>
     concept as_json_view = requires 
     {
-        requires std::is_convertible_v<std::decay_t<T>, json::string_view>; 
+        requires std::is_convertible_v<std::remove_reference_t<T>, json::string_view>; 
     };
 
     template<typename T>
@@ -88,7 +88,7 @@ namespace Pars
     template<typename T>
     concept as_string_opt  = requires (T&& arg)
     {
-        requires std::is_same_v<std::optional<std::decay_t<decltype(arg.value())>>, std::decay_t<T>>;
+        requires std::is_same_v<std::optional<std::remove_reference_t<decltype(arg.value())>>, std::remove_reference_t<T>>;
         std::to_string(arg.value());
     };
 

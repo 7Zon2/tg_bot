@@ -12,6 +12,11 @@ namespace Pars
 
             bool drop_pending_updates;
 
+            static inline size_t req_fields = 1;
+            static inline size_t opt_fields = 0;
+
+            public:
+
             deletewebhook(){}
 
             deletewebhook(bool drop_pending_updates)
