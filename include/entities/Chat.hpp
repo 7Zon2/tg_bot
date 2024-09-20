@@ -52,25 +52,25 @@ namespace Pars
             json::string
             fields_to_url() 
             {
-                json::string id_{FIELD_NAME(id)"="};
+                json::string id_{FIELD_EQUAL(id)};
                 id_ += std::to_string(id);
 
-                json::string type_{FIELD_NAME(type)"="};
+                json::string type_{FIELD_EQUAL(type)};
                 type_+=type;
 
-                json::string title_{FIELD_NAME(title)"="};
+                json::string title_{FIELD_EQUAL(title)};
                 title_ += MainParser::parse_opt_as_string(title);
 
-                json::string username_{FIELD_NAME(username_), "="};
+                json::string username_{FIELD_EQUAL(username_)};
                 username_ = MainParser::parse_opt_as_string(username);
 
-                json::string first_name_{FIELD_NAME(first_name),"="};
+                json::string first_name_{FIELD_EQUAL(first_name)};
                 first_name_ += MainParser::parse_opt_as_string(first_name);
 
-                json::string last_name_{FIELD_NAME(last_name),"="};
+                json::string last_name_{FIELD_EQUAL(last_name)};
                 last_name_ += MainParser::parse_opt_as_string(last_name);
 
-                json::string is_forum_{FIELD_NAME(is_forum),"="};
+                json::string is_forum_{FIELD_EQUAL(is_forum)};
                 is_forum_ += MainParser::parse_opt_as_string(is_forum);
 
                 json::string req{"/chat?"};

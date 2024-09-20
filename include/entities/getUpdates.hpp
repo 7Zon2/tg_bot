@@ -7,6 +7,8 @@ namespace Pars
     {
         struct getUpdates : TelegramEntities<getUpdates>
         {
+            using TelegramEntities::operator=;
+
             optint offset{};
             optint limit{};
             optint timeout{};
@@ -16,8 +18,6 @@ namespace Pars
             static const constexpr size_t opt_fields = 4;
 
             public:
-
-            getUpdates(){}
 
             getUpdates
             (
@@ -41,13 +41,13 @@ namespace Pars
             json::string
             fields_to_url() 
             {
-                json::string off{FIELD_NAME(offset)"="};
+                json::string off{FIELD_EQUAL(offset)};
                 off += MainParser::parse_opt_as_string(offset);
 
-                json::string lim{FIELD_NAME(limit)"="};
+                json::string lim{FIELD_EQUAL(limit)};
                 lim += MainParser::parse_opt_as_string(limit);
 
-                json::string time{FIELD_NAME(timeout)"="};
+                json::string time{FIELD_EQUAL(timeout)};
                 time += MainParser::parse_opt_as_string(timeout);
 
                 json::string updates;
@@ -55,7 +55,7 @@ namespace Pars
                 {
                     for(auto&& i : allowed_updates.value())
                     {
-                        updates += FIELD_NAME(allowed_updates)"=";
+                        updates += FIELD_EQUAL(allowed_updates);
                         updates += i;
                         updates += "&";
                     }

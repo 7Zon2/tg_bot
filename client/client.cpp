@@ -286,7 +286,7 @@ class session : public std::enable_shared_from_this<session>
         auto obj = co_await std::async
         (
             std::launch::async,
-            [&var, this]()
+            [&var]()
             {
                 auto opt_map = Res::verify_fields(var);
                 if (! opt_map.has_value())

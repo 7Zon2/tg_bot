@@ -8,6 +8,9 @@ namespace Pars
     {
         struct LinkPreviewOptions : TelegramEntities<LinkPreviewOptions>
         {
+            
+            using TelegramEntities::operator=;
+
             optbool is_disabled;
             optstr url;
             optbool prefer_small_media;

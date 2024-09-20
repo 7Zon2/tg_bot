@@ -6,9 +6,11 @@ namespace Pars
 {
     namespace TG
     {
-        struct MessageOrigin : TelegramEntities<MessageOrigin>
+        template<typename Derived>
+        struct MessageOrigin : TelegramEntities<Derived>
         {
-            using TelegramEntities::operator=;
+
+            using TelegramEntities<Derived>::operator=;
 
             json::string type;
             size_t date_;
@@ -82,10 +84,11 @@ namespace Pars
             }
         };
 
-        MessageOrigin::~MessageOrigin(){}
+        template<typename T>
+        MessageOrigin<T>::~MessageOrigin(){}
 
 
-        struct MessageOriginUser : MessageOrigin
+        struct MessageOriginUser : MessageOrigin<MessageOriginUser>
         {
 
             using MessageOrigin::operator=;
@@ -183,7 +186,7 @@ namespace Pars
         };
 
 
-        struct MessageOriginHiddenUser : MessageOrigin
+        struct MessageOriginHiddenUser : MessageOrigin<MessageOriginHiddenUser>
         {
             using MessageOrigin::operator=;
 
@@ -278,7 +281,7 @@ namespace Pars
         };
 
 
-        struct MessageOriginChat : MessageOrigin
+        struct MessageOriginChat : MessageOrigin<MessageOriginChat>
         {
             using MessageOrigin::operator=;
 

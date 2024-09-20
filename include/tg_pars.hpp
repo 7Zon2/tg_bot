@@ -29,20 +29,25 @@ namespace Pars
 {
     namespace TG
     {   
-        using optarray = std::optional<json::array>;
-        using optobj   = std::optional<json::object>;
-        using optstrw  = std::optional<json::string_view>;
-        using optbool  = std::optional<bool>;
-        using optstr   = std::optional<json::string>;
-        using optint   = std::optional<int64_t>;
-        using optuint  = std::optional<uint64_t>;
-        using op       = std::pair<json::string,std::optional<json::value>>;
-        using p        = std::pair<json::string,json::value>;
+        using optarray  = std::optional<json::array>;
+        using optobj    = std::optional<json::object>;
+        using optstrw   = std::optional<json::string_view>;
+        using optbool   = std::optional<bool>;
+        using optstr    = std::optional<json::string>;
+        using optint    = std::optional<int64_t>;
+        using optuint   = std::optional<uint64_t>;
+        using optdouble = std::optional<double>; 
+        using op        = std::pair<json::string,std::optional<json::value>>;
+        using p         = std::pair<json::string,json::value>;
 
+        
+        #define FIELD_NAME(field)  #field
 
-        #define FIELD_NAME(field)  json::string{boost::algorithm::to_lower(json::string_view{#field})}
+        #define FIELD_TO_LOWER(field) boost::algorithm::to_lower_copy(json::string{FIELD_NAME(field)})
 
-        #define JS_POINTER(method, field) json::string{boost::algorithm::to_lower(json::string_view{"/"#method"/"#field})}
+        #define FIELD_EQUAL(field) FIELD_NAME(field)"="
+
+        #define JS_POINTER(method, field) boost::algorithm::to_lower_copy(json::string{"/"#method"/"#field})
 
         #define MAKE_PAIR(field) std::make_pair(FIELD_NAME(field), std::ref(field))
 
@@ -50,11 +55,11 @@ namespace Pars
 
         #define PAIR(field)     p{FIELD_NAME(field), field}
 
-        #define URL_USER_INFO(field, value) json::string{"@"#field":" value}
+        #define URL_USER_INFO(field, value) "@"#field":" value
 
-        #define URL_FIELD(field, value)     json::string{#field"=" value}
+        #define URL_FIELD(field, value)     #field"=" value
 
-        #define URL_REQUEST(field) json::string{"/"#field"?"}
+        #define URL_REQUEST(field) "/"#field"?"
 
 
         struct TelegramRequestes : MainParser
@@ -70,7 +75,7 @@ namespace Pars
             )
             {
                 json::object ob(ptr_);
-                ob[FIELD_NAME(messageorigin)] = parse_ObjPairs_as_obj(PAIR(type), PAIR(date));
+                ob[FIELD_NAME(messageorigin)] = parse_ObjPairs_as_obj(PAIR(type), PAIR(date)); 
                 return ob;
             }
 
@@ -206,7 +211,7 @@ namespace Pars
             )
             {
                 auto ob = MessageOrigin(type, date).as_object();
-                auto send_ob = std::forward_like<T>(sender_chat.fields_to_value().as_object());
+                auto send_ob = forward_like<T>(sender_chat.fields_to_value().as_object()); 
 
                 auto b = std::make_move_iterator(send_ob.begin());
                 auto e = std::make_move_iterator(send_ob.end());

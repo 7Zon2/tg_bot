@@ -1,6 +1,7 @@
 #pragma once
 #include <iostream>
 #include <boost/json.hpp>
+#include <boost/algorithm/string.hpp>
 #include <optional>
 #include <concepts>
 #include <iterator>
@@ -154,6 +155,20 @@ namespace Pars
         }
 
         public:
+
+        [[nodiscard]]
+        static json::string
+        make_json_pointer
+        (json::string_view method, json::string_view field)
+        {
+            json::string str;
+            str.reserve(method.size() + field.size() + 8);
+            str.append("/");
+            str.append(method);
+            str.append("/");
+            str.append(field);
+            return str;
+        }
 
         template<typename...T>
         requires (std::is_convertible_v<T, json::string>&&...&& true)
@@ -383,12 +398,18 @@ namespace Pars
 
    
 
-        template<json::kind Kind, typename T, is_fields_map MAP>
+        template
+        <
+            json::kind Kind, 
+            typename T, 
+            is_fields_map MAP, 
+            typename U = json::string_view
+        >
         static bool 
         field_from_map
         (
             MAP&& map,
-            std::pair<const char*, T>&& field
+            std::pair<U, T>&& field
         )
         {
             auto it = map.find(field.first);
