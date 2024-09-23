@@ -75,7 +75,7 @@ namespace Pars
             )
             {
                 json::object ob(ptr_);
-                ob[FIELD_NAME(messageorigin)] = parse_ObjPairs_as_obj(PAIR(type), PAIR(date)); 
+                ob["messageorigin"] = parse_ObjPairs_as_obj(PAIR(type), PAIR(date)); 
                 return ob;
             }
 
@@ -104,11 +104,11 @@ namespace Pars
                 {
                     for(auto&& i : allowed_updates.value())
                     {
-                        arr.push_back(i);
+                        arr.push_back(std::move(i));
                     }
                 }
 
-                ob.insert_or_assign(FIELD_NAME(allowed_updates), std::move(arr));
+                ob.insert_or_assign(FIELD(allowed_updates), std::move(arr));
 
                 json::object ob2(ptr_);
                 ob2["getupdates"] = std::move(ob);
@@ -146,12 +146,10 @@ namespace Pars
                     MAKE_OP(is_forum)
                 );
 
-                auto b = std::make_move_iterator(ob2.begin());
-                auto e = std::make_move_iterator(ob2.end());
-                ob.insert(b,e);
+                Pars::obj_move(ob2, ob);
 
                 json::object res(ptr_);
-                res[FIELD_NAME(chat)] = std::move(ob);
+                res[FIELD_TO_LOWER(chat)] = std::move(ob);
                 return res;
             }
 
@@ -167,15 +165,12 @@ namespace Pars
             )
             {
                 auto ob  = MessageOrigin(type, date).as_object();
-                auto ob2 = user.fields_to_value().as_object();
+                auto ob2 = forward_like<T>(user.fields_to_value().as_object());
 
-                auto b = std::make_move_iterator(ob2.begin());
-                auto e = std:: make_move_iterator(ob2.end());
-
-                ob.insert(b,e);                                                                 
+                Pars::MainParser::container_move(std::move(ob2), ob);                                                    
 
                 json::object res(ptr_);
-                res[FIELD_NAME(MessageOriginuser)] = std::move(ob);
+                res["messageoriginuser"] = std::move(ob);
 
                 return res;
             }
@@ -191,10 +186,10 @@ namespace Pars
             )
             {
                 auto ob = MessageOrigin(type, date).as_object();
-                ob.emplace(FIELD_NAME(sender_user_name), sender_user_name);
+                ob.emplace(FIELD(sender_user_name), sender_user_name);
 
                 json::object res(ptr_);
-                res[FIELD_NAME(MessageOriginHiddenUser)] = std::move(ob);
+                res["messageoriginhiddenuser"] = std::move(ob);
                 return res;
             }
 
@@ -213,37 +208,35 @@ namespace Pars
                 auto ob = MessageOrigin(type, date).as_object();
                 auto send_ob = forward_like<T>(sender_chat.fields_to_value().as_object()); 
 
-                auto b = std::make_move_iterator(send_ob.begin());
-                auto e = std::make_move_iterator(send_ob.end());
-
-                ob.insert(b,e);
+                Pars::MainParser::container_move(std::move(send_ob), ob)
 
                 if (author_signature.has_value())
-                    ob.emplace(FIELD_NAME(author_signature), author_signature.value());
+                    ob.emplace(FIELD(author_signature), author_signature.value());
 
                 json::object res(ptr_);
-                res[FIELD_NAME(MessageOriginChat)] = std::move(ob); 
+                res["messageoriginchat"] = std::move(ob); 
                 return res;
             }
 
 
+            template<is_chat T>
             [[nodiscard]]
             static json::value
             MessageOriginChannel
             (
                 json::string_view type,
                 size_t date,
-                TG::chat& chat,
+                T&& chat,
                 size_t message_id,
                 optstrw author_signature = {}
 
             )
             {
-                auto ob = MessageOriginChat(type, date, chat, author_signature).as_object();
-                ob.emplace(FIELD_NAME(message_id), message_id);
+                auto ob = MessageOriginChat(type, date, std::forward<T>(chat), author_signature).as_object();
+                ob.emplace("message_id", message_id);
 
                 json::object res(ptr_);
-                res[FIELD_NAME(messageoriginchannel)] = std::move(ob);
+                res["messageoriginchannel"] = std::move(ob);
                 return res;
             }
 
@@ -256,7 +249,7 @@ namespace Pars
             )
             {
                 json::object ob(ptr_);
-                ob[FIELD_NAME(drop_pending_updates)] = drop_pending_updates;
+                ob["drop_pending_updates"] = drop_pending_updates;
                 return ob;
             }
 
@@ -281,14 +274,12 @@ namespace Pars
                     MAKE_OP(std::move(description))
                 );
 
-                auto b = std::make_move_iterator(ob2.begin());
-                auto e = std::make_move_iterator(ob2.end());
-                ob.insert(b, e);
+                Pars::MainParser::container_move(std::move(ob2), ob);
 
                 if (result.has_value())
                 {
                     json::value val_arr{std::move(result.value())};
-                    ob.emplace("result", std::move(val_arr));
+                    ob.emplace(FIELD_NAME(result), std::move(val_arr));
                 }
                 return ob;
             }
@@ -299,12 +290,12 @@ namespace Pars
             setWebhook
             (
                 json::string_view url,
-                optstr certificate = {},
-                optstr ip_address  = {},
+                optstrw certificate = {},
+                optstrw ip_address  = {},
                 optint max_connections = {},
                 std::optional<json::array> allowed_updates = {},
                 optbool drop_pending_updates = {},
-                optstr  secret_token         = {}
+                optstrw  secret_token         = {}
             )
             {
                 json::object ob(ptr_);
@@ -322,16 +313,14 @@ namespace Pars
                         MAKE_OP(certificate),
                         MAKE_OP(ip_address),
                         MAKE_OP(max_connections),
-                        MAKE_OP(allowed_updates),
+                        MAKE_OP(std::move(allowed_updates)),
                         MAKE_OP(drop_pending_updates),
                         MAKE_OP(secret_token)
                     ); 
 
-                auto b = std::make_move_iterator(ob1.begin());
-                auto e = std::make_move_iterator(ob1.end());
-                ob.insert(b, e);
+                Pars::MainParser::container_move(std::move(ob1), ob);
 
-                ob2[FIELD_NAME(setwebhook)] = { std::move(ob) };
+                ob2["setwebhook"] = { std::move(ob) };
                 return ob2;
             }
 
@@ -381,18 +370,14 @@ namespace Pars
                     arr = parse_all_json_as_array(vec.begin(), vec.end());
                 }
 
-                auto b = std::make_move_iterator(ob2.begin());
-                auto e = std::make_move_iterator(ob2.end());
-                ob1.insert(b, e);
-                
+                Pars::MainParser::container_move(std::move(ob2), ob1);
                 ob2.clear();
-                ob2[FIELD_NAME(allowed_updates)] = std::move(arr);
 
-                b = std::make_move_iterator(ob2.begin());
-                e = std::make_move_iterator(ob2.end());
-                ob1.insert(b, e);
+                ob2["allowed_updates"] = std::move(arr);
 
-                ob [FIELD_NAME(get_webhook_request)] = { std::move(ob1) };
+                Pars::obj_move(std::move(ob2), ob1);
+
+                ob ["getwebhookrequest"] = { std::move(ob1) };
                 return ob;
             }
 
@@ -439,12 +424,9 @@ namespace Pars
                             MAKE_OP(can_connect_to_business)    
                         );
 
+                Pars::MainParser::container_move(std::move(ob_2), ob_1);
 
-                auto b = std::make_move_iterator(ob_2.begin());
-                auto e = std::make_move_iterator(ob_2.end());
-                ob_1.insert(b, e);
-
-                ob[FIELD_NAME(user)] = { std::move(ob_1) };
+                ob["user"] = { std::move(ob_1) };
                 return ob;
             }
 
@@ -480,12 +462,9 @@ namespace Pars
                       );
 
                 
+                Pars::MainParser::container_move(std::move(ob_2), ob_1);
 
-                auto b = std::make_move_iterator(ob_2.begin());
-                auto e = std::make_move_iterator(ob_2.end());
-                ob_1.insert(b, e);
-
-                ob[FIELD_NAME(forwardMessage)] = { std::move(ob_1) };
+                ob["forwardmessage"] = { std::move(ob_1) };
                 return ob;
             }
 
@@ -512,8 +491,136 @@ namespace Pars
                     );
 
                json::object ob_2(ptr_);
-               ob_2[FIELD_NAME(linkPreviewOptions)] = std::move(ob);
+               ob_2["linkpreviewoptions"] = std::move(ob);
                return ob_2;
+            }
+
+
+            [[nodiscard]]
+            json::value
+            PhotoSize
+            (
+                json::string_view file_id,
+                json::string_view file_unique_id,
+                double width,
+                double height,
+                optdouble file_size = {}
+            )
+            {
+                json::object ob{ptr_};
+                ob = parse_ObjPairs_as_obj
+                    (
+                        PAIR(file_id),
+                        PAIR(file_unique_id),
+                        PAIR(width),
+                        PAIR(height)
+                    );
+
+                json::object ob2{ptr_};
+                ob2 = parse_OptPairs_as_obj
+                    (
+                        MAKE_OP(file_size)
+                    );
+
+                Pars::MainParser::container_move(std::move(ob2), ob);
+
+                json::object res_(ptr_);
+                res["photosize"] = std::move(ob);
+                return res;
+            }
+
+
+            [[nodiscard]]
+            json::value
+            Animation
+            (
+                json::string_view file_id,
+                json::string_view file_unique_id,
+                double width,
+                double height,
+                double duration,
+                std::optional<PhotoSize> thumbnail = {},
+                optstrw file_name =  {},
+                optstrw mime_type =  {},
+                optdouble file_size = {}
+            )
+            {
+                json::object ob{ptr_};
+                ob = parse_ObjPairs_as_obj
+                    (
+                        PAIR(file_id),
+                        PAIR(file_unique_id),
+                        PAIR(width),
+                        PAIR(height),
+                        PAIR(duration)
+                    );
+
+                json::object ob2(ptr_);
+                ob2 = parse_OptPairs_as_obj
+                    (
+                        MAKE_OP(file_name),
+                        MAKE_OP(mime_type),
+                        MAKE_OP(file_size)
+                    );
+
+                if (thumbnail.has_value())
+                {
+                    json::object ob2(ptr_);
+                    auto && ref_thumbnail = std::move(thumbnail.value());
+                    ob2 = std::move(ref_thumbnail.fields_to_value()).as_object();
+
+                    Pars::obj_move(ob2, ob);
+                }
+
+                Pars::MainParser::container_move(std::move(ob), photo_ob);
+
+                json::object res(ptr_);
+                res["animation"] = std::move(photo_ob);
+                return res;
+            }
+
+
+            
+            [[nodiscard]]
+            json::value
+            Audio
+            (
+                json::string_view file_id,
+                json::string_view file_unique_id,
+                double duration,
+                optstrw performer = {},
+                optstrw title = {},
+                optstrw file_name = {},
+                optstrw mime_type = {},
+                std::optional<PhotoSize> thumbnail = {},
+                optdouble file_size = {}
+
+            )
+            {
+                json::object ob = Animation
+                (
+                    file_id,
+                    file_unique_id,
+                    0,
+                    0,
+                    duration,
+                    thumbnail,
+                    file_name,
+                    mime_type,
+                    file_size
+                );
+
+                json::object ob2(ptr_);
+                ob2 = parse_OptPairs_as_obj
+                    (
+                        MAKE_OP(title),
+                        MAKE_OP(performer)
+                    );
+
+                MainParser::container_move(std::move(ob2), ob);
+                json::object res(ptr_);
+                res["audio"] = std::move(ob);
+                return res;
             }
 
         };

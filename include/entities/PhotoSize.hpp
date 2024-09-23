@@ -103,7 +103,6 @@ namespace Pars
                 MainParser::field_from_map
                 <json::kind::string>(std::forward<T>(map), MAKE_PAIR(file_id));
 
-
                 MainParser::fields_from_map
                 <json::kind::string>(std::forward<T>(map), MAKE_PAIR(file_unique_id));
 
@@ -118,14 +117,15 @@ namespace Pars
             }
 
 
+            template<typename Self>
             [[nodiscard]]
             json::value
-            fields_to_value()
+            fields_to_value(this Self&& self)
             {
-                return TelegramEntities::PhotoSize
+                return TelegramRequestes::PhotoSize
                 (
-                    file_id,
-                    file_unique_id,
+                    forward_like<Self>(file_id),
+                    forward_like<Self>(file_unique_id),
                     width,
                     height,
                     file_size

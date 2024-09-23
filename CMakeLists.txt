@@ -14,7 +14,7 @@ add_library(flags INTERFACE)
 
 include_directories(${Boost_INCLUDE_DIRS})
 
-target_compile_features(flags INTERFACE cxx_std_20)
+target_compile_features(flags INTERFACE cxx_std_23)
 
 target_compile_options(flags INTERFACE -pthread; -Wall; -O0; -g)
 

@@ -28,10 +28,10 @@ namespace Pars
             (
                 const size_t id,
                 json::string_view type,
-                optstr title = {},
-                optstr username = {},
-                optstr first_name = {},
-                optstr last_name  = {},
+                optstrw title = {},
+                optstrw username = {},
+                optstrw first_name = {},
+                optstrw last_name  = {},
                 optbool is_forum  = {}
             )
             :
@@ -157,9 +157,10 @@ namespace Pars
             }
 
 
+            template<typename Self>
             [[nodiscard]]
             json::value
-            fields_to_value()
+            fields_to_value(this Self&& self)
             {
                 return TelegramRequestes::chat
                 (

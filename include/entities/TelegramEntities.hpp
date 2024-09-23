@@ -21,7 +21,7 @@ namespace Pars
                 auto map = verify_fields(val_);
                 if (map.has_value())
                 {
-                    fields_from_map(map.value());
+                    fields_from_map(std::move(map.value()));
                 }
             }
             
@@ -63,11 +63,12 @@ namespace Pars
 
             public:
 
+            template<typename Self>
             [[nodiscard]]
             json::value
-            entity_to_value()
+            entity_to_value(this Self&& self)
             {
-                return static_cast<Derived&>(*this).fields_to_value();
+                return self.fields_to_value();
             }
 
 

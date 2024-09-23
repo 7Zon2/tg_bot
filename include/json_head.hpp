@@ -170,6 +170,7 @@ namespace Pars
             return str;
         }
 
+
         template<typename...T>
         requires (std::is_convertible_v<T, json::string>&&...&& true)
         [[nodiscard]]
@@ -396,7 +397,21 @@ namespace Pars
             return opt;
         }
 
-   
+
+        template<typename T, typename U>
+        requires requires()
+        {
+            std::is_base_of_v<std::input_iterator_tag, typename T::iterator_type>;
+            std::is_base_of_v<std::input_iterator_tag, typename T::iterator_type>;
+        }
+        void
+        container_move(T&& from, U& to)
+        {
+            auto b = std::make_move_iterator(from.begin());
+            auto e = std::make_move_iterator(from.end());
+            to.insert(b,e);
+        }
+
 
         template
         <
@@ -422,7 +437,7 @@ namespace Pars
                 {
                     op = value_to_type<Kind>(it->second);
                 }
-                else if constexpr (std::is_rvalue_reference_v<MAP> || (std::is_reference_v<MAP> == false))
+                else
                 {
                     auto move_it = std::make_move_iterator(it);
                     op = value_to_type<Kind>(std::move(move_it->second));
@@ -693,7 +708,7 @@ namespace Pars
         {
             json::object ob(ptr_);
 
-            (((args.second.has_value()) ? ob.insert({{args.first, args.second.value()}}) : void()),...);
+            (((args.second.has_value()) ? ob.insert({{forward_like<Types>(args.first), forward_like<Types>(args.second.value())}}) : void()),...);
 
             return ob;
         }

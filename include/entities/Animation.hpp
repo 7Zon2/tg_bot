@@ -60,13 +60,37 @@ namespace Pars
             opt_fields_map
             requested_fields(T&& val)
             {
-                auto photo_map = PhotoSize::requested_fields(std::forward<T>(val));
-                if( ! photo_map.has_value())
+                auto photo_map =  PhotoSize::requested_fields(std::forward<T>(val));
+                if (!photo_map.has_value())
                 {
-                    return photo_map;
+                    return std::nullopt;
                 }
 
-                auto map = MainParser::mapped_pointers_validation
+                auto animation_map = MainParser::mapped_pointers_validation
+                (
+                    std::forward<T>(val),
+                    std::make_pair(JS_POINTER(animation, duration), json::kind::double_)
+                );
+
+                if (animation_map.empty())
+                {
+                    return std::nullopt;
+                }
+
+                auto &photo_map_value = photo_map.value();
+                auto &animation_map_value = animation_map.value();
+                MainParser::container_move(std::move(animation_map_value), photo_map_value);
+                return photo_map;
+            }
+
+
+            template<as_json_value T>
+            [[nodiscard]]
+            static
+            fields_map
+            optional_fields(T&& val)
+            {
+                return MainParser::mapped_pointers_validation
                 (
                     std::forward<T>(val),
                     std::make_pair(JS_POINTER(animation, duration),  json::kind::double_),
@@ -74,16 +98,46 @@ namespace Pars
                     std::make_pair(JS_POINTER(animation, file_name), json::kind::string),
                     std::make_pair(JS_POINTER(animation, mime_type), json::kind::string)
                 )
+            }
 
-                if(map.size() != req_fields - PhotoSize::req_fields)
-                {
-                    return std::nullopt;
-                }
 
-                auto& photo_map_value = photo_map.value();
-                auto beg = std::make_move_iterator(photo_map_value.begin());
-                auto end = std::make_move_iterator(photo_map_value.end());
-                return map;
+            template<is_fields_map T>
+            void 
+            fields_from_map(T && map)
+            {
+                PhotoSize::fields_from_map(std::forward<T>(map));
+
+                MainParser::field_from_map
+                <json::kind::double_>(std::forward<T>(map), MAKE_PAIR(duration));
+
+                MainParser::field_from_map
+                <json::kind::object>(std::forward<T>(map), MAKE_PAIR(thumbnail));
+
+                MainParser::field_from_map
+                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(file_name));
+
+                MainParser::field_from_map
+                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(mime_type));
+            }
+
+
+            template<typename Self>
+            [[nodiscard]]
+            json::value
+            fields_to_value(this Self&& self)
+            {
+                return TelegramRequestes::Animation
+                (
+                    file_id,
+                    file_unique_id,
+                    width,
+                    height,
+                    duration,
+                    forward_like<Self>(thumbnail),
+                    forward_like<Self>(file_name),
+                    forward_like<Self>(mime_type),
+                    file_size
+                );
             }
 
         };

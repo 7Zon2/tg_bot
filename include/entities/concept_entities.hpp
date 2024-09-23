@@ -18,6 +18,7 @@ namespace Pars
         struct TelegramResponse;
         struct LinkPreviewOptions;
         struct PhotoSize;
+        struct Animation;
 
         template<typename T>
         concept is_TelegramResponse = std::is_same_v<std::remove_reference_t<T>, TelegramResponse>;
@@ -39,5 +40,8 @@ namespace Pars
 
         template<typename T>
         concept is_LinkPreviewOptions = std::is_same_v<std::remove_reference_t<T>, LinkPreviewOptions>;
+
+        template<typename T>
+        concept is_Animation = std::is_same_v<std::remove_reference_t<T>, Animation>;
     }
 }
