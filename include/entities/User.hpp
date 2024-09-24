@@ -35,10 +35,10 @@ namespace Pars
             (
                 uint64_t id,
                 bool is_bot,
-                json::string_view first_name,
-                optstrw last_name     = {},
-                optstrw username      = {},
-                optstrw language_code = {},
+                json::string first_name,
+                optstr last_name     = {},
+                optstr username      = {},
+                optstr language_code = {},
                 optbool is_premium    = {},
                 optbool added_to_attachment_menu        = {},
                 optbool can_join_groups                 = {},
@@ -49,10 +49,10 @@ namespace Pars
             :
                 id(id),
                 is_bot(is_bot),
-                first_name(first_name),
-                last_name(last_name),
-                username (username),
-                language_code(language_code),
+                first_name(std::move(first_name)),
+                last_name(std::move(last_name)),
+                username (std::move(username)),
+                language_code(std::move(language_code)),
                 is_premium(is_premium),
                 added_to_attachment_menu(added_to_attachment_menu),
                 can_join_groups(can_join_groups),
@@ -67,21 +67,17 @@ namespace Pars
             public:
 
 
-            template<as_json_value T>
             [[nodiscard]]
             static
             opt_fields_map 
-            requested_fields(T&& val) 
+            requested_fields(json::value val) 
             {
-                const size_t sz = 3;
-
                 auto opt = MainParser::check_pointer_validation(std::forward<T>(val), std::make_pair("/user", json::kind::object));
                 if(opt.has_value() == false)
                 {
                     return std::nullopt;
                 }
                 
-
                 auto map = MainParser::mapped_pointers_validation
                 (
                     std::forward<T>(val),
@@ -90,7 +86,7 @@ namespace Pars
                     std::make_pair("/user/first_name", json::kind::string)
                 );
 
-                if(map.size() < sz)
+                if(map.size() != req_fields)
                 {
                     return std::nullopt;
                 }
@@ -99,15 +95,14 @@ namespace Pars
             }
 
 
-            template<as_json_value T>
             [[nodiscard]]
             static
             fields_map
-            optional_fields(T&& val)
+            optional_fields(json::value val)
             {
                 auto map = MainParser::mapped_pointers_validation
                 (
-                    std::forward<T>(val),
+                    std::move(val),
                     std::make_pair("/user/last_name", json::kind::string),
                     std::make_pair("/user/username",  json::kind::string),
                     std::make_pair("/user/language_code", json::kind::string),
@@ -123,7 +118,7 @@ namespace Pars
             }
 
 
-            template<as_json_value T>
+            template<is_fields_map T>
             void fields_from_map
             (T && map)
             {
@@ -164,20 +159,20 @@ namespace Pars
                 <json::kind::bool_>(   std::forward<T>(map),  std::make_pair("can_connect_to_business", std::ref(can_connect_to_business)));
             }
 
-            public:
 
+            template<typename Self>
             [[nodiscard]]
             json::value
-            fields_to_value()
+            fields_to_value(this Self&& self)
             {
                 return TelegramRequestes::get_user_request
                 (
                     id,
                     is_bot,
-                    first_name,
-                    last_name,
-                    username,
-                    language_code,
+                    forward_like<Self>(first_name),
+                    forward_like<Self>(last_name),
+                    forward_like<Self>(username),
+                    forward_like<Self>(language_code),
                     is_premium,
                     added_to_attachment_menu,
                     can_join_groups,

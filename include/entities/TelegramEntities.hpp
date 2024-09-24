@@ -14,6 +14,8 @@ namespace Pars
             static inline size_t req_fields = Derived::req_fields;
             static inline size_t opt_fields = Derived::opt_fields;
 
+            public:
+            
             template<is_all_json_entities T>
             void operator=(T&& val)
             {
@@ -26,23 +28,21 @@ namespace Pars
             }
             
 
-            template<as_json_value T>
             [[nodiscard]]
             static
             opt_fields_map
-            requested_fields(T&& val)
+            requested_fields(json::value val)
             {
-                return Derived::requested_fields(std::forward<T>(val)); 
+                return Derived::requested_fields(std::move(val)); 
             }
 
 
-            template<as_json_value T>
             [[nodiscard]]
             static
             fields_map
-            optional_fields(T&& val)
+            optional_fields(json::value val)
             {
-                return Derived::optional_fields(std::forward<T>(val));
+                return Derived::optional_fields(std::move(val));
             }
 
 
@@ -72,19 +72,18 @@ namespace Pars
             }
 
 
-            template<as_json_value T> 
             [[nodiscard]]
             static 
             opt_fields_map
-            verify_fields(T&& val)
+            verify_fields(json::value val)
             {
-                auto req_map = Derived::requested_fields(val);
+                auto req_map = Derived::requested_fields(std::move(val));
                 if(! req_map.has_value())
                 {
                     return std::nullopt;
                 }
 
-                auto opt_map = Derived::optional_fields(val);
+                auto opt_map = Derived::optional_fields(std::move(val));
 
                 auto map = std::move(req_map.value());
 

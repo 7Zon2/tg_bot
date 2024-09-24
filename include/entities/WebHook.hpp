@@ -30,23 +30,23 @@ namespace Pars
 
             WebhookInfo
             (
-                json::string_view url,
+                json::string url,
                 bool has_custom_certificate,
                 uint64_t pending_update_count,
-                optstrw ip_address         = {},
+                optstr ip_address         = {},
                 optint  last_error_date    = {},
-                optstrw last_error_message = {},
+                optstr last_error_message = {},
                 optint last_synchronization_error_date         = {},
                 optint max_connections                         = {},
                 std::optional<std::vector<json::string>> allowed_updates = {}  
             )
             :
-                url(url),
+                url(std::move(url)),
                 has_custom_certificate(has_custom_certificate),
                 pending_update_count(pending_update_count),
-                ip_address(ip_address),
+                ip_address(std::move(ip_address)),
                 last_error_date(last_error_date),
-                last_error_message(last_error_message),
+                last_error_message(std::move(last_error_message)),
                 last_synchronization_error_date(last_synchronization_error_date),
                 max_connections(max_connections),
                 allowed_updates(std::move(allowed_updates))
@@ -56,21 +56,22 @@ namespace Pars
 
             private:
 
+            template<typaneme Self>
             [[nodiscard]]
             json::value
-            fields_to_value() 
+            fields_to_value(this Self&& self) 
             {
                 return TelegramRequestes::get_webhook_request
                 (
-                    url,
+                    forward_like<Self>(url),
                     has_custom_certificate,
                     pending_update_count,
-                    ip_address,
+                    forward_like<Self>(ip_address),
                     last_error_date,
-                    last_error_message,
+                    forward_like<Self>(last_error_message),
                     last_synchronization_error_date,
                     max_connections,
-                    allowed_updates
+                    forward_like<Self>(allowed_updates)
                 );
             }
             

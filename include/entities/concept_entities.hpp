@@ -19,6 +19,12 @@ namespace Pars
         struct LinkPreviewOptions;
         struct PhotoSize;
         struct Animation;
+        struct Audio;
+        struct Document;
+        struct Story;
+        struct Video;
+        struct VideoNote;
+        struct Voice;
 
         template<typename T>
         concept is_TelegramResponse = std::is_same_v<std::remove_reference_t<T>, TelegramResponse>;
@@ -43,5 +49,23 @@ namespace Pars
 
         template<typename T>
         concept is_Animation = std::is_same_v<std::remove_reference_t<T>, Animation>;
+
+        template<typename T>
+        concept is_Audio = std::is_same_v<std::remove_reference_t<T>, Audio>;
+
+        template<typename T>
+        concept is_Document = std::is_same_v<std::remove_reference_t<T>, Document>;
+
+        template<typename T>
+        concept is_Story = std::is_same_v<std::remove_reference_t<T>, Story>;
+
+        template<typename T>
+        concept is_Video = std::is_same_v<std::remove_reference_t<T>, Video>;
+
+        template<typename T>
+        concept VideoNote = std::is_same_v<std::remove_reference_t<T>, VideoNote>;
+
+        template<typename T>
+        concept Voice = std::is_same_v<std::remove_reference_t<T>, Voice>
     }
 }

@@ -25,16 +25,16 @@ namespace Pars
 
             forwardMessage
             (
-                json::string_view chat_id,
-                json::string_view from_chat_id,
+                json::string chat_id,
+                json::string from_chat_id,
                 int message_id,
                 optint message_thread_id,
                 optbool disable_notification,
                 optbool protect
             )
             :
-             chat_id(chat_id),
-             from_chat_id(from_chat_id),
+             chat_id(std::move(chat_id)),
+             from_chat_id(std::move(from_chat_id)),
              message_id(message_id),
              message_thread_id(message_thread_id),
              disable_notification(disable_notification),
@@ -74,17 +74,15 @@ namespace Pars
             }
 
 
-
-            template<as_json_value T>
             [[nodiscard]]
             static
             opt_fields_map
-            requested_fields(T&& val)
+            requested_fields(json::value val)
             {
                 const size_t sz = 3;
                 auto map = MainParser::mapped_pointers_validation
                 (
-                    std::forward<T>(val),
+                    std::move(val),
                     std::make_pair(JS_POINTER(forwardmessage, chat_id), json::kind::string),
                     std::make_pair(JS_POINTER(forwardmessage, from_chat_id), json::kind::string),
                     std::make_pair(JS_POINTER(forwardmessage, message_id), json::kind::int64)
@@ -97,15 +95,14 @@ namespace Pars
             }
 
 
-            template<as_json_value T>
             [[nodiscard]]
             static
             fields_map
-            optional_fields(T&& val)
+            optional_fields(json::value val)
             {
                 return MainParser::mapped_pointers_validation
                 (
-                    std::forward<T>(val),
+                    std::move(val),
                     std::make_pair(JS_POINTER(forwardmessage, message_thread_id), json::kind::string),
                     std::make_pair(JS_POINTER(forwardmessage, disable_notification), json::kind::bool_),
                     std::make_pair(JS_POINTER(forwardmessage, protect), json::kind::bool_)
@@ -138,14 +135,15 @@ namespace Pars
             }
 
 
+            template<typename Self>
             [[nodiscard]]
             json::value
-            fields_to_value()
+            fields_to_value(this Self&& self)
             {
                 return TelegramRequestes::forwardMessage
                 (
-                    chat_id,
-                    from_chat_id,
+                    forward_like<Self>(chat_id),
+                    forward_like<Self>(from_chat_id),
                     message_id,
                     message_thread_id,
                     disable_notification,

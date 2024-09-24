@@ -23,21 +23,19 @@ namespace Pars
             :drop_pending_updates(drop_pending_updates){}
 
 
-            template<as_json_value T>
             [[nodiscard]]
             static 
             opt_fields_map 
-            requested_fields(T&& val)
+            requested_fields(json::value val)
             {
-               return TelegramResponse::verify_fields(std::forward<T>(val));
+               return TelegramResponse::verify_fields(std::move(val));
             }
 
 
-            template<as_json_value T>
             [[nodiscard]]
             static 
             std::unordered_map<json::string, json::value>
-            optional_fields(T&& val)
+            optional_fields(json::value val)
             {
                 return {};
             }
@@ -52,9 +50,10 @@ namespace Pars
             }
 
 
+            template<typename Self>
             [[nodiscard]]
             json::value
-            fields_to_value()
+            fields_to_value(this Self&& self)
             {
                 return TelegramRequestes::deletewebhook
                 (

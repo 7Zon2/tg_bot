@@ -14,8 +14,8 @@ namespace Pars
 
             json::string inherited_name{FIELD_TO_LOWER(PhotoSize)};
 
-            PhotoSize(json::string_view inherited_name):
-            inherited_name(inherited_name){}
+            PhotoSize(json::string inherited_name):
+            inherited_name(std::move(inherited_name)){}
 
             public:
 
@@ -37,15 +37,15 @@ namespace Pars
 
             PhotoSize
             (
-                json::string_view file_id,
-                json::string_view file_unique_id,
+                json::string file_id,
+                json::string file_unique_id,
                 double width,
                 double height,
                 optdouble file_size = {}
             )
             :
-                file_id(file_id),
-                file_unique_id(file_unique_id),
+                file_id(std::move(file_id)),
+                file_unique_id(std::move(file_unique_id)),
                 width(width),
                 height(height),
                 file_size(file_size)
@@ -57,17 +57,16 @@ namespace Pars
 
             public:
 
-            template<as_json_value T>
             [[nodiscard]]
             static
             opt_fields_map
-            requested_fields(T&& val)
+            requested_fields(json::value val)
             {
                 using MainParser::make_json_pointer;
 
                 auto map = MainParser::mapped_pointers_validation
                 (
-                    std::forward<T>(val),
+                    std::move(val),
                     std::make_pair(make_json_pointer(inherited_name, FIELD_NAME(file_id)), json::kind::string),
                     std::make_pair(make_json_pointer(inherited_name, FIELD_NAME(file_unique_id)), json::kind::string),
                     std::make_pair(make_json_pointer(inherited_name, FIELD_NAME(width)),  json::kind::double_),
@@ -83,14 +82,14 @@ namespace Pars
             }
 
 
-            template<as_json_value T>
+            [[nodiscard]]
             static 
             fields_map
-            optional_fields(T && val)
+            optional_fields(json::value val)
             {
                 return MainParser::mapped_pointers_validation
                 (
-                    std::forward<T>(val),
+                    std::move(val),
                     std::make_pair(JS_POINTER(PhotoSize, file_size), json::kind:double_)
                 );
             }

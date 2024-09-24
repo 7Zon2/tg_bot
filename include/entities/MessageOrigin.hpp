@@ -21,8 +21,8 @@ namespace Pars
 
             MessageOrigin(){}
 
-            MessageOrigin(json::string_view type, const size_t date)
-                : type(type), date_(date){}
+            MessageOrigin(json::string type, const size_t date)
+                : type(std::move(type)), date_(date){}
 
             virtual ~MessageOrigin() = 0;
 
@@ -101,16 +101,15 @@ namespace Pars
 
             MessageOriginUser(){}
 
-            template<TG::is_user T>
             MessageOriginUser
             (
-                json::string_view type,
+                json::string type,
                 const size_t date,
-                T&& user
+                TG::User user
             )
             :
-             MessageOrigin(type, date),
-             sender_user(std::forward<T>(user))
+             MessageOrigin(std::move(type), date),
+             sender_user(std::move(user))
              {
 
              }
@@ -118,13 +117,12 @@ namespace Pars
              public:
 
 
-            template<as_json_value T>
             [[nodiscard]]
             static 
             opt_fields_map
-            requested_fields(T&& val)
+            requested_fields(json::value val)
             {
-                auto map = MessageOrigin::requested_fields(std::forward<T>(val), FIELD_NAME(messageoriginuser));
+                auto map = MessageOrigin::requested_fields(std::move(val), FIELD_NAME(messageoriginuser));
                 if(map.has_value() == false)
                 {
                     return map;
@@ -132,7 +130,7 @@ namespace Pars
 
                 auto map2 = MainParser::mapped_pointers_validation
                 (
-                    std::forward<T>(val),
+                    std::move(val),
                     std::make_pair(JS_POINTER(messageoriginuser, sender_user), json::kind::object)
                 );
 
@@ -142,20 +140,16 @@ namespace Pars
                 }
 
                 auto & map_ = map.value();
-                auto b = std::make_move_iterator(map2.begin());
-                auto e = std::make_move_iterator(map2.end());
-                map_.insert(b,e);
-
+                MainParser::container_move(std::move(map2), map_);
                 return std::move(map_);
             }
 
 
-            template<as_json_value T>
             static
             fields_map
-            optional_fields(T&& val)
+            optional_fields(json::value val)
             {
-                return MessageOrigin::optional_fields(std::forward<T>(val));
+                return MessageOrigin::optional_fields(std::move(val));
             }
 
 
@@ -171,15 +165,16 @@ namespace Pars
             }
 
 
+            template<typename Self>
             [[nodiscard]]
             json::value
-            fields_to_value()
+            fields_to_value(this Self&& self)
             {
                 return TelegramRequestes::MessageOriginUser
                 (
                     type,
                     date_,
-                    sender_user
+                    std::move(sender_user)
                 );
             }
         };
@@ -200,26 +195,25 @@ namespace Pars
 
             MessageOriginHiddenUser
             (
-                json::string_view type,
+                json::string type,
                 const size_t date,
-                json::string_view sender_user_name
+                json::string sender_user_name
             )
             :
-            MessageOrigin(type, date),
-            sender_user_name(sender_user_name)
+            MessageOrigin(std::move(type), date),
+            sender_user_name(std::move(sender_user_name))
             {
 
             }
 
             public:
 
-            template<as_json_value T>
             [[nodiscard]]
             static 
             opt_fields_map
-            requested_fields(T&& val)
+            requested_fields(json::value val)
             {
-                auto map = MessageOrigin::requested_fields(std::forward<T>(val), FIELD_NAME(MessageOriginHiddenUser));
+                auto map = MessageOrigin::requested_fields(std::move(val), FIELD_NAME(MessageOriginHiddenUser));
                 if(map.has_value() == false)
                 {
                     return map;
@@ -227,7 +221,7 @@ namespace Pars
 
                 auto map2 = MainParser::mapped_pointers_validation
                 (
-                    std::forward<T>(val),
+                    std::move(val),
                     std::make_pair(JS_POINTER(messageoriginhiddenuser, sender_user_name), json::kind::string)
                 );
 
@@ -237,20 +231,17 @@ namespace Pars
                 }
 
                 auto & map_ = map.value();
-                auto b = std::make_move_iterator(map2.begin());
-                auto e = std::make_move_iterator(map2.end());
-                map_.insert(b,e);
+                MainParser::container_move(std::move(map2), map_);
 
                 return std::move(map_);
             }
 
 
-            template<as_json_value T>
             static
             fields_map
-            optional_fields(T&& val)
+            optional_fields(json::value val)
             {
-                return MessageOrigin::optional_fields(std::forward<T>(val));
+                return MessageOrigin::optional_fields(std::move(val));
             }
 
 
@@ -266,9 +257,10 @@ namespace Pars
             }
 
 
+            template<typename Self>
             [[nodiscard]]
             json::value
-            fields_to_value()
+            fields_to_value(this Self&& self)
             {
                 return TelegramRequestes::MessageOriginHiddenUser
                 (
@@ -294,18 +286,17 @@ namespace Pars
 
             MessageOriginChat(){}
 
-            template<TG::is_chat T>
             MessageOriginChat
             (
-                json::string_view type,
+                json::string type,
                 const size_t date,
-                T&& sender_chat,
-                optstrw author_signature = {}
+                TG::chat sender_chat,
+                optstr author_signature = {}
             )
             :
-            MessageOrigin(type, date),
-            sender_chat(std::forward<T>(sender_chat)),
-            author_signature(author_signature)
+            MessageOrigin(std::move(type), date),
+            sender_chat(std::move(sender_chat)),
+            author_signature(std::move(author_signature))
             {
 
             }
@@ -313,13 +304,12 @@ namespace Pars
             public:
 
 
-            template<as_json_value T>
             [[nodiscard]]
             static 
             opt_fields_map
-            requested_fields(T&& val)
+            requested_fields(json::value val)
             {
-                auto map = MessageOrigin::requested_fields(std::forward<T>(val), FIELD_NAME(MessageOriginHiddenUser));
+                auto map = MessageOrigin::requested_fields(std::move(val), FIELD_NAME(MessageOriginHiddenUser));
                 if(map.has_value() == false)
                 {
                     return map;
@@ -327,7 +317,7 @@ namespace Pars
 
                 auto map2 = MainParser::mapped_pointers_validation
                 (
-                    std::forward<T>(val),
+                    std::move(val),
                     std::make_pair(JS_POINTER(MessageOriginChat, sender_chat), json::kind::object)
                 );
 
@@ -336,24 +326,19 @@ namespace Pars
                     return std::nullopt;
                 }
 
-                auto & map_ = map.value();
-                auto b = std::make_move_iterator(map2.begin());
-                auto e = std::make_move_iterator(map2.end());
-                map_.insert(b,e);
-
+                MainParser::container_move(std::move(map2), map_);
                 return std::move(map_);
             }
 
 
-            template<as_json_value T>
             [[nodiscard]]
             static
             fields_map
-            optional_fields(T&& val)
+            optional_fields(json::value val)
             {
                 return MainParser::mapped_pointers_validation
                 (
-                    std::forward<T>(val),
+                    std::move(val),
                     std::make_pair(JS_POINTER(messageoriginchat, author_signature), json::kind::string)
                 );
             }
@@ -374,16 +359,17 @@ namespace Pars
             }
 
 
+            template<typename Self>
             [[nodiscard]]
             json::value
-            fields_to_value()
+            fields_to_value(this Self&& self)
             {
                 return TelegramRequestes::MessageOriginChat
                 (
                     type,
                     date_,
-                    sender_chat,
-                    author_signature
+                    forward_like<Self>(sender_chat),
+                    forward_like<Self>(author_signature)
                 );
             }
         };

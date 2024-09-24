@@ -54,13 +54,12 @@ namespace Pars
 
             public:
 
-            template<as_json_value T>
             [[nodiscard]]
             static
             opt_fields_map
-            requested_fields(T&& val)
+            requested_fields(json::value val)
             {
-                auto photo_map =  PhotoSize::requested_fields(std::forward<T>(val));
+                auto photo_map =  PhotoSize::requested_fields(val);
                 if (!photo_map.has_value())
                 {
                     return std::nullopt;
@@ -68,7 +67,7 @@ namespace Pars
 
                 auto animation_map = MainParser::mapped_pointers_validation
                 (
-                    std::forward<T>(val),
+                    std::move(val),
                     std::make_pair(JS_POINTER(animation, duration), json::kind::double_)
                 );
 
@@ -84,15 +83,14 @@ namespace Pars
             }
 
 
-            template<as_json_value T>
             [[nodiscard]]
             static
             fields_map
-            optional_fields(T&& val)
+            optional_fields(json::value val)
             {
                 return MainParser::mapped_pointers_validation
                 (
-                    std::forward<T>(val),
+                    std::move(val),
                     std::make_pair(JS_POINTER(animation, duration),  json::kind::double_),
                     std::make_pair(JS_POINTER(animation, thumbnail), json::kind::object),
                     std::make_pair(JS_POINTER(animation, file_name), json::kind::string),

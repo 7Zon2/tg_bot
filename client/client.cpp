@@ -231,16 +231,14 @@ class session : public std::enable_shared_from_this<session>
 
     public:
 
-    template<Pars::TG::is_TelegramResponse T>
-    void parse_result(T&& response)
+    void parse_result(Pars::TG::TelegramResponse response)
     {
         if (! response.ok)
         {
             return;
         }
 
-        Pars::TG::TelegramResponse res = std::forward<T>(response);
-
+        Pars::TG::TelegramResponse res = std::move(response);
 
         try
         {

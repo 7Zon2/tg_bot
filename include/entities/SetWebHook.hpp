@@ -24,7 +24,7 @@ namespace Pars
 
             SetWebHook
             (
-                json::string_view url,
+                json::string url,
                 optstr certificate = {},
                 optstr ip_address  = {},
                 optint max_connections = {},
@@ -33,13 +33,13 @@ namespace Pars
                 optstr  secret_token         = {}
             )
             :
-                url(url),
-                certificate(certificate),
-                ip_address(ip_address),
+                url(std::move(url)),
+                certificate(std::move(certificate)),
+                ip_address(std::move(ip_address)),
                 max_connections(max_connections),
-                allowed_updates(allowed_updates),
+                allowed_updates(std::move(allowed_updates)),
                 drop_pending_updates(drop_pending_updates),
-                secret_token(secret_token)
+                secret_token(std::move(secret_token))
             {
                 
             }
@@ -47,15 +47,14 @@ namespace Pars
             public:
 
 
-            template<as_json_value T>
             [[nodiscard]]
             static
             opt_fields_map
-            requested_fields(T&& val) 
+            requested_fields(json::value val) 
             {
                 const size_t sz = 1;
 
-                auto opt = MainParser::check_pointer_validation(std::forward<T>(val), std::make_pair("/setwebhook", json::kind::object));
+                auto opt = MainParser::check_pointer_validation(std::move(val), std::make_pair("/setwebhook", json::kind::object));
                 if(opt.has_value() == false)
                 {
                     return std::nullopt;
@@ -76,15 +75,14 @@ namespace Pars
             }
 
 
-            template<as_json_value T>
             [[nodiscard]]
             static
             fields_map
-            optional_fields(T&& val)
+            optional_fields(json::value val)
             {
                 auto map = MainParser::mapped_pointers_validation
                 (
-                    std::forward<T>(val),
+                    std::move(val),
                     std::make_pair("/setwebhook/certificate", json::kind::string),
                     std::make_pair("/setwebhook/ip_address", json::kind::string),
                     std::make_pair("/setwebhook/max_connections", json::kind::int64),
@@ -125,19 +123,20 @@ namespace Pars
             }
 
 
+            template<typename Self>
             [[nodiscard]]
             json::value
-            fields_to_value() 
+            fields_to_value(this Self&& self) 
             {
                 return TelegramRequestes::setWebhook
                 (
-                    url,
-                    certificate,
-                    ip_address,
+                    forward_like<Self>(url),
+                    forward_like<Self>(certificate),
+                    forward_like<Self>(ip_address),
                     max_connections,
-                    allowed_updates,
+                    forward_like<Self>(allowed_updates),
                     drop_pending_updates,
-                    secret_token
+                    forward_like<Self>(secret_token)
                 );
             }
         };

@@ -57,17 +57,16 @@ namespace Pars
 
             public:
 
-            template<as_json_value T>
             [[nodiscard]]
             static
             opt_fields_map
-            requested_fields(T&& val)
+            requested_fields(json::value val)
             {
                 using mp = std::make_pair;
 
                 auto audio_map = MainParser::mapped_pointers_validation
                 (
-                    std::forward<T>(val),
+                    std::move(val),
                     mp(JS_POINTER(audio, file_id), json::kind::string),
                     mp(JS_POINTER(audio, file_unique_id), json::kind::string),
                     mp(JS_POINTER(audio, duration), json::kind::double_),
@@ -82,15 +81,14 @@ namespace Pars
             }
 
 
-            template<as_json_value T>
             [[nodiscard]]
             static
             fields_map
-            optional_fields(T&& val)
+            optional_fields(json::value val)
             {
                 return MainParser::mappe_pointers_validation
                 (
-                    std::forward<T>(val),
+                    std::move(val),
                     mp(JS_POINTER(audio, title),     json::kind::string),
                     mp(JS_POINTER(audio, performer), json::kind::string),
                     mp(JS_POINTER(audio, thumbnail), json::kind::object),

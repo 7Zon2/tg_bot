@@ -70,12 +70,12 @@ namespace Pars
             static json::value
             MessageOrigin
             (
-                json::string_view type,
+                json::string type,
                 size_t date
             )
             {
                 json::object ob(ptr_);
-                ob["messageorigin"] = parse_ObjPairs_as_obj(PAIR(type), PAIR(date)); 
+                ob["messageorigin"] = parse_ObjPairs_as_obj(PAIR(std::move(type)), PAIR(date)); 
                 return ob;
             }
 
@@ -121,11 +121,11 @@ namespace Pars
             chat
             (
                 uint64_t id,
-                json::string_view type,
-                optstrw title = {},
-                optstrw username = {},
-                optstrw first_name = {},
-                optstrw last_name  = {},
+                json::string type,
+                optstr title = {},
+                optstr username = {},
+                optstr first_name = {},
+                optstr last_name  = {},
                 optbool is_forum   = {}
             )
             {
@@ -133,16 +133,16 @@ namespace Pars
                 ob = parse_ObjPairs_as_obj
                 (
                     PAIR(id),
-                    PAIR(type)
+                    PAIR(std::move(type))
                 );
 
                 json::object ob2(ptr_);
                 ob2 = parse_OptPairs_as_obj
                 (
-                    MAKE_OP(title),
-                    MAKE_OP(username),
-                    MAKE_OP(first_name),
-                    MAKE_OP(last_name),
+                    MAKE_OP(std::move(title)),
+                    MAKE_OP(std::move(username)),
+                    MAKE_OP(std::move(first_name)),
+                    MAKE_OP(std::move(last_name)),
                     MAKE_OP(is_forum)
                 );
 
@@ -154,18 +154,17 @@ namespace Pars
             }
 
 
-            template<TG::is_user T>
             [[nodiscard]]
             static json::value
             MessageOriginUser
             (
-                json::string_view type,
+                json::string type,
                 size_t date,
-                T&& user
+                TG::User user
             )
             {
-                auto ob  = MessageOrigin(type, date).as_object();
-                auto ob2 = forward_like<T>(user.fields_to_value().as_object());
+                auto ob  = MessageOrigin(std::move(type), date).as_object();
+                auto ob2 = std::move(user).fields_to_value().as_object();
 
                 Pars::MainParser::container_move(std::move(ob2), ob);                                                    
 
@@ -180,13 +179,13 @@ namespace Pars
             static json::value
             MessageOriginHiddenUser
             (
-                json::string_view type,
+                json::string type,
                 size_t date,
-                json::string_view sender_user_name
+                json::string sender_user_name
             )
             {
-                auto ob = MessageOrigin(type, date).as_object();
-                ob.emplace(FIELD(sender_user_name), sender_user_name);
+                auto ob = MessageOrigin(std::move(type), date).as_object();
+                ob.emplace(FIELD(sender_user_name), std::move(sender_user_name));
 
                 json::object res(ptr_);
                 res["messageoriginhiddenuser"] = std::move(ob);
@@ -194,19 +193,18 @@ namespace Pars
             }
 
 
-            template<TG::is_chat T>
             [[nodiscard]]
             static json::value
             MessageOriginChat
             (
-                json::string_view type,
+                json::string type,
                 size_t date,
-                T &&sender_chat,
-                optstrw author_signature = {}
+                TG::chat sender_chat,
+                optstr author_signature = {}
             )
             {
-                auto ob = MessageOrigin(type, date).as_object();
-                auto send_ob = forward_like<T>(sender_chat.fields_to_value().as_object()); 
+                auto ob = MessageOrigin(std::move(type), date).as_object();
+                auto send_ob = std::move(sender_chat).fields_to_value().as_object(); 
 
                 Pars::MainParser::container_move(std::move(send_ob), ob)
 
@@ -219,20 +217,19 @@ namespace Pars
             }
 
 
-            template<is_chat T>
             [[nodiscard]]
             static json::value
             MessageOriginChannel
             (
-                json::string_view type,
+                json::string type,
                 size_t date,
-                T&& chat,
+                TG::chat chat,
                 size_t message_id,
-                optstrw author_signature = {}
+                optstr author_signature = {}
 
             )
             {
-                auto ob = MessageOriginChat(type, date, std::forward<T>(chat), author_signature).as_object();
+                auto ob = MessageOriginChat(std::move(type), date, std::move(chat), std::move(author_signature)).as_object();
                 ob.emplace("message_id", message_id);
 
                 json::object res(ptr_);
@@ -260,7 +257,7 @@ namespace Pars
             (
                 bool ok,
                 optint error_code,
-                optstrw description,
+                optstr description,
                 optarray result
             )
             {
@@ -289,13 +286,13 @@ namespace Pars
             static json::value
             setWebhook
             (
-                json::string_view url,
-                optstrw certificate = {},
-                optstrw ip_address  = {},
+                json::string url,
+                optstr certificate = {},
+                optstr ip_address  = {},
                 optint max_connections = {},
                 std::optional<json::array> allowed_updates = {},
                 optbool drop_pending_updates = {},
-                optstrw  secret_token         = {}
+                optstr  secret_token         = {}
             )
             {
                 json::object ob(ptr_);
@@ -304,18 +301,18 @@ namespace Pars
 
                 ob = parse_ObjPairs_as_obj
                    (
-                        PAIR(url)
+                        PAIR(std::move(url))
                    );
 
 
                 ob1 = parse_OptPairs_as_obj
                     (
-                        MAKE_OP(certificate),
-                        MAKE_OP(ip_address),
+                        MAKE_OP(std::move(certificate)),
+                        MAKE_OP(std::move(ip_address)),
                         MAKE_OP(max_connections),
                         MAKE_OP(std::move(allowed_updates)),
                         MAKE_OP(drop_pending_updates),
-                        MAKE_OP(secret_token)
+                        MAKE_OP(std::move(secret_token))
                     ); 
 
                 Pars::MainParser::container_move(std::move(ob1), ob);
@@ -329,12 +326,12 @@ namespace Pars
             static json::value
             get_webhook_request
             (
-                json::string_view url,
+                json::string url,
                 bool has_custom_certificate,
                 uint64_t pending_update_count,
-                optstrw ip_address                             = {},
+                optstr ip_address                             = {},
                 optint  last_error_date                        = {},
-                optstrw last_error_message                     = {},
+                optstr last_error_message                     = {},
                 optint last_synchronization_error_date         = {},
                 optint max_connections                         = {},
                 std::optional<std::vector<json::string>> allowed_updates = {}  
@@ -347,7 +344,7 @@ namespace Pars
 
                 ob1 = parse_ObjPairs_as_obj
                     (
-                        PAIR(url),
+                        PAIR(std::move(url)),
                         PAIR(has_custom_certificate),
                         PAIR(pending_update_count)
                     );
@@ -355,9 +352,9 @@ namespace Pars
 
                 ob2 = parse_OptPairs_as_obj
                     (
-                        MAKE_OP(ip_address),
+                        MAKE_OP(std::move(ip_address)),
                         MAKE_OP(last_error_date),
-                        MAKE_OP(last_error_message),
+                        MAKE_OP(std::move(last_error_message)),
                         MAKE_OP(last_synchronization_error_date),
                         MAKE_OP(max_connections)
                     );
@@ -388,10 +385,10 @@ namespace Pars
             (
                 uint64_t id,
                 bool is_bot,
-                json::string_view first_name,
-                optstrw last_name                   = {},
-                optstrw username                    = {},
-                optstrw language_code               = {},
+                json::string first_name,
+                optstr last_name                   = {},
+                optstr username                    = {},
+                optstr language_code               = {},
                 optbool is_premium                  = {},
                 optbool added_to_attachment_menu    = {},
                 optbool can_join_groups             = {},
@@ -408,14 +405,14 @@ namespace Pars
                         (
                             PAIR(id),
                             PAIR(is_bot),
-                            PAIR(first_name)
+                            PAIR(std::move(first_name))
                         );
 
                 ob_2 =  parse_OptPairs_as_obj
                         (
-                            MAKE_OP(last_name),
-                            MAKE_OP(username),
-                            MAKE_OP(language_code),
+                            MAKE_OP(std::move(last_name)),
+                            MAKE_OP(std::move(username)),
+                            MAKE_OP(std::move(language_code)),
                             MAKE_OP(is_premium),
                             MAKE_OP(added_to_attachment_menu),
                             MAKE_OP(can_join_groups),
@@ -435,8 +432,8 @@ namespace Pars
             static json::value
             forwardMessage
             (
-                json::string_view chat_id,
-                json::string_view from_chat_id,
+                json::string chat_id,
+                json::string from_chat_id,
                 int message_id,
                 optint message_thread_id,
                 optbool disable_notification,
@@ -448,8 +445,8 @@ namespace Pars
 
                 ob_1 =  parse_ObjPairs_as_obj
                     (
-                        PAIR(chat_id),
-                        PAIR(from_chat_id),
+                        PAIR(std::move(chat_id)),
+                        PAIR(std::move(from_chat_id)),
                         PAIR(message_id)
                     );
 
@@ -474,7 +471,7 @@ namespace Pars
             linkPreviewOptions
             (
                 optbool is_disabled = {},
-                optstrw url = {},
+                optstr url = {},
                 optbool prefer_small_media = {},
                 optbool prefer_large_media = {},
                 optbool show_above_text = {}
@@ -484,7 +481,7 @@ namespace Pars
                 ob = parse_OptPairs_as_obj
                     (
                         MAKE_OP(is_disabled),
-                        MAKE_OP(url),
+                        MAKE_OP(std::move(url)),
                         MAKE_OP(prefer_small_media),
                         MAKE_OP(prefer_large_media),
                         MAKE_OP(show_above_text)
@@ -500,8 +497,8 @@ namespace Pars
             json::value
             PhotoSize
             (
-                json::string_view file_id,
-                json::string_view file_unique_id,
+                json::string file_id,
+                json::string file_unique_id,
                 double width,
                 double height,
                 optdouble file_size = {}
@@ -510,8 +507,8 @@ namespace Pars
                 json::object ob{ptr_};
                 ob = parse_ObjPairs_as_obj
                     (
-                        PAIR(file_id),
-                        PAIR(file_unique_id),
+                        PAIR(std::move(file_id)),
+                        PAIR(std::move(file_unique_id)),
                         PAIR(width),
                         PAIR(height)
                     );
@@ -534,22 +531,22 @@ namespace Pars
             json::value
             Animation
             (
-                json::string_view file_id,
-                json::string_view file_unique_id,
+                json::string file_id,
+                json::string file_unique_id,
                 double width,
                 double height,
                 double duration,
                 std::optional<PhotoSize> thumbnail = {},
-                optstrw file_name =  {},
-                optstrw mime_type =  {},
+                optstr file_name =  {},
+                optstr mime_type =  {},
                 optdouble file_size = {}
             )
             {
                 json::object ob{ptr_};
                 ob = parse_ObjPairs_as_obj
                     (
-                        PAIR(file_id),
-                        PAIR(file_unique_id),
+                        PAIR(std::move(file_id)),
+                        PAIR(std::move(file_unique_id)),
                         PAIR(width),
                         PAIR(height),
                         PAIR(duration)
@@ -558,8 +555,8 @@ namespace Pars
                 json::object ob2(ptr_);
                 ob2 = parse_OptPairs_as_obj
                     (
-                        MAKE_OP(file_name),
-                        MAKE_OP(mime_type),
+                        MAKE_OP(std::move(file_name)),
+                        MAKE_OP(std::move(mime_type)),
                         MAKE_OP(file_size)
                     );
 
@@ -585,13 +582,13 @@ namespace Pars
             json::value
             Audio
             (
-                json::string_view file_id,
-                json::string_view file_unique_id,
+                json::string file_id,
+                json::string file_unique_id,
                 double duration,
-                optstrw performer = {},
-                optstrw title = {},
-                optstrw file_name = {},
-                optstrw mime_type = {},
+                optstr performer = {},
+                optstr title = {},
+                optstr file_name = {},
+                optstr mime_type = {},
                 std::optional<PhotoSize> thumbnail = {},
                 optdouble file_size = {}
 
@@ -599,22 +596,22 @@ namespace Pars
             {
                 json::object ob = Animation
                 (
-                    file_id,
-                    file_unique_id,
+                    std::move(file_id),
+                    std::move(file_unique_id),
                     0,
                     0,
                     duration,
-                    thumbnail,
-                    file_name,
-                    mime_type,
+                    std::move(thumbnail),
+                    std::move(file_name),
+                    std::move(mime_type),
                     file_size
                 );
 
                 json::object ob2(ptr_);
                 ob2 = parse_OptPairs_as_obj
                     (
-                        MAKE_OP(title),
-                        MAKE_OP(performer)
+                        MAKE_OP(std::move(title)),
+                        MAKE_OP(std::move(performer))
                     );
 
                 MainParser::container_move(std::move(ob2), ob);

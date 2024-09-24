@@ -25,7 +25,7 @@ namespace Pars
             (
                 bool ok,
                 optint error_code,
-                optstrw description,
+                optstr description,
                 optarray result
             )
             :
@@ -39,15 +39,14 @@ namespace Pars
 
             public:
 
-            template<as_json_value T>
             [[nodiscard]]
             static 
             opt_fields_map 
-            requested_fields(T&& val)
+            requested_fields(json::value val)
             {
                 auto map = MainParser::mapped_pointers_validation
                 (
-                    std::forward<T>(val),
+                    std::move(val),
                     std::make_pair("/ok", json::kind::bool_)
                 );
 
@@ -58,15 +57,14 @@ namespace Pars
             } 
 
             
-            template<as_json_value T>
             [[nodiscard]]
             static 
             fields_map
-            optional_fields(T&& val)
+            optional_fields(json::value val)
             {
                 auto map = MainParser::mapped_pointers_validation
                 (
-                    std::forward<T>(val), 
+                    std::move(val), 
                     std::make_pair("/error_code", json::kind::int64),
                     std::make_pair("/description", json::kind::string),
                     std::make_pair("/result", json::kind::array)
@@ -93,16 +91,17 @@ namespace Pars
             }
 
             
+            template<typename Self>
             [[nodiscard]]
             json::value
-            fields_to_value()
+            fields_to_value(this Self&& self)
             {
                 return TelegramRequestes::TelegramResponse
                 (
                     ok,
                     error_code,
-                    description,
-                    result
+                    forward_like<Self>(description),
+                    forward_like<Self>(result)
                 );
             }
         };

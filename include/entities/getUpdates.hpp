@@ -72,25 +72,23 @@ namespace Pars
             }
 
 
-            template<as_json_value T>
             [[nodiscard]]
             static 
             opt_fields_map
-            requested_fields(T&& val)
+            requested_fields(json::value val)
             {
                 return std::unordered_map<json::string, json::value>{};
             }
 
 
-            template<as_json_value T>
             [[nodiscard]]
             static
             fields_map
-            optional_fields(T&& val)
+            optional_fields(json::value val)
             {
                 return MainParser::mapped_pointers_validation
                 (
-                    std::forward<T>(val),
+                    std::moveval),
                     std::make_pair(JS_POINTER(getupdates, offset), json::kind::int64),
                     std::make_pair(JS_POINTER(getupdates, limit), json::kind::int64),
                     std::make_pair(JS_POINTER(getupdates, timeout), json::kind::int64),
@@ -123,16 +121,17 @@ namespace Pars
             }
 
 
+            template<typename Self>
             [[nodiscard]]
             json::value
-            fields_to_value()
+            fields_to_value(this Self&& self)
             {
                 return TelegramRequestes::getUpdates
                 (
                     offset,
                     limit,
                     timeout,
-                    allowed_updates
+                    forward_like<Self>(allowed_updates)
                 );
             }
         };

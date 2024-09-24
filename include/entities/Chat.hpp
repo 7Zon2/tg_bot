@@ -27,20 +27,20 @@ namespace Pars
             chat
             (
                 const size_t id,
-                json::string_view type,
-                optstrw title = {},
-                optstrw username = {},
-                optstrw first_name = {},
-                optstrw last_name  = {},
+                json::string type,
+                optstr title = {},
+                optstr username = {},
+                optstr first_name = {},
+                optstr last_name  = {},
                 optbool is_forum  = {}
             )
             :
                 id(id),
-                type(type),
-                title(title),
-                username(username),
-                first_name(first_name),
-                last_name(last_name),
+                type(std::move(type)),
+                title(std::move(title)),
+                username(std::move(username)),
+                first_name(std::move(first_name)),
+                last_name(std::move(last_name)),
                 is_forum(is_forum)    
             {
                
@@ -90,36 +90,33 @@ namespace Pars
             }
 
 
-            template<as_json_value T>
             [[nodiscard]]
             static
             opt_fields_map
-            requested_fields(T&& val)
+            requested_fields(json::value val)
             {
-                const size_t sz = 2;
                 auto map = MainParser::mapped_pointers_validation
                 (
-                    std::forward<T>(val),
+                    std::move(val),
                     std::make_pair(JS_POINTER(chat, id), json::kind::uint64),
                     std::make_pair(JS_POINTER(chat, type), json::kind::string)
                 );            
 
-                if (map.size() != sz)
+                if (map.size() != req_fields)
                     return std::nullopt;
                 else
                     return map;
             }
 
 
-            template<as_json_value T>
             [[nodiscard]]
             static
             fields_map
-            optional_fields(T&& val)
+            optional_fields(json::value val)
             {
                 return MainParser::mapped_pointers_validation
                 (
-                    std::forward<T>(val),
+                    std::move(val),
                     std::make_pair(JS_POINTER(chat, title), json::kind::string),
                     std::make_pair(JS_POINTER(chat, username), json::kind::string),
                     std::make_pair(JS_POINTER(chat, first_name), json::kind::string),
@@ -165,11 +162,11 @@ namespace Pars
                 return TelegramRequestes::chat
                 (
                     id,
-                    type,
-                    title,
-                    username,
-                    first_name,
-                    last_name,
+                    forward_like<Self>(type),
+                    forward_like<Self>(title),
+                    forward_like<Self>(username),
+                    forward_liek<Self>(first_name),
+                    forward_like<Self>(last_name),
                     is_forum
                 );
             }
