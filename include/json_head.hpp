@@ -8,12 +8,65 @@
 #include <ranges>
 #include "print.hpp"
 
+#define FIELD_NAME(field)  #field
+
+#define FIELD_TO_LOWER(field) boost::algorithm::to_lower_copy(json::string{FIELD_NAME(field)})
+
+#define FIELD_EQUAL(field) FIELD_NAME(field) "="
+
+#define JS_POINTER(method, field) boost::algorithm::to_lower_copy(json::string{"/"#method"/"#field})
+
+#define MAKE_PAIR(field) std::make_pair(FIELD_NAME(field), std::ref(field))
+
+#define MAKE_OP(field)  op{FIELD_NAME(field), field}
+
+#define PAIR(field)     p{FIELD_NAME(field), field}
+
+#define URL_USER_INFO(field, value) "@"#field":" value
+
+#define URL_FIELD(field, value)     #field"=" value
+
+#define URL_REQUEST(field) "/"#field"?"
+
+
 
 namespace json = boost::json;
 
 
+template<typename T, typename U>
+constexpr auto&& forward_like(U&& u) noexcept
+{
+    constexpr bool is_const = std::is_const_v<std::remove_reference_t<T>>;
+    if constexpr (std::is_lvalue_reference_v<T&&>)
+    {
+        if constexpr (is_const)
+            return std::as_const(u);
+        else
+            return static_cast<U&>(u);
+    }
+    else
+    {
+        if constexpr (is_const)
+            return std::move(std::as_const(u));
+        else
+            return std::move(u);
+    }
+}
+
+
 namespace Pars
-{   
+{           
+    using optarray  = std::optional<json::array>;
+    using optobj    = std::optional<json::object>;
+    using optstrw   = std::optional<json::string_view>;
+    using optbool   = std::optional<bool>;
+    using optstr    = std::optional<json::string>;
+    using optint    = std::optional<int64_t>;
+    using optuint   = std::optional<uint64_t>;
+    using optdouble = std::optional<double>; 
+    using op        = std::pair<json::string,std::optional<json::value>>;
+    using p         = std::pair<json::string,json::value>;
+
 
     template<typename T>
     concept as_json_value = std::is_same_v<json::value, std::remove_reference_t<T>>;
@@ -155,6 +208,14 @@ namespace Pars
         }
 
         public:
+
+        [[nodiscard]]
+        static 
+        json::storage_ptr& 
+        get_storage_ptr()
+        {
+            return ptr_;
+        }
 
         [[nodiscard]]
         static json::string
@@ -399,12 +460,12 @@ namespace Pars
 
 
         template<typename T, typename U>
-        requires requires()
+        requires requires(T&& f, U&& t)
         {
-            std::is_base_of_v<std::input_iterator_tag, typename T::iterator_type>;
-            std::is_base_of_v<std::input_iterator_tag, typename T::iterator_type>;
+            f.begin(); f.end();
+            t.begin(); t.end(); 
         }
-        void
+        static void
         container_move(T&& from, U& to)
         {
             auto b = std::make_move_iterator(from.begin());

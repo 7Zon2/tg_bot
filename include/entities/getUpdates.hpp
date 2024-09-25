@@ -88,7 +88,7 @@ namespace Pars
             {
                 return MainParser::mapped_pointers_validation
                 (
-                    std::moveval),
+                    std::move(val),
                     std::make_pair(JS_POINTER(getupdates, offset), json::kind::int64),
                     std::make_pair(JS_POINTER(getupdates, limit), json::kind::int64),
                     std::make_pair(JS_POINTER(getupdates, timeout), json::kind::int64),
@@ -126,14 +126,50 @@ namespace Pars
             json::value
             fields_to_value(this Self&& self)
             {
-                return TelegramRequestes::getUpdates
+                return getUpdates::fields_to_value
                 (
-                    offset,
-                    limit,
-                    timeout,
-                    forward_like<Self>(allowed_updates)
+                    self.offset,
+                    self.limit,
+                    self.timeout,
+                    forward_like<Self>(self.allowed_updates)
                 );
             }
+
+
+            [[nodiscard]]
+            static json::value
+            fields_to_value
+            (
+                optint offset = {},
+                optint limit  = {},
+                optint timeout= {},
+                std::optional<std::vector<json::string>> allowed_updates = {}
+            )
+            {
+                json::object ob(MainParser::get_storage_ptr());
+                ob = parse_OptPairs_as_obj
+                (
+                    MAKE_OP(offset),
+                    MAKE_OP(limit),
+                    MAKE_OP(timeout)        
+                );
+
+                json::array arr;
+                if(allowed_updates.has_value())
+                {
+                    for(auto&& i : allowed_updates.value())
+                    {
+                        arr.push_back(std::move(i));
+                    }
+                }
+
+                ob.insert_or_assign(FIELD_NAME(allowed_updates), std::move(arr));
+
+                json::object ob2(MainParser::get_storage_ptr());
+                ob2["getupdates"] = std::move(ob);
+                return ob2;
+            }
+
         };
     }
 }

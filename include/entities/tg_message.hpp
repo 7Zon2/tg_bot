@@ -1,8 +1,7 @@
 #pragma once 
+#include "TelegramEntities.hpp"
 #include "User.hpp"
 #include "Chat.hpp"
-#include "ex"
-#include "TelegramEntities.hpp"
 
 namespace Pars
 {
@@ -13,13 +12,13 @@ namespace Pars
             using TelegramEntities::operator =; 
 
             using optuser = std::optional<User>;
-            using optchat = std::optional<chat>;
+            using optchat = std::optional<Chat>;
 
             public:
 
-            int64_t message_id;
+            uint64_t message_id;
             uint64_t date;
-            chat chat_;
+            Chat chat;
 
             optint  message_thread_id;
             optuser from;
@@ -52,9 +51,9 @@ namespace Pars
 
             message
             (
-                int64_t message_id,
+                uint64_t message_id,
                 uint64_t date,
-                chat chat_,
+                Chat chat,
                 optint  message_thread_id = {},
                 optuser from = {},
                 optchat sender_chat = {},
@@ -76,7 +75,7 @@ namespace Pars
             :
                 message_id(message_id),
                 date(date),
-                chat_(std::move(chat_)),
+                chat(std::move(chat)),
                 message_thread_id(message_thread_id),
                 from(std::move(from)),
                 sender_chat(std::move(sender_chat)),
@@ -110,12 +109,12 @@ namespace Pars
                     std::move(val),
                     std::make_pair(JS_POINTER(message, message_id), json::kind::uint64),
                     std::make_pair(JS_POINTER(message, date), json::kind::uint64),
-                    std::make_pair(JS_POINTER(message), user), json::kind::object
+                    std::make_pair(JS_POINTER(message, user), json::kind::object)
                 );
 
                 if (message_map.size() != req_fields)
                 {
-                    return std::nulloptr;
+                    return std::nullopt;
                 }
 
                 return message_map; 
@@ -163,7 +162,7 @@ namespace Pars
                <json::kind::uint64>(std::forward<T>(map), MAKE_PAIR(date));
      
                MainParser::field_from_map
-               <json::kind::object>(std::forward<T>(map), MAKE_PAIR(chat_));
+               <json::kind::object>(std::forward<T>(map), MAKE_PAIR(chat));
                    
                MainParser::field_from_map
                <json::kind::uint64>(std::forward<T>(map), MAKE_PAIR(message_thread_id));
@@ -213,5 +212,39 @@ namespace Pars
                MainParser::field_from_map
                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(text));
             }
-    }
-}
+
+
+            template<typename Self>
+            [[nodiscard]]
+            json::value
+            fields_to_value(this Self&& self)
+            {
+                return TelegramRequestes::Message
+                (
+                    self.message_id,
+                    self.date,
+                    forward_like<Self>(self.chat),
+                    self.message_thread_id,
+                    forward_like<Self>(self.from),
+                    forward_like<Self>(self.sender_chat),
+                    self.sender_boost_count,
+                    forward_like<Self>(self.sender_business_bot),
+                    forward_like<Self>(self.business_connection_id),
+                    forward_like<Self>(self.forward_origin),
+                    self.is_topic_message,
+                    self.is_automatic_forward,
+                    forward_like<Self>(self.reply_to_message),
+                    forward_like<Self>(self.via_bot),
+                    self.edit_date,
+                    self.has_protected_content,
+                    self.is_from_offline,
+                    forward_like<Self>(self.media_group_id),
+                    forward_like<Self>(self.author_signature),
+                    forward_like<Self>(self.text)
+                );
+            }
+        };
+
+    }//namespace TG   
+
+}//namespace Pars

@@ -55,11 +55,25 @@ namespace Pars
             json::value
             fields_to_value(this Self&& self)
             {
-                return TelegramRequestes::deletewebhook
+                return deleteWebhook::fields_to_value
                 (
-                    drop_pending_updates
+                    self.drop_pending_updates
                 );
             }
+
+
+            [[nodiscard]]
+            static json::value
+            fields_to_value
+            (
+                bool drop_pending_updates
+            )
+            {
+                json::object ob(MainParser::get_storage_ptr());
+                ob["drop_pending_updates"] = drop_pending_updates;
+                return ob;
+            }
+            
         };
     }
 }

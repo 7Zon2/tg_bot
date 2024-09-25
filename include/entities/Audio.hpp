@@ -139,16 +139,59 @@ namespace Pars
             {
                 return TelegramRequestes::Audio
                 (
-                    file_id,
-                    file_unique_id,
+                    self.file_id,
+                    self.file_unique_id,
+                    self.duration,
+                    forward_like<Self>(self.performer),
+                    forward_like<Self>(self.title),
+                    forward_like<Self>(self.file_name),
+                    forward_like<Self>(self.mime_type),
+                    forward_like<Self>(self.thumbnail),
+                    self.file_size
+                );
+            }
+
+
+            [[nodiscard]]
+            static json::value 
+            fields_to_value
+            (
+                json::string file_id,
+                json::string file_unique_id,
+                double duration,
+                optstr performer = {},
+                optstr title = {},
+                optstr file_name = {},
+                optstr mime_type = {},
+                std::optional<TG::PhotoSize> thumbnail = {},
+                optdouble file_size = {}
+            )
+            {
+                  
+                json::object ob = Animation::fields_to_value
+                (
+                    std::move(file_id),
+                    std::move(file_unique_id),
+                    0,
+                    0,
                     duration,
-                    forward_like<Self>(performer),
-                    forward_like<Self>(title),
-                    forward_like<Self>(file_name),
-                    forward_like<Self>(mime_type),
-                    forward_like<Self>(thumbnail),
+                    std::move(thumbnail),
+                    std::move(file_name),
+                    std::move(mime_type),
                     file_size
                 );
+
+                json::object ob2(MainParser::get_storage_ptr());
+                ob2 = parse_OptPairs_as_obj
+                    (
+                        MAKE_OP(std::move(title)),
+                        MAKE_OP(std::move(performer))
+                    );
+
+                MainParser::container_move(std::move(ob2), ob);
+                json::object res(MainParser::get_storage_ptr());
+                res["audio"] = std::move(ob);
+                return res;
             }
 
         }

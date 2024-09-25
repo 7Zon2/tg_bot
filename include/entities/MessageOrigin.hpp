@@ -1,6 +1,5 @@
 #pragma once
 #include "TelegramEntities.hpp"
-#include "concept_entities.hpp"
 
 namespace Pars
 {
@@ -81,10 +80,23 @@ namespace Pars
                 MainParser::field_from_map
                 <json::kind::uint64>(std::forward<T>(map), std::make_pair("date",std::ref(date_)));
             }
+
+
+            [[nodiscard]]
+            static json::value
+            fields_to_value
+            (
+                json::string type,
+                size_t date
+            )
+            {
+                json::object ob(MainParser::get_storage_ptr());
+                ob["messageorigin"] = parse_ObjPairs_as_obj(PAIR(std::move(type)), PAIR(date)); 
+                return ob;
+            }
         };
 
-        template<typename T>
-        MessageOrigin<T>::~MessageOrigin(){}
+        MessageOrigin::~MessageOrigin(){}
 
 
         struct MessageOriginUser : MessageOrigin
@@ -139,9 +151,8 @@ namespace Pars
                     return std::nullopt;
                 }
 
-                auto & map_ = map.value();
-                MainParser::container_move(std::move(map2), map_);
-                return std::move(map_);
+                MainParser::container_move(std::move(map2), map.value());
+                return std::move(map.value());
             }
 
 
@@ -170,12 +181,33 @@ namespace Pars
             json::value
             fields_to_value(this Self&& self)
             {
-                return TelegramRequestes::MessageOriginUser
+                return MessageOriginUser::fields_to_value
                 (
-                    type,
-                    date_,
-                    std::move(sender_user)
+                    self.type,
+                    self.date_,
+                    forward_liek<Self>(self.sender_user)
                 );
+            }
+
+
+            [[nodiscard]]
+            static json::value
+            fields_to_value
+            (
+                json::string type,
+                size_t date,
+                TG::User user
+            )
+            {
+                auto ob  = MessageOrigin::fields_to_value(std::move(type), date).as_object();
+                auto ob2 = std::move(user).fields_to_value().as_object();
+
+                Pars::MainParser::container_move(std::move(ob2), ob);                                                    
+
+                json::object res(MainParser::get_storage_ptr());
+                res["messageoriginuser"] = std::move(ob);
+
+                return res;
             }
         };
 
@@ -262,12 +294,30 @@ namespace Pars
             json::value
             fields_to_value(this Self&& self)
             {
-                return TelegramRequestes::MessageOriginHiddenUser
+                return MessageOriginHiddenUser::fields_to_value
                 (
-                    type,
-                    date_,
-                    sender_user_name
+                    forward_like<Self>(self.type),
+                    forward_like<Self>(self.date_),
+                    forward_like<Self>(self.sender_user_name)
                 );
+            }
+
+
+            [[nodiscard]]
+            static json::value
+            fields_to_value
+            (
+                json::string type,
+                size_t date,
+                json::string sender_user_name
+            )
+            {
+                auto ob = MessageOrigin::fields_to_value(std::move(type), date).as_object();
+                ob.emplace(FIELD(sender_user_name), std::move(sender_user_name));
+
+                json::object res(MainParser::get_storage_ptr());
+                res["messageoriginhiddenuser"] = std::move(ob);
+                return res;
             }
         };
 
@@ -276,7 +326,7 @@ namespace Pars
         {
             using MessageOrigin::operator=;
 
-            TG::chat sender_chat;
+            TG::Chat sender_chat;
             optstr  author_signature = {};
 
             static inline size_t req_fields = 3;
@@ -364,13 +414,37 @@ namespace Pars
             json::value
             fields_to_value(this Self&& self)
             {
-                return TelegramRequestes::MessageOriginChat
+                return MessageOriginChat::fields_to_value
                 (
-                    type,
-                    date_,
-                    forward_like<Self>(sender_chat),
-                    forward_like<Self>(author_signature)
+                    forward_like<Self>(self.type),
+                    self.date_,
+                    forward_like<Self>(self.sender_chat),
+                    forward_like<Self>(self.author_signature)
                 );
+            }
+
+
+            [[nodiscard]]
+            static json::value
+            fields_to_value
+            (
+                json::string type,
+                size_t date,
+                TG::Chat sender_chat,
+                optstr author_signature = {}
+            )
+            {
+                auto ob = MessageOrigin::fields_to_value(std::move(type), date).as_object();
+                auto send_ob = std::move(sender_chat).fields_to_value().as_object(); 
+
+                Pars::MainParser::container_move(std::move(send_ob), ob)
+
+                if (author_signature.has_value())
+                    ob.emplace(FIELD(author_signature), author_signature.value());
+
+                json::object res(MainParser::get_storage_ptr());
+                res["messageoriginchat"] = std::move(ob); 
+                return res;
             }
         };
     }

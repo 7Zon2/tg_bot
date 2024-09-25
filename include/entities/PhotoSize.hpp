@@ -1,6 +1,5 @@
 #pragma once
 #include "TelegramEntities.hpp"
-#include "concept_entities.hpp"
 
 
 namespace Pars
@@ -123,13 +122,47 @@ namespace Pars
             {
                 return TelegramRequestes::PhotoSize
                 (
-                    forward_like<Self>(file_id),
-                    forward_like<Self>(file_unique_id),
-                    width,
-                    height,
-                    file_size
+                    forward_like<Self>(self.file_id),
+                    forward_like<Self>(self.file_unique_id),
+                    self.width,
+                    self.height,
+                    self.file_size
                 );
             }
+
+            [[nodiscard]]
+            static json::value
+            fields_to_value
+            (
+                json::string file_id,
+                json::string file_unique_id,
+                double width,
+                double height,
+                optdouble file_size = {}
+            )
+            {
+                json::object ob{MainParser::get_storage_ptr()};
+                ob = parse_ObjPairs_as_obj
+                    (
+                        PAIR(std::move(file_id)),
+                        PAIR(std::move(file_unique_id)),
+                        PAIR(width),
+                        PAIR(height)
+                    );
+
+                json::object ob2{MainParser::get_storage_ptr()};
+                ob2 = parse_OptPairs_as_obj
+                    (
+                        MAKE_OP(file_size)
+                    );
+
+                Pars::MainParser::container_move(std::move(ob2), ob);
+
+                json::object res_(MainParser::get_storage_ptr());
+                res["photosize"] = std::move(ob);
+                return res;
+            }
+
 
         };
     };

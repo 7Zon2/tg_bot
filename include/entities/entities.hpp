@@ -8,3 +8,7 @@
 #include "tg_message.hpp"
 #include "Chat.hpp"
 #include "MessageOrigin.hpp"
+#include "PhotoSize.hpp"
+#include "forwardMessage.hpp"
+#include "Audio.hpp"
+#include "Animation.hpp"

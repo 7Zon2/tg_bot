@@ -1,6 +1,6 @@
 #pragma once
-#include "tg_pars.hpp"
-
+#include "concept_entities.hpp"
+#include "tg_requestes.hpp"
 
 namespace Pars
 {

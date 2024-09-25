@@ -72,7 +72,7 @@ namespace Pars
             opt_fields_map 
             requested_fields(json::value val) 
             {
-                auto opt = MainParser::check_pointer_validation(std::forward<T>(val), std::make_pair("/user", json::kind::object));
+                auto opt = MainParser::check_pointer_validation(std::move(val), std::make_pair("/user", json::kind::object));
                 if(opt.has_value() == false)
                 {
                     return std::nullopt;
@@ -80,7 +80,7 @@ namespace Pars
                 
                 auto map = MainParser::mapped_pointers_validation
                 (
-                    std::forward<T>(val),
+                    std::move(val),
                     std::make_pair("/user/id", json::kind::uint64),
                     std::make_pair("/user/is_bot", json::kind::bool_),
                     std::make_pair("/user/first_name", json::kind::string)
@@ -165,21 +165,69 @@ namespace Pars
             json::value
             fields_to_value(this Self&& self)
             {
-                return TelegramRequestes::get_user_request
+                return User::fields_to_value
                 (
-                    id,
-                    is_bot,
-                    forward_like<Self>(first_name),
-                    forward_like<Self>(last_name),
-                    forward_like<Self>(username),
-                    forward_like<Self>(language_code),
-                    is_premium,
-                    added_to_attachment_menu,
-                    can_join_groups,
-                    can_read_all_group_messages,
-                    supports_inline_queries,
-                    can_connect_to_business
+                    self.id,
+                    self.is_bot,
+                    forward_like<Self>(self.first_name),
+                    forward_like<Self>(self.last_name),
+                    forward_like<Self>(self.username),
+                    forward_like<Self>(self.language_code),
+                    self.is_premium,
+                    self.added_to_attachment_menu,
+                    self.can_join_groups,
+                    self.can_read_all_group_messages,
+                    self.supports_inline_queries,
+                    self.can_connect_to_business
                 );
+            }
+
+            [[nodiscard]]
+            static json::value
+            fields_to_value
+            (
+                uint64_t id,
+                bool is_bot,
+                json::string first_name,
+                optstr last_name                    = {},
+                optstr username                     = {},
+                optstr language_code                = {},
+                optbool is_premium                  = {},
+                optbool added_to_attachment_menu    = {},
+                optbool can_join_groups             = {},
+                optbool can_read_all_group_messages = {},
+                optbool supports_inline_queries     = {},
+                optbool can_connect_to_business     = {}
+            )
+            {
+                json::object ob   {MainParser::get_storage_ptr()};
+                json::object ob_1 {MainParser::get_storage_ptr()};
+                json::object ob_2 {MainParser::get_storage_ptr()};
+
+                ob_1 =  MainParser::parse_ObjPairs_as_obj
+                        (
+                            PAIR(id),
+                            PAIR(is_bot),
+                            PAIR(std::move(first_name))
+                        );
+
+                ob_2 =  MainParser::parse_OptPairs_as_obj
+                        (
+                            MAKE_OP(std::move(last_name)),
+                            MAKE_OP(std::move(username)),
+                            MAKE_OP(std::move(language_code)),
+                            MAKE_OP(is_premium),
+                            MAKE_OP(added_to_attachment_menu),
+                            MAKE_OP(can_join_groups),
+                            MAKE_OP(can_read_all_group_messages),
+                            MAKE_OP(supports_inline_queries),
+                            MAKE_OP(can_connect_to_business)    
+                        );
+
+                MainParser::container_move(std::move(ob_2), ob_1);
+
+                ob["user"] = { std::move(ob_1) };
+                return ob;
             }
         };
     }//namespace TG

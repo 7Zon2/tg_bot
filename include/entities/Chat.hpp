@@ -5,9 +5,9 @@ namespace Pars
 {
     namespace TG
     {
-        struct chat : TelegramEntities<chat>
+        struct Chat : TelegramEntities<Chat>
         {
-            using TelegramEntities::operator = ;
+            using TelegramEntities<Chat>::operator = ;
 
             size_t id;
             json::string type;
@@ -22,9 +22,9 @@ namespace Pars
 
             public:
 
-            chat(){}
+            Chat(){}
 
-            chat
+            Chat
             (
                 const size_t id,
                 json::string type,
@@ -98,8 +98,8 @@ namespace Pars
                 auto map = MainParser::mapped_pointers_validation
                 (
                     std::move(val),
-                    std::make_pair(JS_POINTER(chat, id), json::kind::uint64),
-                    std::make_pair(JS_POINTER(chat, type), json::kind::string)
+                    std::make_pair(JS_POINTER(Chat, id), json::kind::uint64),
+                    std::make_pair(JS_POINTER(Chat, type), json::kind::string)
                 );            
 
                 if (map.size() != req_fields)
@@ -117,11 +117,11 @@ namespace Pars
                 return MainParser::mapped_pointers_validation
                 (
                     std::move(val),
-                    std::make_pair(JS_POINTER(chat, title), json::kind::string),
-                    std::make_pair(JS_POINTER(chat, username), json::kind::string),
-                    std::make_pair(JS_POINTER(chat, first_name), json::kind::string),
-                    std::make_pair(JS_POINTER(chat, last_name), json::kind::string),
-                    std::make_pair(JS_POINTER(chat, is_forum),  json::kind::bool_)
+                    std::make_pair(JS_POINTER(Chat, title), json::kind::string),
+                    std::make_pair(JS_POINTER(Chat, username), json::kind::string),
+                    std::make_pair(JS_POINTER(Chat, first_name), json::kind::string),
+                    std::make_pair(JS_POINTER(Chat, last_name), json::kind::string),
+                    std::make_pair(JS_POINTER(Chat, is_forum),  json::kind::bool_)
                 );
             }
 
@@ -159,16 +159,54 @@ namespace Pars
             json::value
             fields_to_value(this Self&& self)
             {
-                return TelegramRequestes::chat
+                return Chat::fields_to_value
                 (
-                    id,
-                    forward_like<Self>(type),
-                    forward_like<Self>(title),
-                    forward_like<Self>(username),
-                    forward_liek<Self>(first_name),
-                    forward_like<Self>(last_name),
-                    is_forum
+                    self.id,
+                    forward_like<Self>(self.type),
+                    forward_like<Self>(self.title),
+                    forward_like<Self>(self.username),
+                    forward_liek<Self>(self.first_name),
+                    forward_like<Self>(self.last_name),
+                    self.is_forum
                 );
+            }
+
+
+            [[nodiscard]]
+            static json::value
+            fields_to_value
+            (
+                uint64_t id,
+                json::string type,
+                optstr title = {},
+                optstr username = {},
+                optstr first_name = {},
+                optstr last_name  = {},
+                optbool is_forum   = {}
+            )
+            {
+                json::object ob(MainParser::get_storage_ptr());
+                ob = parse_ObjPairs_as_obj
+                (
+                    PAIR(id),
+                    PAIR(std::move(type))
+                );
+
+                json::object ob2(MainParser::get_storage_ptr());
+                ob2 = parse_OptPairs_as_obj
+                (
+                    MAKE_OP(std::move(title)),
+                    MAKE_OP(std::move(username)),
+                    MAKE_OP(std::move(first_name)),
+                    MAKE_OP(std::move(last_name)),
+                    MAKE_OP(is_forum)
+                );
+
+                Pars::obj_move(ob2, ob);
+
+                json::object res(MainParser::get_storage_ptr());
+                res[FIELD_TO_LOWER(chat)] = std::move(ob);
+                return res;
             }
         };
     }

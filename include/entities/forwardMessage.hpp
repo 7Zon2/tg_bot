@@ -1,6 +1,5 @@
 #pragma once
 #include "TelegramEntities.hpp"
-#include "concept_entities.hpp"
 
 
 namespace Pars
@@ -140,15 +139,53 @@ namespace Pars
             json::value
             fields_to_value(this Self&& self)
             {
-                return TelegramRequestes::forwardMessage
+                return TelegramRequestes::fields_to_value
                 (
-                    forward_like<Self>(chat_id),
-                    forward_like<Self>(from_chat_id),
-                    message_id,
-                    message_thread_id,
-                    disable_notification,
-                    protect
+                    self.forward_like<Self>(chat_id),
+                    self.forward_like<Self>(from_chat_id),
+                    self.message_id,
+                    self.message_thread_id,
+                    self.disable_notification,
+                    self.protect
                 );
+            }
+
+
+            [[nodiscard]]
+            static json::value
+            fields_to_value
+            (
+                json::string chat_id,
+                json::string from_chat_id,
+                int message_id,
+                optint message_thread_id,
+                optbool disable_notification,
+                optbool protect
+            )
+            {
+                json::object ob  {MainParser::get_storage_ptr()};
+                json::object ob_1(MainParser::get_storage_ptr());
+
+                ob_1 =  parse_ObjPairs_as_obj
+                    (
+                        PAIR(std::move(chat_id)),
+                        PAIR(std::move(from_chat_id)),
+                        PAIR(message_id)
+                    );
+
+                json::object ob_2{MainParser::get_storage_ptr()};
+                ob_2 = parse_OptPairs_as_obj
+                      (
+                        MAKE_OP(message_thread_id),
+                        MAKE_OP(disable_notification),
+                        MAKE_OP(protect)
+                      );
+
+                
+                Pars::MainParser::container_move(std::move(ob_2), ob_1);
+
+                ob["forwardmessage"] = { std::move(ob_1) };
+                return ob;
             }
 
         };

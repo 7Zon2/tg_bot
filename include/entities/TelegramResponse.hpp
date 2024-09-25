@@ -96,14 +96,46 @@ namespace Pars
             json::value
             fields_to_value(this Self&& self)
             {
-                return TelegramRequestes::TelegramResponse
+                return TelegramResponse::fields_to_value
                 (
-                    ok,
-                    error_code,
-                    forward_like<Self>(description),
-                    forward_like<Self>(result)
+                    self.ok,
+                    self.error_code,
+                    forward_like<Self>(self.description),
+                    forward_like<Self>(self.result)
                 );
             }
+
+
+            [[nodiscard]]
+            static json::value
+            fields_to_value
+            (
+                bool ok,
+                optint error_code,
+                optstr description,
+                optarray result
+            )
+            {
+                json::object ob(MainParser::get_storage_ptr());
+                ob = parse_ObjPairs_as_obj(PAIR(ok));
+
+                json::object ob2(MainParser::get_storage_ptr());
+                ob2 = parse_OptPairs_as_obj
+                (
+                    MAKE_OP(error_code),
+                    MAKE_OP(std::move(description))
+                );
+
+                Pars::MainParser::container_move(std::move(ob2), ob);
+
+                if (result.has_value())
+                {
+                    json::value val_arr{std::move(result.value())};
+                    ob.emplace(FIELD_NAME(result), std::move(val_arr));
+                }
+                return ob;
+            }
+            
         };
 
     }//namespace TG

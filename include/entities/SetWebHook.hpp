@@ -128,16 +128,56 @@ namespace Pars
             json::value
             fields_to_value(this Self&& self) 
             {
-                return TelegramRequestes::setWebhook
+                return SetWebHook::fields_to_value
                 (
-                    forward_like<Self>(url),
-                    forward_like<Self>(certificate),
-                    forward_like<Self>(ip_address),
-                    max_connections,
-                    forward_like<Self>(allowed_updates),
-                    drop_pending_updates,
-                    forward_like<Self>(secret_token)
+                    forward_like<Self>(self.url),
+                    forward_like<Self>(self.certificate),
+                    forward_like<Self>(self.ip_address),
+                    self.max_connections,
+                    forward_like<Self>(self.allowed_updates),
+                    self.drop_pending_updates,
+                    forward_like<Self>(self.secret_token)
                 );
+            }
+
+
+            [[nodiscard]]
+            static json::value
+            fields_to_value
+            (
+                json::string url,
+                optstr certificate = {},
+                optstr ip_address  = {},
+                optint max_connections = {},
+                std::optional<json::array> allowed_updates = {},
+                optbool drop_pending_updates = {},
+                optstr  secret_token         = {}
+            )
+            {
+                json::object ob (MainParser::get_storage_ptr());
+                json::object ob1(MainParser::get_storage_ptr());
+                json::object ob2(MainParser::get_storage_ptr());
+
+                ob = parse_ObjPairs_as_obj
+                   (
+                        PAIR(std::move(url))
+                   );
+
+
+                ob1 = parse_OptPairs_as_obj
+                    (
+                        MAKE_OP(std::move(certificate)),
+                        MAKE_OP(std::move(ip_address)),
+                        MAKE_OP(max_connections),
+                        MAKE_OP(std::move(allowed_updates)),
+                        MAKE_OP(drop_pending_updates),
+                        MAKE_OP(std::move(secret_token))
+                    ); 
+
+                Pars::MainParser::container_move(std::move(ob1), ob);
+
+                ob2["setwebhook"] = { std::move(ob) };
+                return ob2;
             }
         };
         

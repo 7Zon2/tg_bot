@@ -7,14 +7,11 @@ namespace Pars
     namespace TG
     {
         struct User;
-        struct chat;
+        struct Chat;
         struct message;
         struct deletewebhook;
         struct SetWebHook;
-
-        template<typename T>
         struct MessageOrigin;
-        
         struct TelegramResponse;
         struct LinkPreviewOptions;
         struct PhotoSize;
@@ -30,7 +27,7 @@ namespace Pars
         concept is_TelegramResponse = std::is_same_v<std::remove_reference_t<T>, TelegramResponse>;
 
         template<typename T>
-        concept is_chat   = std::is_same_v<std::remove_reference_t<T>, chat>;
+        concept is_chat   = std::is_same_v<std::remove_reference_t<T>, Chat>;
 
         template<typename T>
         concept is_user    = std::is_same_v<std::remove_reference_t<T>, User>;
@@ -39,7 +36,7 @@ namespace Pars
         concept is_message = std::is_same_v<std::remove_reference_t<T>, message>;
 
         template<typename T>
-        concept is_messageOriginBase = std::is_base_of_v<MessageOrigin<std::remove_reference_t<T>>, std::remove_reference_t<T>>; 
+        concept is_messageOriginBase = std::is_base_of_v<MessageOrigin, std::remove_reference_t<T>>; 
 
         template<typename T>
         concept is_PhotoSize = std::is_same_v<std::remove_reference_t<T>, PhotoSize>;
@@ -62,10 +59,10 @@ namespace Pars
         template<typename T>
         concept is_Video = std::is_same_v<std::remove_reference_t<T>, Video>;
 
-        template<typename T>
-        concept VideoNote = std::is_same_v<std::remove_reference_t<T>, VideoNote>;
+        // template<typename T>
+        // concept VideoNote = std::is_same_v<std::remove_reference_t<T>, VideoNote>;
 
-        template<typename T>
-        concept Voice = std::is_same_v<std::remove_reference_t<T>, Voice>
+        // template<typename T>
+        // concept Voice = std::is_same_v<std::remove_reference_t<T>, Voice>;
     }
 }
