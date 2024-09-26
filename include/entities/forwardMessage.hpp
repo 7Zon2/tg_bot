@@ -15,8 +15,8 @@ namespace Pars
             optbool disable_notification;
             optbool protect;
 
-            static inline size_t req_fields = 3;
-            static inline size_t opt_fields = 3;
+            static constexpr size_t req_fields = 3;
+            static constexpr size_t opt_fields = 3;
 
             public:
 
@@ -50,7 +50,7 @@ namespace Pars
             fields_to_url() 
             {
 
-                std::string req {URL_REQUEST(forwardMessage)};
+                json::string req {URL_REQUEST(forwardMessage)};
 
                 req+=MainParser::concat_string
                 (   
@@ -124,7 +124,7 @@ namespace Pars
                 <json::kind::int64>(std::forward<T>(map), MAKE_PAIR(message_id));
 
                 MainParser::field_from_map
-                <json::kind::int>(std::forward<T>(map), MAKE_PAIR(message_thread_id));
+                <json::kind::int64>(std::forward<T>(map), MAKE_PAIR(message_thread_id));
 
                 MainParser::field_from_map
                 <json::kind::bool_>(std::forward<T>(map), MAKE_PAIR(disable_notification));
@@ -139,10 +139,10 @@ namespace Pars
             json::value
             fields_to_value(this Self&& self)
             {
-                return TelegramRequestes::fields_to_value
+                return forwardMessage::fields_to_value
                 (
-                    self.forward_like<Self>(chat_id),
-                    self.forward_like<Self>(from_chat_id),
+                    forward_like<Self>(self.chat_id),
+                    forward_like<Self>(self.from_chat_id),
                     self.message_id,
                     self.message_thread_id,
                     self.disable_notification,
@@ -166,7 +166,7 @@ namespace Pars
                 json::object ob  {MainParser::get_storage_ptr()};
                 json::object ob_1(MainParser::get_storage_ptr());
 
-                ob_1 =  parse_ObjPairs_as_obj
+                ob_1 =  MainParser::parse_ObjPairs_as_obj
                     (
                         PAIR(std::move(chat_id)),
                         PAIR(std::move(from_chat_id)),
@@ -174,7 +174,7 @@ namespace Pars
                     );
 
                 json::object ob_2{MainParser::get_storage_ptr()};
-                ob_2 = parse_OptPairs_as_obj
+                ob_2 = MainParser::parse_OptPairs_as_obj
                       (
                         MAKE_OP(message_thread_id),
                         MAKE_OP(disable_notification),

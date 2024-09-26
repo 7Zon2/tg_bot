@@ -1,7 +1,6 @@
 #include "head.hpp"
 #include "entities/entities.hpp"
 #include "certif.hpp"
-#include "tg_pars.hpp"
 #include "print.hpp"
 #include "coro_future.hpp"
 
@@ -199,7 +198,7 @@ class session : public std::enable_shared_from_this<session>
 
     void DeleteWebhookRequest(const bool del)
     {
-        json::value val = Pars::TG::TelegramRequestes::deletewebhook
+        json::value val = TG::deletewebhook::fields_to_value
         (
             del
         );

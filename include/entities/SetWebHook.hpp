@@ -158,13 +158,13 @@ namespace Pars
                 json::object ob1(MainParser::get_storage_ptr());
                 json::object ob2(MainParser::get_storage_ptr());
 
-                ob = parse_ObjPairs_as_obj
+                ob = MainParser::parse_ObjPairs_as_obj
                    (
                         PAIR(std::move(url))
                    );
 
 
-                ob1 = parse_OptPairs_as_obj
+                ob1 = MainParser::parse_OptPairs_as_obj
                     (
                         MAKE_OP(std::move(certificate)),
                         MAKE_OP(std::move(ip_address)),

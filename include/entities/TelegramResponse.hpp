@@ -117,10 +117,10 @@ namespace Pars
             )
             {
                 json::object ob(MainParser::get_storage_ptr());
-                ob = parse_ObjPairs_as_obj(PAIR(ok));
+                ob = MainParser::parse_ObjPairs_as_obj(PAIR(ok));
 
                 json::object ob2(MainParser::get_storage_ptr());
-                ob2 = parse_OptPairs_as_obj
+                ob2 = MainParser::parse_OptPairs_as_obj
                 (
                     MAKE_OP(error_code),
                     MAKE_OP(std::move(description))

@@ -11,7 +11,7 @@ namespace Pars
             using TelegramEntities::operator=;
 
             json::string type;
-            size_t date_;
+            size_t date;
 
             static constexpr size_t req_fields = 2;
             static constexpr size_t opt_fields = 0;
@@ -21,7 +21,7 @@ namespace Pars
             MessageOrigin(){}
 
             MessageOrigin(json::string type, const size_t date)
-                : type(std::move(type)), date_(date){}
+                : type(std::move(type)), date(date){}
 
             virtual ~MessageOrigin() = 0;
 
@@ -78,7 +78,7 @@ namespace Pars
                 <json::kind::string>(std::forward<T>(map), MAKE_PAIR(type));
 
                 MainParser::field_from_map
-                <json::kind::uint64>(std::forward<T>(map), std::make_pair("date",std::ref(date_)));
+                <json::kind::uint64>(std::forward<T>(map), std::make_pair("date",std::ref(date)));
             }
 
 
@@ -91,12 +91,13 @@ namespace Pars
             )
             {
                 json::object ob(MainParser::get_storage_ptr());
-                ob["messageorigin"] = parse_ObjPairs_as_obj(PAIR(std::move(type)), PAIR(date)); 
+                ob["messageorigin"] = MainParser::parse_ObjPairs_as_obj(PAIR(std::move(type)), PAIR(date)); 
                 return ob;
             }
         };
 
         MessageOrigin::~MessageOrigin(){}
+
 
 
         struct MessageOriginUser : MessageOrigin
@@ -106,8 +107,8 @@ namespace Pars
 
             User sender_user;
 
-            static constexpr size_t req_fields = 3;
-            static constexpr size_t opt_fields = 0;
+            static constexpr const size_t req_fields = 3;
+            static constexpr const size_t opt_fields = 0;
 
             public:
 
@@ -155,9 +156,8 @@ namespace Pars
                 return std::move(map.value());
             }
 
-
-            static
-            fields_map
+            [[nodiscard]]
+            static fields_map
             optional_fields(json::value val)
             {
                 return MessageOrigin::optional_fields(std::move(val));
@@ -184,7 +184,7 @@ namespace Pars
                 return MessageOriginUser::fields_to_value
                 (
                     self.type,
-                    self.date_,
+                    self.date,
                     forward_liek<Self>(self.sender_user)
                 );
             }
@@ -313,7 +313,7 @@ namespace Pars
             )
             {
                 auto ob = MessageOrigin::fields_to_value(std::move(type), date).as_object();
-                ob.emplace(FIELD(sender_user_name), std::move(sender_user_name));
+                ob.emplace(FIELD_NAME(sender_user_name), std::move(sender_user_name));
 
                 json::object res(MainParser::get_storage_ptr());
                 res["messageoriginhiddenuser"] = std::move(ob);
@@ -340,7 +340,7 @@ namespace Pars
             (
                 json::string type,
                 const size_t date,
-                TG::chat sender_chat,
+                TG::Chat sender_chat,
                 optstr author_signature = {}
             )
             :
@@ -376,8 +376,8 @@ namespace Pars
                     return std::nullopt;
                 }
 
-                MainParser::container_move(std::move(map2), map_);
-                return std::move(map_);
+                MainParser::container_move(std::move(map2), map.value());
+                return std::move(map.value());
             }
 
 
@@ -437,15 +437,143 @@ namespace Pars
                 auto ob = MessageOrigin::fields_to_value(std::move(type), date).as_object();
                 auto send_ob = std::move(sender_chat).fields_to_value().as_object(); 
 
-                Pars::MainParser::container_move(std::move(send_ob), ob)
+                Pars::MainParser::container_move(std::move(send_ob), ob);
 
                 if (author_signature.has_value())
-                    ob.emplace(FIELD(author_signature), author_signature.value());
+                    ob.emplace(FIELD_NAME(author_signature), author_signature.value());
 
                 json::object res(MainParser::get_storage_ptr());
                 res["messageoriginchat"] = std::move(ob); 
                 return res;
             }
         };
-    }
-}
+
+
+        struct MessageOriginChannel : MessageOrigin
+        {
+            using MessageOrigin::operator=;
+
+            public:
+
+            TG::Chat chat;
+            size_t message_id;
+            optstr author_signature;
+
+            static constexpr const size_t req_fields = 4;
+            static constexpr const size_t opt_fields = 1;
+
+            public:
+
+            MessageOriginChannel(){}
+
+            MessageOriginChannel
+            (
+                json::string type,
+                size_t date,
+                TG::Chat chat,
+                size_t message_id,
+                optstr author_signature = {}
+            )
+            :
+                MessageOrigin(std::move(type), date),
+                chat(std::move(chat)),
+                message_id(message_id),
+                author_signature(std::move(author_signature))
+                {
+
+                }
+
+            public:
+
+            [[nodiscard]]
+            static 
+            opt_fields_map
+            requested_fields(json::value val)
+            {
+                auto map = MessageOrigin::requested_fields(std::move(val), FIELD_NAME(messageoriginchannel));
+                if(map.has_value() == false)
+                {
+                    return map;
+                }
+
+                auto map2 = MainParser::mapped_pointers_validation
+                (
+                    std::move(val),
+                    std::make_pair(JS_POINTER(messageoriginchannel, chat), json::kind::object),
+                    std::make_pair(JS_POINTER(messageoriginchannel, message_id), json::kind::uint64)
+                );
+
+                if(map2.size() != 2)
+                {
+                    return std::nullopt;
+                }
+
+                MainParser::container_move(std::move(map2), map.value());
+                return std::move(map.value());
+            }
+
+            [[nodiscard]]
+            static fields_map
+            optional_fields(json::value val)
+            {
+                return MainParser::mapped_pointers_validation
+                (
+                    std::move(val),
+                    std::make_pair(JS_POINTER(messageoriginchannel, author_signature), json::kind::string)
+                );
+            }
+
+
+            template<is_fields_map T>
+            void
+            fields_from_map
+            (T && map)
+            {
+                MessageOrigin::fields_from_map(std::forward<T>(map));
+
+                MainParser::field_from_map
+                <json::kind::object>(std::forward<T>(map), MAKE_PAIR(chat));
+
+                MainParser::field_from_map
+                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(author_signature));
+            }
+
+
+            template<typename Self>
+            [[nodiscard]]
+            json::value
+            fields_to_value(this Self&& self)
+            {
+                return MessageOriginChannel::fields_to_value
+                (
+                    Utils::forward_like<Self>(self.type),
+                    self.date,
+                    Utils::forward_like<Self>(self.chat),
+                    Utils::forward_like<Self>(self.author_signature)
+                );
+            }
+
+
+            [[nodiscard]]
+            static json::value
+            fields_to_value
+            (
+                json::string type,
+                size_t date,
+                TG::Chat chat,
+                size_t message_id,
+                optstr author_signature = {}
+            )
+            {
+                auto ob = MessageOriginChat::fields_to_value(std::move(type), date, std::move(chat), std::move(author_signature)).as_object();
+                ob.emplace("message_id", message_id);
+
+                json::object res(MainParser::get_storage_ptr());
+                res["messageoriginchannel"] = std::move(ob);
+                return res;
+            }
+        };
+
+    }// namespace TG
+
+}//namespace Pars

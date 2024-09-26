@@ -22,9 +22,9 @@
 
 #define PAIR(field)     p{FIELD_NAME(field), field}
 
-#define URL_USER_INFO(field, value) "@"#field":" value
+#define URL_USER_INFO(field, value) "@"#field":" #value
 
-#define URL_FIELD(field, value)     #field"=" value
+#define URL_FIELD(field, value)     #field"=" #value
 
 #define URL_REQUEST(field) "/"#field"?"
 
@@ -33,26 +33,28 @@
 namespace json = boost::json;
 
 
-template<typename T, typename U>
-constexpr auto&& forward_like(U&& u) noexcept
+namespace Utils
 {
-    constexpr bool is_const = std::is_const_v<std::remove_reference_t<T>>;
-    if constexpr (std::is_lvalue_reference_v<T&&>)
+    template<typename T, typename U>
+    constexpr auto&& forward_like(U&& u) noexcept
     {
-        if constexpr (is_const)
-            return std::as_const(u);
+        constexpr bool is_const = std::is_const_v<std::remove_reference_t<T>>;
+        if constexpr (std::is_lvalue_reference_v<T&&>)
+        {
+            if constexpr (is_const)
+                return std::as_const(u);
+            else
+                return static_cast<U&>(u);
+        }
         else
-            return static_cast<U&>(u);
-    }
-    else
-    {
-        if constexpr (is_const)
-            return std::move(std::as_const(u));
-        else
-            return std::move(u);
+        {
+            if constexpr (is_const)
+                return std::move(std::as_const(u));
+            else
+                return std::move(u);
+        }
     }
 }
-
 
 namespace Pars
 {           
@@ -769,7 +771,7 @@ namespace Pars
         {
             json::object ob(ptr_);
 
-            (((args.second.has_value()) ? ob.insert({{forward_like<Types>(args.first), forward_like<Types>(args.second.value())}}) : void()),...);
+            (((args.second.has_value()) ? ob.insert({{Utils::forward_like<Types>(args.first), Utils::forward_like<Types>(args.second.value())}}) : void()),...);
 
             return ob;
         }

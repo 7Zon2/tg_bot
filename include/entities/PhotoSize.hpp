@@ -8,14 +8,6 @@ namespace Pars
     {
         struct PhotoSize : TelegramEntities<PhotoSize>
         {
-            
-            protected:
-
-            json::string inherited_name{FIELD_TO_LOWER(PhotoSize)};
-
-            PhotoSize(json::string inherited_name):
-            inherited_name(std::move(inherited_name)){}
-
             public:
 
             using TelegramEntities::operator=;
@@ -59,17 +51,15 @@ namespace Pars
             [[nodiscard]]
             static
             opt_fields_map
-            requested_fields(json::value val)
+            requested_fields(json::value val, json::string inherited_name = "photosize")
             {
-                using MainParser::make_json_pointer;
-
                 auto map = MainParser::mapped_pointers_validation
                 (
                     std::move(val),
-                    std::make_pair(make_json_pointer(inherited_name, FIELD_NAME(file_id)), json::kind::string),
-                    std::make_pair(make_json_pointer(inherited_name, FIELD_NAME(file_unique_id)), json::kind::string),
-                    std::make_pair(make_json_pointer(inherited_name, FIELD_NAME(width)),  json::kind::double_),
-                    std::make_pair(make_json_pointer(inherited_name, FIELD_NAME(height)), json::kind::double_)
+                    std::make_pair(MainParser::make_json_pointer(inherited_name, FIELD_NAME(file_id)), json::kind::string),
+                    std::make_pair(MainParser::make_json_pointer(inherited_name, FIELD_NAME(file_unique_id)), json::kind::string),
+                    std::make_pair(MainParser::make_json_pointer(inherited_name, FIELD_NAME(width)),  json::kind::double_),
+                    std::make_pair(MainParser::make_json_pointer(inherited_name, FIELD_NAME(height)), json::kind::double_)
                 );
 
                 if (req_fields != map.size())
@@ -89,7 +79,7 @@ namespace Pars
                 return MainParser::mapped_pointers_validation
                 (
                     std::move(val),
-                    std::make_pair(JS_POINTER(PhotoSize, file_size), json::kind:double_)
+                    std::make_pair(JS_POINTER(PhotoSize, file_size), json::kind::double_)
                 );
             }
 
@@ -101,16 +91,16 @@ namespace Pars
                 MainParser::field_from_map
                 <json::kind::string>(std::forward<T>(map), MAKE_PAIR(file_id));
 
-                MainParser::fields_from_map
+                MainParser::field_from_map
                 <json::kind::string>(std::forward<T>(map), MAKE_PAIR(file_unique_id));
 
-                MainParser::fields_from_map
+                MainParser::field_from_map
                 <json::kind::double_>(std::forward<T>(map), MAKE_PAIR(width));
 
-                MainParser::fields_from_map
+                MainParser::field_from_map
                 <json::kind::double_>(std::forward<T>(map), MAKE_PAIR(height));
 
-                MainParser:;fields_from_map
+                MainParser::field_from_map
                 <json::kind::double_>(std::forward<T>(map), MAKE_PAIR(file_size));
             }
 
@@ -120,15 +110,16 @@ namespace Pars
             json::value
             fields_to_value(this Self&& self)
             {
-                return TelegramRequestes::PhotoSize
+                return PhotoSize::fields_to_value
                 (
-                    forward_like<Self>(self.file_id),
-                    forward_like<Self>(self.file_unique_id),
+                    Utils::forward_like<Self>(self.file_id),
+                    Utils::forward_like<Self>(self.file_unique_id),
                     self.width,
                     self.height,
                     self.file_size
                 );
             }
+
 
             [[nodiscard]]
             static json::value
@@ -142,7 +133,7 @@ namespace Pars
             )
             {
                 json::object ob{MainParser::get_storage_ptr()};
-                ob = parse_ObjPairs_as_obj
+                ob = MainParser::parse_ObjPairs_as_obj
                     (
                         PAIR(std::move(file_id)),
                         PAIR(std::move(file_unique_id)),
@@ -151,18 +142,17 @@ namespace Pars
                     );
 
                 json::object ob2{MainParser::get_storage_ptr()};
-                ob2 = parse_OptPairs_as_obj
+                ob2 = MainParser::parse_OptPairs_as_obj
                     (
                         MAKE_OP(file_size)
                     );
 
                 Pars::MainParser::container_move(std::move(ob2), ob);
 
-                json::object res_(MainParser::get_storage_ptr());
+                json::object res(MainParser::get_storage_ptr());
                 res["photosize"] = std::move(ob);
                 return res;
             }
-
 
         };
     };

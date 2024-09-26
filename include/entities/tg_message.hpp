@@ -219,7 +219,7 @@ namespace Pars
             json::value
             fields_to_value(this Self&& self)
             {
-                return TelegramRequestes::Message
+                return message::fields_to_value
                 (
                     self.message_id,
                     self.date,
@@ -242,6 +242,47 @@ namespace Pars
                     forward_like<Self>(self.author_signature),
                     forward_like<Self>(self.text)
                 );
+            }
+
+
+            [[nodiscard]]
+            static json::value
+            fields_to_value
+            (
+                uint64_t message_id,
+                uint64_t date,
+                TG::Chat chat, 
+                optint  message_thread_id = {},
+                std::optional<User> from = {},
+                std::optional<Chat> sender_chat = {},
+                optint  sender_boost_count = {},
+                std::optional<User> sender_business_bot = {},
+                optstr  business_connection_id = {},
+                std::optional<std::shared_ptr<TG::MessageOrigin>> forward_origin = {},
+                optbool is_topic_message = {},
+                optbool is_automatic_forward = {},
+                std::optional<std::shared_ptr<message>> reply_to_message = {},
+                std::optional<TG::User> via_bot = {},
+                optuint edit_date = {},
+                optbool has_protected_content = {},
+                optbool is_from_offline = {},
+                optstr media_group_id = {},
+                optstr author_signature = {},
+                optstr text = {}
+            )
+            {
+                json::object ob(MainParser::get_storage_ptr());
+                ob = MainParser::parse_ObjPairs_as_obj
+                    (
+                        PAIR(message_id),
+                        PAIR(date)
+                    );
+                
+                json::object ob2{MainParser::get_storage_ptr()};
+                ob2 = MainParser::parse_OptPairs_as_obj
+                    (
+
+                    );  
             }
         };
 

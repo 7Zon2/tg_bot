@@ -19,40 +19,35 @@ namespace Pars
 
             public:
 
-            Audio()
-            {
-                inherited_name = "audio";
-            }
-
             Audio
             (
-                json::string_view file_id,
-                json::string_view file_unique_id,
+                json::string file_id,
+                json::string file_unique_id,
                 double duration,
-                optstrw performer = {},
-                optstrw title = {},
-                std::optional<std::reference_wrapper<PhotoSize>> thumbnail = {},
-                optstrw file_name =  {},
-                optstrw mime_type =  {},
+                optstr performer = {},
+                optstr title = {},
+                std::optional<std::shared_ptr<PhotoSize>> thumbnail = {},
+                optstr file_name =  {},
+                optstr mime_type =  {},
                 optdouble file_size = {} 
             )
             :
                 Animation
                 (
-                    file_id,
-                    file_unique_id,
+                    std::move(file_id),
+                    std::move(file_unique_id),
                     0,
                     0,
                     duration,
                     std::move(thumbnail),
-                    file_name,
-                    mime_type,
+                    std::move(file_name),
+                    std::move(mime_type),
                     file_size
                 ),
-                performer(performer),
-                title(title)
+                performer(std::move(performer)),
+                title(std::move(title))
             {
-                inherited_name = "audio";
+
             }
 
             public:
@@ -62,14 +57,12 @@ namespace Pars
             opt_fields_map
             requested_fields(json::value val)
             {
-                using mp = std::make_pair;
-
                 auto audio_map = MainParser::mapped_pointers_validation
                 (
                     std::move(val),
-                    mp(JS_POINTER(audio, file_id), json::kind::string),
-                    mp(JS_POINTER(audio, file_unique_id), json::kind::string),
-                    mp(JS_POINTER(audio, duration), json::kind::double_),
+                    std::make_pair(JS_POINTER(audio, file_id), json::kind::string),
+                    std::make_pair(JS_POINTER(audio, file_unique_id), json::kind::string),
+                    std::make_pair(JS_POINTER(audio, duration), json::kind::double_)
                 );
 
                 if (audio_map.size() != req_fields)
@@ -86,15 +79,15 @@ namespace Pars
             fields_map
             optional_fields(json::value val)
             {
-                return MainParser::mappe_pointers_validation
+                return MainParser::mapped_pointers_validation
                 (
                     std::move(val),
-                    mp(JS_POINTER(audio, title),     json::kind::string),
-                    mp(JS_POINTER(audio, performer), json::kind::string),
-                    mp(JS_POINTER(audio, thumbnail), json::kind::object),
-                    mp(JS_POINTER(audio, file_name), json::kind::string),
-                    mp(JS_POINTER(audio, mime_type), json::kind::string),
-                    mp(JS_POINTER(audio, file_size), json::kind::double_)
+                    std::make_pair(JS_POINTER(audio, title),     json::kind::string),
+                    std::make_pair(JS_POINTER(audio, performer), json::kind::string),
+                    std::make_pair(JS_POINTER(audio, thumbnail), json::kind::object),
+                    std::make_pair(JS_POINTER(audio, file_name), json::kind::string),
+                    std::make_pair(JS_POINTER(audio, mime_type), json::kind::string),
+                    std::make_pair(JS_POINTER(audio, file_size), json::kind::double_)
                 );
             }
 
@@ -106,10 +99,10 @@ namespace Pars
                 MainParser::field_from_map
                 <json::kind::string>(std::forward<T>(map), MAKE_PAIR(file_id));
 
-                MainParser::fields_from_map
+                MainParser::field_from_map
                 <json::kind::string>(std::forward<T>(map), MAKE_PAIR(file_unique_id));
 
-                MainParser:;fields_from_map
+                MainParser::field_from_map
                 <json::kind::double_>(std::forward<T>(map), MAKE_PAIR(file_size));
 
                 MainParser::field_from_map
@@ -137,10 +130,10 @@ namespace Pars
             json::value
             fields_to_value(this Self&& self)
             {
-                return TelegramRequestes::Audio
+                return Audio::fields_to_value
                 (
-                    self.file_id,
-                    self.file_unique_id,
+                    forward_like<Self>(self.file_id),
+                    forward_like<Self>(self.file_unique_id),
                     self.duration,
                     forward_like<Self>(self.performer),
                     forward_like<Self>(self.title),
@@ -179,10 +172,10 @@ namespace Pars
                     std::move(file_name),
                     std::move(mime_type),
                     file_size
-                );
+                ).as_object();
 
                 json::object ob2(MainParser::get_storage_ptr());
-                ob2 = parse_OptPairs_as_obj
+                ob2 = MainParser::parse_OptPairs_as_obj
                     (
                         MAKE_OP(std::move(title)),
                         MAKE_OP(std::move(performer))
@@ -194,6 +187,6 @@ namespace Pars
                 return res;
             }
 
-        }
+        };
     }
 }

@@ -55,7 +55,7 @@ namespace Pars
             json::value
             fields_to_value(this Self&& self)
             {
-                return deleteWebhook::fields_to_value
+                return deletewebhook::fields_to_value
                 (
                     self.drop_pending_updates
                 );

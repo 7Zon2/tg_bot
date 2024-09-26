@@ -11,7 +11,7 @@ namespace Pars
         {
 
             double duration;
-            std::optional<std::reference_wrapper<PhotoSize>> thumbnail;
+            std::optional<std::shared_ptr<PhotoSize>> thumbnail;
             optstr file_name;
             optstr mime_type;
 
@@ -20,34 +20,31 @@ namespace Pars
 
             public:
 
-            Animation():
-            PhotoSize(FIELD_TO_LOWER(Animation)){}
-
             Animation
             (
-                json::string_view file_id,
-                json::string_view file_unique_id,
+                json::string file_id,
+                json::string file_unique_id,
                 double width,
                 double height,
                 double duration,
-                std::optional<std::reference_wrapper<PhotoSize>> thumbnail = {},
-                optstrw file_name =  {},
-                optstrw mime_type =  {},
+                std::optional<std::shared_ptr<PhotoSize>> thumbnail = {},
+                optstr file_name =  {},
+                optstr mime_type =  {},
                 optdouble file_size = {}
             )
             :
                 PhotoSize
                 (
-                    file_id,
-                    file_unique_id,
+                    std::move(file_id),
+                    std::move(file_unique_id),
                     width,
                     height,
                     file_size
                 ),
                 duration(duration),
                 thumbnail(thumbnail),
-                file_name(file_name),
-                mime_type(mime_type)
+                file_name(std::move(file_name)),
+                mime_type(std::move(mime_type))
             {
 
             }
@@ -59,7 +56,7 @@ namespace Pars
             opt_fields_map
             requested_fields(json::value val)
             {
-                auto photo_map =  PhotoSize::requested_fields(val);
+                auto photo_map =  PhotoSize::requested_fields(val, "animation");
                 if (!photo_map.has_value())
                 {
                     return std::nullopt;
@@ -77,8 +74,7 @@ namespace Pars
                 }
 
                 auto &photo_map_value = photo_map.value();
-                auto &animation_map_value = animation_map.value();
-                MainParser::container_move(std::move(animation_map_value), photo_map_value);
+                MainParser::container_move(std::move(animation_map), photo_map_value);
                 return photo_map;
             }
 
@@ -95,7 +91,7 @@ namespace Pars
                     std::make_pair(JS_POINTER(animation, thumbnail), json::kind::object),
                     std::make_pair(JS_POINTER(animation, file_name), json::kind::string),
                     std::make_pair(JS_POINTER(animation, mime_type), json::kind::string)
-                )
+                );
             }
 
 
@@ -124,7 +120,7 @@ namespace Pars
             json::value
             fields_to_value(this Self&& self)
             {
-                return TelegramRequestes::Animation
+                return Animation::fields_to_value
                 (
                     self.file_id,
                     self.file_unique_id,
@@ -155,7 +151,7 @@ namespace Pars
             )
             {
                 json::object ob{MainParser::get_storage_ptr()};
-                ob = parse_ObjPairs_as_obj
+                ob = MainParser::parse_ObjPairs_as_obj
                     (
                         PAIR(std::move(file_id)),
                         PAIR(std::move(file_unique_id)),
@@ -165,7 +161,7 @@ namespace Pars
                     );
 
                 json::object ob2(MainParser::get_storage_ptr());
-                ob2 = parse_OptPairs_as_obj
+                ob2 = MainParser::parse_OptPairs_as_obj
                     (
                         MAKE_OP(std::move(file_name)),
                         MAKE_OP(std::move(mime_type)),
@@ -174,17 +170,17 @@ namespace Pars
 
                 if (thumbnail.has_value())
                 {
-                    json::object ob2(MainParser::get_storage_ptr());
+                    json::object ob3(MainParser::get_storage_ptr());
                     auto && ref_thumbnail = std::move(thumbnail.value());
-                    ob2 = std::move(ref_thumbnail.fields_to_value()).as_object();
+                    ob3 = ref_thumbnail.fields_to_value().as_object();
 
-                    Pars::obj_move(ob2, ob);
+                    MainParser::container_move(ob3, ob);
                 }
 
-                Pars::MainParser::container_move(std::move(ob), photo_ob);
+                Pars::MainParser::container_move(std::move(ob2), ob);
 
                 json::object res(MainParser::get_storage_ptr());
-                res["animation"] = std::move(photo_ob);
+                res["animation"] = std::move(ob);
                 return res;
             }
         };

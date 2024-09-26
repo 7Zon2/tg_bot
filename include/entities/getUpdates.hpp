@@ -147,7 +147,7 @@ namespace Pars
             )
             {
                 json::object ob(MainParser::get_storage_ptr());
-                ob = parse_OptPairs_as_obj
+                ob = MainParser::parse_OptPairs_as_obj
                 (
                     MAKE_OP(offset),
                     MAKE_OP(limit),

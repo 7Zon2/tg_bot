@@ -161,12 +161,12 @@ namespace Pars
             {
                 return Chat::fields_to_value
                 (
-                    self.id,
-                    forward_like<Self>(self.type),
-                    forward_like<Self>(self.title),
-                    forward_like<Self>(self.username),
-                    forward_liek<Self>(self.first_name),
-                    forward_like<Self>(self.last_name),
+                    self.id, 
+                    Utils::forward_like<Self>(self.type),
+                    Utils::forward_like<Self>(self.title),
+                    Utils::forward_like<Self>(self.username),
+                    Utils::forward_like<Self>(self.first_name),
+                    Utils::forward_like<Self>(self.last_name),
                     self.is_forum
                 );
             }
@@ -186,14 +186,14 @@ namespace Pars
             )
             {
                 json::object ob(MainParser::get_storage_ptr());
-                ob = parse_ObjPairs_as_obj
+                ob = MainParser::parse_ObjPairs_as_obj
                 (
                     PAIR(id),
                     PAIR(std::move(type))
                 );
 
                 json::object ob2(MainParser::get_storage_ptr());
-                ob2 = parse_OptPairs_as_obj
+                ob2 = MainParser::parse_OptPairs_as_obj
                 (
                     MAKE_OP(std::move(title)),
                     MAKE_OP(std::move(username)),
@@ -202,7 +202,7 @@ namespace Pars
                     MAKE_OP(is_forum)
                 );
 
-                Pars::obj_move(ob2, ob);
+                MainParser::container_move(ob2, ob);
 
                 json::object res(MainParser::get_storage_ptr());
                 res[FIELD_TO_LOWER(chat)] = std::move(ob);
