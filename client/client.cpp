@@ -198,7 +198,7 @@ class session : public std::enable_shared_from_this<session>
 
     void DeleteWebhookRequest(const bool del)
     {
-        json::value val = TG::deletewebhook::fields_to_value
+        json::value val = Pars::TG::deletewebhook::fields_to_value
         (
             del
         );

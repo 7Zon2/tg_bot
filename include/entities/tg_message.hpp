@@ -271,18 +271,76 @@ namespace Pars
                 optstr text = {}
             )
             {
-                json::object ob(MainParser::get_storage_ptr());
-                ob = MainParser::parse_ObjPairs_as_obj
+
+                json::object req_ob(MainParser::get_storage_ptr());
+                req_ob = MainParser::parse_ObjPairs_as_obj
                     (
-                        PAIR(message_id),
-                        PAIR(date)
+                        PAIR(message_id, message_id),
+                        PAIR(date, date)
                     );
                 
-                json::object ob2{MainParser::get_storage_ptr()};
-                ob2 = MainParser::parse_OptPairs_as_obj
-                    (
 
+                std::optional<TG::MessageOrigin> origin_ = {};
+                std::optional<message> mes_ = {};
+
+                if (forward_origin.has_value())
+                {
+                    if (forward_origin.value().use_count() == 1)
+                    {
+                        origin_ = std::move(*forward_origin.value());
+                    }
+                    else
+                    {
+                        origin_ = *forward_origin.value();
+                    }
+                }
+
+                if (reply_to_message.has_value())
+                {
+                    if (reply_to_message.value().use_count() == 1)
+                    {
+                        mes_ = std::move(*reply_to_message.value());
+                    }
+                    else
+                    {
+                        mes_ = *reply_to_message.value();
+                    }
+                }
+
+                json::object objects = parse_tg_entenies_to_obj
+                (
+                    std::move(chat),
+                    std::move(from),
+                    std::move(sender_chat),
+                    std::move(sender_business_bot),
+                    std::move(origin_),
+                    std::move(mes_),
+                    std::move(via_bot)
+                );
+
+                MainParser::container_move(std::move(req_ob), objects);
+
+                json::object opt_ob{MainParser::get_storage_ptr()};
+                opt_ob = MainParser::parse_OptPairs_as_obj
+                    (
+                        MAKE_OP(message_thread_id, message_thread_id),
+                        MAKE_OP(sender_boost_count, sender_boost_count),
+                        MAKE_OP(business_connection_id, std::move(business_connection_id)),
+                        MAKE_OP(is_topic_message, is_topic_message),
+                        MAKE_OP(is_automatic_forward, is_automatic_forward),
+                        MAKE_OP(edit_date, edit_date),
+                        MAKE_OP(has_protected_content, has_protected_content),
+                        MAKE_OP(is_from_offline, is_from_offline),
+                        MAKE_OP(media_group_id, std::move(media_group_id)),
+                        MAKE_OP(author_signature, std::move(author_signature)),
+                        MAKE_OP(text, std::move(text))
                     );  
+
+                MainParser::container_move(std::move(opt_ob), objects);
+
+                json::object res(MainParser::get_storage_ptr());
+                res [FIELD_NAME(message)] = std::move(objects);
+                return res;
             }
         };
 

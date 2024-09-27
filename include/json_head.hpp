@@ -8,27 +8,6 @@
 #include <ranges>
 #include "print.hpp"
 
-#define FIELD_NAME(field)  #field
-
-#define FIELD_TO_LOWER(field) boost::algorithm::to_lower_copy(json::string{FIELD_NAME(field)})
-
-#define FIELD_EQUAL(field) FIELD_NAME(field) "="
-
-#define JS_POINTER(method, field) boost::algorithm::to_lower_copy(json::string{"/"#method"/"#field})
-
-#define MAKE_PAIR(field) std::make_pair(FIELD_NAME(field), std::ref(field))
-
-#define MAKE_OP(field)  op{FIELD_NAME(field), field}
-
-#define PAIR(field)     p{FIELD_NAME(field), field}
-
-#define URL_USER_INFO(field, value) "@"#field":" #value
-
-#define URL_FIELD(field, value)     #field"=" #value
-
-#define URL_REQUEST(field) "/"#field"?"
-
-
 
 namespace json = boost::json;
 
@@ -68,6 +47,27 @@ namespace Pars
     using optdouble = std::optional<double>; 
     using op        = std::pair<json::string,std::optional<json::value>>;
     using p         = std::pair<json::string,json::value>;
+
+
+    #define FIELD_NAME(field)  #field
+
+    #define FIELD_TO_LOWER(field) boost::algorithm::to_lower_copy(json::string{FIELD_NAME(field)})
+
+    #define FIELD_EQUAL(field) FIELD_NAME(field) "="
+
+    #define JS_POINTER(method, field) boost::algorithm::to_lower_copy(json::string{"/"#method"/"#field})
+
+    #define MAKE_PAIR(name, field) std::make_pair(FIELD_NAME(name), std::ref(field))
+
+    #define MAKE_OP(name, field)  op{FIELD_NAME(name), field}
+
+    #define PAIR(name, field)     p{FIELD_NAME(name), field}
+
+    #define URL_USER_INFO(field, value) "@"#field":" #value
+
+    #define URL_FIELD(field, value)     #field"=" #value
+
+    #define URL_REQUEST(field) "/"#field"?"
 
 
     template<typename T>
@@ -122,9 +122,9 @@ namespace Pars
     {
         requires
         (
-            std::is_same_v<decltype(t.first),json::string>
+            std::is_same_v<std::remove_reference_t<decltype(t.first)>,json::string>
             &&
-            std::is_constructible_v<json::value,decltype(t.second)>
+            std::is_constructible_v<json::value,std::remove_reference_t<decltype(t.second)>>
         );
     };
 
@@ -134,9 +134,9 @@ namespace Pars
     {
         requires
         (
-            std::is_same_v<decltype(t.first), json::string>
+            std::is_same_v<std::remove_reference_t<decltype(t.first)>, json::string>
             &&
-            std::is_convertible_v<decltype(t.second.value()), json::value>
+            std::is_convertible_v<std::remove_reference_t<decltype(t.second.value())>, json::value>
         );
     };
 
@@ -160,6 +160,14 @@ namespace Pars
     concept is_back_inserter = requires (T&& t)
     {
         std::back_inserter(t);
+    };
+
+
+    template<typename T>
+    concept is_opt = requires(T&& t)
+    {
+        t.has_value();
+        t.value();
     };
 
 
@@ -784,10 +792,10 @@ namespace Pars
         }
         [[nodiscard]]
         static json::string
-        parse_opt_as_string(const T& arg) 
+        parse_opt_as_string(T&& arg) 
         {   
             if constexpr (std::is_same_v<std::remove_reference_t<decltype(std::declval<T>().value())>, json::string>)
-                return json::string{arg.value()};
+                return json::string{Utils::forward_like<T>(arg.value())};
             else
                 return (arg.has_value()) ? json::string{std::to_string(arg.value())} : json::string{};
         }

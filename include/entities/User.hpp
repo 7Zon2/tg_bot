@@ -206,22 +206,22 @@ namespace Pars
 
                 ob_1 =  MainParser::parse_ObjPairs_as_obj
                         (
-                            PAIR(id),
-                            PAIR(is_bot),
-                            PAIR(std::move(first_name))
+                            PAIR(id, id),
+                            PAIR(is_bot, is_bot),
+                            PAIR(first_name, std::move(first_name))
                         );
 
                 ob_2 =  MainParser::parse_OptPairs_as_obj
                         (
-                            MAKE_OP(std::move(last_name)),
-                            MAKE_OP(std::move(username)),
-                            MAKE_OP(std::move(language_code)),
-                            MAKE_OP(is_premium),
-                            MAKE_OP(added_to_attachment_menu),
-                            MAKE_OP(can_join_groups),
-                            MAKE_OP(can_read_all_group_messages),
-                            MAKE_OP(supports_inline_queries),
-                            MAKE_OP(can_connect_to_business)    
+                            MAKE_OP(last_name, std::move(last_name)),
+                            MAKE_OP(username, std::move(username)),
+                            MAKE_OP(language_code, std::move(language_code)),
+                            MAKE_OP(is_premium, is_premium),
+                            MAKE_OP(added_to_attachment_menu, added_to_attachment_menu),
+                            MAKE_OP(can_join_groups, can_join_groups),
+                            MAKE_OP(can_read_all_group_messages, can_read_all_group_messages),
+                            MAKE_OP(supports_inline_queries, supports_inline_queries),
+                            MAKE_OP(can_connect_to_business, can_connect_to_business)    
                         );
 
                 MainParser::container_move(std::move(ob_2), ob_1);

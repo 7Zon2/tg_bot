@@ -16,6 +16,29 @@ namespace Pars
 
             public:
             
+            template<typename...T>
+            [[nodiscard]]
+            static json::object
+            parse_tg_entenies_to_obj(T&&...objs)
+            {
+                json::object ob{MainParser::get_storage_ptr()};
+
+                auto lamb = [&ob]<typename U>(U&& obj)
+                {
+                    json::object temp{MainParser::get_storage_ptr()};
+                    if constexpr(is_opt<U>)
+                        json::object temp = (obj.has_value()) ? Utils::forward_like<U>(obj.value()).fields_to_value().as_object() : json::object{};
+                    else
+                        json::object temp = std::forward<U>(obj).fields_to_value().as_object();
+
+                    MainParser::container_move(std::move(temp), ob);
+                };
+
+                (lamb(std::forward<T>(objs)),...);
+
+                return ob;
+            }
+
             template<is_all_json_entities T>
             void operator=(T&& val)
             {

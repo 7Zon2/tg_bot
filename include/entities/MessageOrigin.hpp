@@ -69,16 +69,27 @@ namespace Pars
             }
 
 
-            template<is_fields_map T>
-            void 
+            virtual void 
             fields_from_map
-            (T&& map)
+            (fields_map && map)
             {
                 MainParser::field_from_map
-                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(type));
+                <json::kind::string>(std::move(map), MAKE_PAIR(type));
 
                 MainParser::field_from_map
-                <json::kind::uint64>(std::forward<T>(map), std::make_pair("date",std::ref(date)));
+                <json::kind::uint64>(std::move(map), std::make_pair("date",std::ref(date)));
+            }
+
+
+            virtual void 
+            fields_from_map
+            (fields_map & map)
+            {
+                MainParser::field_from_map
+                <json::kind::string>(map, MAKE_PAIR(type));
+
+                MainParser::field_from_map
+                <json::kind::uint64>(map, MAKE_PAIR(date));
             }
 
 
@@ -164,16 +175,27 @@ namespace Pars
             }
 
 
-            template<is_fields_map T>
             void
             fields_from_map
-            (T && map)
+            (fields_map && map) override
             {
-                MessageOrigin::fields_from_map(std::forward<T>(map));
+                MessageOrigin::fields_from_map(std::move(map));
 
                 MainParser::field_from_map
-                <json::kind::object>(std::forward<T>(map), MAKE_PAIR(sender_user));
+                <json::kind::object>(std::move(map), MAKE_PAIR(sender_user));
             }
+
+
+            void
+            fields_from_map
+            (fields_map & map) override
+            {
+                MessageOrigin::fields_from_map(map);
+
+                MainParser::field_from_map
+                <json::kind::object>(map, MAKE_PAIR(sender_user));
+            }
+
 
 
             template<typename Self>
@@ -277,15 +299,25 @@ namespace Pars
             }
 
 
-            template<is_fields_map T>
             void
             fields_from_map
-            (T && map)
+            (fields_map && map) override
             {
-                MessageOrigin::fields_from_map(std::forward<T>(map));
+                MessageOrigin::fields_from_map(std::move(map));
 
                 MainParser::field_from_map
-                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(sender_user_name));
+                <json::kind::string>(std::move(map), MAKE_PAIR(sender_user_name));
+            }
+
+
+            void
+            fields_from_map
+            (fields_map & map) override
+            {
+                MessageOrigin::fields_from_map(map);
+
+                MainParser::field_from_map
+                <json::kind::string>(map, MAKE_PAIR(sender_user_name));
             }
 
 
@@ -394,18 +426,31 @@ namespace Pars
             }
 
 
-            template<is_fields_map T>
             void
             fields_from_map
-            (T && map)
+            (fields_map && map) override
             {
-                MessageOrigin::fields_from_map(std::forward<T>(map));
+                MessageOrigin::fields_from_map(std::move(map));
 
                 MainParser::field_from_map
-                <json::kind::object>(std::forward<T>(map), MAKE_PAIR(sender_chat));
+                <json::kind::object>(std::move(map), MAKE_PAIR(sender_chat));
 
                 MainParser::field_from_map
-                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(author_signature));
+                <json::kind::string>(std::move(map), MAKE_PAIR(author_signature));
+            }
+
+
+            void
+            fields_from_map
+            (fields_map & map) override
+            {
+                MessageOrigin::fields_from_map(map);
+
+                MainParser::field_from_map
+                <json::kind::object>(map, MAKE_PAIR(sender_chat));
+
+                MainParser::field_from_map
+                <json::kind::string>(map, MAKE_PAIR(author_signature));
             }
 
 
@@ -512,6 +557,7 @@ namespace Pars
                 return std::move(map.value());
             }
 
+
             [[nodiscard]]
             static fields_map
             optional_fields(json::value val)
@@ -524,19 +570,33 @@ namespace Pars
             }
 
 
-            template<is_fields_map T>
             void
             fields_from_map
-            (T && map)
+            (fields_map && map) override
             {
-                MessageOrigin::fields_from_map(std::forward<T>(map));
+                MessageOrigin::fields_from_map(std::move(map));
 
                 MainParser::field_from_map
-                <json::kind::object>(std::forward<T>(map), MAKE_PAIR(chat));
+                <json::kind::object>(std::move(map), MAKE_PAIR(chat));
 
                 MainParser::field_from_map
-                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(author_signature));
+                <json::kind::string>(std::move(map), MAKE_PAIR(author_signature));
             }
+
+
+            void
+            fields_from_map
+            (fields_map & map) override
+            {
+                MessageOrigin::fields_from_map(map);
+
+                MainParser::field_from_map
+                <json::kind::object>(map, MAKE_PAIR(chat));
+
+                MainParser::field_from_map
+                <json::kind::string>(map, MAKE_PAIR(author_signature));
+            }
+
 
 
             template<typename Self>
