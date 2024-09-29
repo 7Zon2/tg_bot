@@ -171,6 +171,13 @@ namespace Pars
     };
 
 
+    template<typename T>
+    concept is_wrapper = requires(T&& t)
+    {
+        requires std::is_same_v<std::reference_wrapper<typename T::type>, std::remove_reference_t<T>>;
+    };
+
+
     using fields_map = std::unordered_map<json::string, json::value>;
     using opt_fields_map = std::optional<fields_map>;
 

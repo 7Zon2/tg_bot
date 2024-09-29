@@ -102,16 +102,16 @@ namespace Pars
                 PhotoSize::fields_from_map(std::forward<T>(map));
 
                 MainParser::field_from_map
-                <json::kind::double_>(std::forward<T>(map), MAKE_PAIR(duration));
+                <json::kind::double_>(std::forward<T>(map), MAKE_PAIR(duration ,duration));
 
                 MainParser::field_from_map
-                <json::kind::object>(std::forward<T>(map), MAKE_PAIR(thumbnail));
+                <json::kind::object>(std::forward<T>(map), MAKE_PAIR(thumbnail, thumbnail));
 
                 MainParser::field_from_map
-                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(file_name));
+                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(file_name, file_name));
 
                 MainParser::field_from_map
-                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(mime_type));
+                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(mime_type, mime_type));
             }
 
 
@@ -153,19 +153,19 @@ namespace Pars
                 json::object ob{MainParser::get_storage_ptr()};
                 ob = MainParser::parse_ObjPairs_as_obj
                     (
-                        PAIR(std::move(file_id)),
-                        PAIR(std::move(file_unique_id)),
-                        PAIR(width),
-                        PAIR(height),
-                        PAIR(duration)
+                        PAIR(file_id, std::move(file_id)),
+                        PAIR(file_unique_id, std::move(file_unique_id)),
+                        PAIR(width, width),
+                        PAIR(height, height),
+                        PAIR(duration, duration)
                     );
 
                 json::object ob2(MainParser::get_storage_ptr());
                 ob2 = MainParser::parse_OptPairs_as_obj
                     (
-                        MAKE_OP(std::move(file_name)),
-                        MAKE_OP(std::move(mime_type)),
-                        MAKE_OP(file_size)
+                        MAKE_OP(file_name, std::move(file_name)),
+                        MAKE_OP(mime_type, std::move(mime_type)),
+                        MAKE_OP(file_size, file_size)
                     );
 
                 if (thumbnail.has_value())

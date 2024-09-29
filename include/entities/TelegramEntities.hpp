@@ -27,9 +27,19 @@ namespace Pars
                 {
                     json::object temp{MainParser::get_storage_ptr()};
                     if constexpr(is_opt<U>)
-                        json::object temp = (obj.has_value()) ? Utils::forward_like<U>(obj.value()).fields_to_value().as_object() : json::object{};
+                    {
+                        if constexpr (is_wrapper<typename U::value_type>)
+                            temp = (obj.has_value()) ? Utils::forward_like<U>(obj.value().get()).fields_to_value().as_object() : json::object{};
+                        else
+                            temp = (obj.has_value()) ? Utils::forward_like<U>(obj.value()).fields_to_value().as_object() : json::object{};
+                    }
                     else
-                        json::object temp = std::forward<U>(obj).fields_to_value().as_object();
+                    {
+                        if constexpr (is_wrapper<U>)
+                            temp = Utils::forward_like<U>(obj.get()).fields_to_value().as_object();
+                        else
+                            temp = std::forward<U>(obj).fields_to_value().as_object();
+                    }
 
                     MainParser::container_move(std::move(temp), ob);
                 };

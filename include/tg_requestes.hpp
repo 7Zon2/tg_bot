@@ -33,19 +33,19 @@ namespace Pars
 
                 ob1 = parse_ObjPairs_as_obj
                     (
-                        PAIR(std::move(url)),
-                        PAIR(has_custom_certificate),
-                        PAIR(pending_update_count)
+                        PAIR(url, std::move(url)),
+                        PAIR(has_custim_certificate, has_custom_certificate),
+                        PAIR(pending_update_count, pending_update_count)
                     );
 
 
                 ob2 = parse_OptPairs_as_obj
                     (
-                        MAKE_OP(std::move(ip_address)),
-                        MAKE_OP(last_error_date),
-                        MAKE_OP(std::move(last_error_message)),
-                        MAKE_OP(last_synchronization_error_date),
-                        MAKE_OP(max_connections)
+                        MAKE_OP(ip_adress, std::move(ip_address)),
+                        MAKE_OP(last_error_date, last_error_date),
+                        MAKE_OP(last_error_message, std::move(last_error_message)),
+                        MAKE_OP(last_synchronization_error_date, last_synchronization_error_date),
+                        MAKE_OP(max_connections, max_connections)
                     );
 
 

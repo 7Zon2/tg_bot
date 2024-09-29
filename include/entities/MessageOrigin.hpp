@@ -51,7 +51,7 @@ namespace Pars
                     std::make_pair(date_, json::kind::uint64)
                 );
 
-                if (req_fields!=map.size())
+                if (req_fields != map.size())
                 {
                     return std::nullopt;
                 }
@@ -74,7 +74,7 @@ namespace Pars
             (fields_map && map)
             {
                 MainParser::field_from_map
-                <json::kind::string>(std::move(map), MAKE_PAIR(type));
+                <json::kind::string>(std::move(map), MAKE_PAIR(type, type));
 
                 MainParser::field_from_map
                 <json::kind::uint64>(std::move(map), std::make_pair("date",std::ref(date)));
@@ -86,11 +86,16 @@ namespace Pars
             (fields_map & map)
             {
                 MainParser::field_from_map
-                <json::kind::string>(map, MAKE_PAIR(type));
+                <json::kind::string>(map, MAKE_PAIR(type, type));
 
                 MainParser::field_from_map
-                <json::kind::uint64>(map, MAKE_PAIR(date));
+                <json::kind::uint64>(map, MAKE_PAIR(date, date));
             }
+
+
+            [[nodiscard]]
+            virtual json::value 
+            fields_to_value() = 0;
 
 
             [[nodiscard]]
@@ -102,7 +107,7 @@ namespace Pars
             )
             {
                 json::object ob(MainParser::get_storage_ptr());
-                ob["messageorigin"] = MainParser::parse_ObjPairs_as_obj(PAIR(std::move(type)), PAIR(date)); 
+                ob["messageorigin"] = MainParser::parse_ObjPairs_as_obj(PAIR(type, std::move(type)), PAIR(date, date)); 
                 return ob;
             }
         };
@@ -182,7 +187,7 @@ namespace Pars
                 MessageOrigin::fields_from_map(std::move(map));
 
                 MainParser::field_from_map
-                <json::kind::object>(std::move(map), MAKE_PAIR(sender_user));
+                <json::kind::object>(std::move(map), MAKE_PAIR(semder_user, sender_user));
             }
 
 
@@ -193,21 +198,32 @@ namespace Pars
                 MessageOrigin::fields_from_map(map);
 
                 MainParser::field_from_map
-                <json::kind::object>(map, MAKE_PAIR(sender_user));
+                <json::kind::object>(map, MAKE_PAIR(sender_user, sender_user));
             }
 
 
-
-            template<typename Self>
             [[nodiscard]]
             json::value
-            fields_to_value(this Self&& self)
+            fields_to_value() & override
             {
                 return MessageOriginUser::fields_to_value
                 (
-                    self.type,
-                    self.date,
-                    forward_liek<Self>(self.sender_user)
+                    type,
+                    date,
+                    sender_user
+                );
+            }
+
+
+            [[nodiscard]]
+            json::value
+            fields_to_value() && override
+            {
+                return MessageOriginUser::fields_to_value
+                (
+                    std::move(type),
+                    date,
+                    std::move(sender_user)
                 );
             }
 
@@ -306,7 +322,7 @@ namespace Pars
                 MessageOrigin::fields_from_map(std::move(map));
 
                 MainParser::field_from_map
-                <json::kind::string>(std::move(map), MAKE_PAIR(sender_user_name));
+                <json::kind::string>(std::move(map), MAKE_PAIR(sender_user_name, sender_user_name));
             }
 
 
@@ -317,20 +333,32 @@ namespace Pars
                 MessageOrigin::fields_from_map(map);
 
                 MainParser::field_from_map
-                <json::kind::string>(map, MAKE_PAIR(sender_user_name));
+                <json::kind::string>(map, MAKE_PAIR(sender_user_name, sender_user_name));
             }
 
 
-            template<typename Self>
             [[nodiscard]]
             json::value
-            fields_to_value(this Self&& self)
+            fields_to_value() & override
             {
                 return MessageOriginHiddenUser::fields_to_value
                 (
-                    forward_like<Self>(self.type),
-                    forward_like<Self>(self.date_),
-                    forward_like<Self>(self.sender_user_name)
+                    type,
+                    date,
+                    sender_user_name
+                );
+            }
+
+
+            [[nodiscard]]
+            json::value
+            fields_to_value() && override
+            {
+                return MessageOriginHiddenUser::fields_to_value
+                (
+                    std::move(type),
+                    date,
+                    std::move(sender_user_name)
                 );
             }
 
@@ -361,8 +389,8 @@ namespace Pars
             TG::Chat sender_chat;
             optstr  author_signature = {};
 
-            static inline size_t req_fields = 3;
-            static inline size_t opt_fields = 1;
+            static constexpr const size_t req_fields = 3;
+            static constexpr const size_t opt_fields = 1;
 
             public:
 
@@ -433,10 +461,10 @@ namespace Pars
                 MessageOrigin::fields_from_map(std::move(map));
 
                 MainParser::field_from_map
-                <json::kind::object>(std::move(map), MAKE_PAIR(sender_chat));
+                <json::kind::object>(std::move(map), MAKE_PAIR(sender_chat, sender_chat));
 
                 MainParser::field_from_map
-                <json::kind::string>(std::move(map), MAKE_PAIR(author_signature));
+                <json::kind::string>(std::move(map), MAKE_PAIR(author_signature, author_signature));
             }
 
 
@@ -447,24 +475,37 @@ namespace Pars
                 MessageOrigin::fields_from_map(map);
 
                 MainParser::field_from_map
-                <json::kind::object>(map, MAKE_PAIR(sender_chat));
+                <json::kind::object>(map, MAKE_PAIR(sender_chat, sender_chat));
 
                 MainParser::field_from_map
-                <json::kind::string>(map, MAKE_PAIR(author_signature));
+                <json::kind::string>(map, MAKE_PAIR(author_signature, author_signature));
             }
 
 
-            template<typename Self>
             [[nodiscard]]
             json::value
-            fields_to_value(this Self&& self)
+            fields_to_value() & override
             {
                 return MessageOriginChat::fields_to_value
                 (
-                    forward_like<Self>(self.type),
-                    self.date_,
-                    forward_like<Self>(self.sender_chat),
-                    forward_like<Self>(self.author_signature)
+                    type,
+                    date,
+                    sender_chat,
+                    author_signature
+                );
+            }
+
+
+            [[nodiscard]]
+            json::value
+            fields_to_value() && override
+            {
+                return MessageOriginChat::fields_to_value
+                (
+                    std::move(type),
+                    date,
+                    std::move(sender_chat),
+                    std::move(author_signature)
                 );
             }
 
@@ -577,10 +618,10 @@ namespace Pars
                 MessageOrigin::fields_from_map(std::move(map));
 
                 MainParser::field_from_map
-                <json::kind::object>(std::move(map), MAKE_PAIR(chat));
+                <json::kind::object>(std::move(map), MAKE_PAIR(chat, chat));
 
                 MainParser::field_from_map
-                <json::kind::string>(std::move(map), MAKE_PAIR(author_signature));
+                <json::kind::string>(std::move(map), MAKE_PAIR(author_signature, author_signature));
             }
 
 
@@ -591,25 +632,39 @@ namespace Pars
                 MessageOrigin::fields_from_map(map);
 
                 MainParser::field_from_map
-                <json::kind::object>(map, MAKE_PAIR(chat));
+                <json::kind::object>(map, MAKE_PAIR(chat, chat));
 
                 MainParser::field_from_map
-                <json::kind::string>(map, MAKE_PAIR(author_signature));
+                <json::kind::string>(map, MAKE_PAIR(author_signature, author_signature));
             }
 
 
-
-            template<typename Self>
             [[nodiscard]]
             json::value
-            fields_to_value(this Self&& self)
+            fields_to_value() & override
             {
                 return MessageOriginChannel::fields_to_value
                 (
-                    Utils::forward_like<Self>(self.type),
-                    self.date,
-                    Utils::forward_like<Self>(self.chat),
-                    Utils::forward_like<Self>(self.author_signature)
+                    type,
+                    date,
+                    chat,
+                    message_id,
+                    author_signature
+                );
+            }
+
+
+            [[nodiscard]]
+            json::value
+            fields_to_value() && override
+            {
+                return MessageOriginChannel::fields_to_value
+                (
+                    std::move(type),
+                    date,
+                    std::move(chat),
+                    message_id,
+                    std::move(author_signature)
                 );
             }
 

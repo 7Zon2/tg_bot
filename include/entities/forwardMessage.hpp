@@ -115,22 +115,22 @@ namespace Pars
             (T&&  map)
             {
                 MainParser::field_from_map
-                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(chat_id));
+                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(chat_id, chat_id));
 
                 MainParser::field_from_map
-                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(from_chat_id));
+                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(from_chat_id, from_chat_id));
 
                 MainParser::field_from_map
-                <json::kind::int64>(std::forward<T>(map), MAKE_PAIR(message_id));
+                <json::kind::int64>(std::forward<T>(map), MAKE_PAIR(message_id, message_id));
 
                 MainParser::field_from_map
-                <json::kind::int64>(std::forward<T>(map), MAKE_PAIR(message_thread_id));
+                <json::kind::int64>(std::forward<T>(map), MAKE_PAIR(message_thread_id, message_thread_id));
 
                 MainParser::field_from_map
-                <json::kind::bool_>(std::forward<T>(map), MAKE_PAIR(disable_notification));
+                <json::kind::bool_>(std::forward<T>(map), MAKE_PAIR(disable_notification, disable_notification));
 
                 MainParser::field_from_map
-                <json::kind::bool_>(std::forward<T>(map), MAKE_PAIR(protect));
+                <json::kind::bool_>(std::forward<T>(map), MAKE_PAIR(protect, protect));
             }
 
 
@@ -168,17 +168,17 @@ namespace Pars
 
                 ob_1 =  MainParser::parse_ObjPairs_as_obj
                     (
-                        PAIR(std::move(chat_id)),
-                        PAIR(std::move(from_chat_id)),
-                        PAIR(message_id)
+                        PAIR(chat_id, std::move(chat_id)),
+                        PAIR(from_chat_id, std::move(from_chat_id)),
+                        PAIR(message_id, message_id)
                     );
 
                 json::object ob_2{MainParser::get_storage_ptr()};
                 ob_2 = MainParser::parse_OptPairs_as_obj
                       (
-                        MAKE_OP(message_thread_id),
-                        MAKE_OP(disable_notification),
-                        MAKE_OP(protect)
+                        MAKE_OP(message_thread_id, message_thread_id),
+                        MAKE_OP(disable_notification, disable_notification),
+                        MAKE_OP(protect, protect)
                       );
 
                 

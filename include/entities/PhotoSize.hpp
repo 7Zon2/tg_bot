@@ -89,19 +89,19 @@ namespace Pars
             fields_from_map(T && map)
             {
                 MainParser::field_from_map
-                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(file_id));
+                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(file_id, file_id));
 
                 MainParser::field_from_map
-                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(file_unique_id));
+                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(file_unique_id, file_unique_id));
 
                 MainParser::field_from_map
-                <json::kind::double_>(std::forward<T>(map), MAKE_PAIR(width));
+                <json::kind::double_>(std::forward<T>(map), MAKE_PAIR(width, width));
 
                 MainParser::field_from_map
-                <json::kind::double_>(std::forward<T>(map), MAKE_PAIR(height));
+                <json::kind::double_>(std::forward<T>(map), MAKE_PAIR(height, height));
 
                 MainParser::field_from_map
-                <json::kind::double_>(std::forward<T>(map), MAKE_PAIR(file_size));
+                <json::kind::double_>(std::forward<T>(map), MAKE_PAIR(file_size, file_size));
             }
 
 
@@ -135,16 +135,16 @@ namespace Pars
                 json::object ob{MainParser::get_storage_ptr()};
                 ob = MainParser::parse_ObjPairs_as_obj
                     (
-                        PAIR(std::move(file_id)),
-                        PAIR(std::move(file_unique_id)),
-                        PAIR(width),
-                        PAIR(height)
+                        PAIR(file_id, std::move(file_id)),
+                        PAIR(file_unique_id, std::move(file_unique_id)),
+                        PAIR(width, width),
+                        PAIR(height, height)
                     );
 
                 json::object ob2{MainParser::get_storage_ptr()};
                 ob2 = MainParser::parse_OptPairs_as_obj
                     (
-                        MAKE_OP(file_size)
+                        MAKE_OP(file_size, file_size)
                     );
 
                 Pars::MainParser::container_move(std::move(ob2), ob);

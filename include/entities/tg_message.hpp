@@ -156,61 +156,61 @@ namespace Pars
             (T && map)
             {
                MainParser::field_from_map
-               <json::kind::uint64>(std::forward<T>(map), MAKE_PAIR(message_id));
+               <json::kind::uint64>(std::forward<T>(map), MAKE_PAIR(message_id, message_id));
 
                MainParser::field_from_map
-               <json::kind::uint64>(std::forward<T>(map), MAKE_PAIR(date));
+               <json::kind::uint64>(std::forward<T>(map), MAKE_PAIR(date, date));
      
                MainParser::field_from_map
-               <json::kind::object>(std::forward<T>(map), MAKE_PAIR(chat));
+               <json::kind::object>(std::forward<T>(map), MAKE_PAIR(chat, Utils::forward_like<T>(chat)));
                    
                MainParser::field_from_map
-               <json::kind::uint64>(std::forward<T>(map), MAKE_PAIR(message_thread_id));
+               <json::kind::uint64>(std::forward<T>(map), MAKE_PAIR(message_thread_id, message_thread_id));
                             
                MainParser::field_from_map
-               <json::kind::object>(std::forward<T>(map), MAKE_PAIR(from));
+               <json::kind::object>(std::forward<T>(map), MAKE_PAIR(from, Utils::forward_like<T>(from)));
                            
                MainParser::field_from_map
-               <json::kind::object>(std::forward<T>(map), MAKE_PAIR(sender_chat));
+               <json::kind::object>(std::forward<T>(map), MAKE_PAIR(sender_chat, Utils::forward_like<T>(sender_chat)));
                               
                MainParser::field_from_map
-               <json::kind::uint64>(std::forward<T>(map), MAKE_PAIR(sender_boost_count));
+               <json::kind::uint64>(std::forward<T>(map), MAKE_PAIR(sender_boost_count, sender_boost_count));
                                           
                MainParser::field_from_map
-               <json::kind::uint64>(std::forward<T>(map), MAKE_PAIR(sender_boost_count));
+               <json::kind::uint64>(std::forward<T>(map), MAKE_PAIR(sender_boost_count, sender_boost_count));
                                           
                MainParser::field_from_map
-               <json::kind::object>(std::forward<T>(map), MAKE_PAIR(sender_business_bot));
+               <json::kind::object>(std::forward<T>(map), MAKE_PAIR(sender_business_bot, sender_business_bot));
                                           
                MainParser::field_from_map
-               <json::kind::object>(std::forward<T>(map), MAKE_PAIR(forward_origin));
+               <json::kind::object>(std::forward<T>(map), MAKE_PAIR(forward_origin, forward_origin));
                                                                                
                MainParser::field_from_map
-               <json::kind::bool_>(std::forward<T>(map), MAKE_PAIR(is_topic_message));
+               <json::kind::bool_>(std::forward<T>(map), MAKE_PAIR(is_topic_message, is_topic_message));
                                                                           
                MainParser::field_from_map
-               <json::kind::bool_>(std::forward<T>(map), MAKE_PAIR(is_automatic_forward));
+               <json::kind::bool_>(std::forward<T>(map), MAKE_PAIR(is_automatic_forward, is_automatic_forward));
                                                                                          
                MainParser::field_from_map
-               <json::kind::object>(std::forward<T>(map), MAKE_PAIR(reply_to_message));
+               <json::kind::object>(std::forward<T>(map), MAKE_PAIR(reply_to_message, reply_to_message));
 
                MainParser::field_from_map
-               <json::kind::object>(std::forward<T>(map), MAKE_PAIR(via_bot));
+               <json::kind::object>(std::forward<T>(map), MAKE_PAIR(via_bot, via_bot));
 
                MainParser::field_from_map
-               <json::kind::uint64>(std::forward<T>(map), MAKE_PAIR(edit_date));
+               <json::kind::uint64>(std::forward<T>(map), MAKE_PAIR(edit_date, edit_date));
 
                MainParser::field_from_map
-               <json::kind::bool_>(std::forward<T>(map), MAKE_PAIR(is_from_offline));
+               <json::kind::bool_>(std::forward<T>(map), MAKE_PAIR(is_from_offline, is_from_offline));
 
                MainParser::field_from_map
-               <json::kind::string>(std::forward<T>(map), MAKE_PAIR(media_group_id));
+               <json::kind::string>(std::forward<T>(map), MAKE_PAIR(media_group_id, media_group_id));
                
                MainParser::field_from_map
-               <json::kind::string>(std::forward<T>(map), MAKE_PAIR(author_signature));
+               <json::kind::string>(std::forward<T>(map), MAKE_PAIR(author_signature, author_signature));
 
                MainParser::field_from_map
-               <json::kind::string>(std::forward<T>(map), MAKE_PAIR(text));
+               <json::kind::string>(std::forward<T>(map), MAKE_PAIR(text, text));
             }
 
 
@@ -223,24 +223,24 @@ namespace Pars
                 (
                     self.message_id,
                     self.date,
-                    forward_like<Self>(self.chat),
+                    Utils::forward_like<Self>(self.chat),
                     self.message_thread_id,
-                    forward_like<Self>(self.from),
-                    forward_like<Self>(self.sender_chat),
+                    Utils::forward_like<Self>(self.from),
+                    Utils::forward_like<Self>(self.sender_chat),
                     self.sender_boost_count,
-                    forward_like<Self>(self.sender_business_bot),
-                    forward_like<Self>(self.business_connection_id),
-                    forward_like<Self>(self.forward_origin),
+                    Utils::forward_like<Self>(self.sender_business_bot),
+                    Utils::forward_like<Self>(self.business_connection_id),
+                    Utils::forward_like<Self>(self.forward_origin),
                     self.is_topic_message,
                     self.is_automatic_forward,
-                    forward_like<Self>(self.reply_to_message),
-                    forward_like<Self>(self.via_bot),
+                    Utils::forward_like<Self>(self.reply_to_message),
+                    Utils::forward_like<Self>(self.via_bot),
                     self.edit_date,
                     self.has_protected_content,
                     self.is_from_offline,
-                    forward_like<Self>(self.media_group_id),
-                    forward_like<Self>(self.author_signature),
-                    forward_like<Self>(self.text)
+                    Utils::forward_like<Self>(self.media_group_id),
+                    Utils::forward_like<Self>(self.author_signature),
+                    Utils::forward_like<Self>(self.text)
                 );
             }
 
@@ -280,19 +280,22 @@ namespace Pars
                     );
                 
 
-                std::optional<TG::MessageOrigin> origin_ = {};
+                std::optional<std::reference_wrapper<MessageOrigin>> origin_ = {};
                 std::optional<message> mes_ = {};
+
+                bool is_exist = false;
+                bool is_move  = false;
 
                 if (forward_origin.has_value())
                 {
-                    if (forward_origin.value().use_count() == 1)
-                    {
-                        origin_ = std::move(*forward_origin.value());
-                    }
-                    else
-                    {
-                        origin_ = *forward_origin.value();
-                    }
+                  if (forward_origin.value() != nullptr)
+                  {
+                    is_exist = true;
+                    origin_ = *forward_origin.value();
+                  }
+
+                  if (forward_origin.value().use_count() == 1)
+                    is_move = true;
                 }
 
                 if (reply_to_message.has_value())
@@ -313,7 +316,7 @@ namespace Pars
                     std::move(from),
                     std::move(sender_chat),
                     std::move(sender_business_bot),
-                    std::move(origin_),
+                    (is_exist) ? (is_move ? std::move(origin_) : origin_) : std::optional<std::reference_wrapper<MessageOrigin>>{},
                     std::move(mes_),
                     std::move(via_bot)
                 );

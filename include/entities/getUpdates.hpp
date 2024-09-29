@@ -103,13 +103,13 @@ namespace Pars
             (T&& map)
             {
                 MainParser::field_from_map
-                <json::kind::int64>(std::forward<T>(map), MAKE_PAIR(offset));
+                <json::kind::int64>(std::forward<T>(map), MAKE_PAIR(offset, offset));
 
                 MainParser::field_from_map
-                <json::kind::int64>(std::forward<T>(map), MAKE_PAIR(limit));
+                <json::kind::int64>(std::forward<T>(map), MAKE_PAIR(limit, limit));
 
                 MainParser::field_from_map
-                <json::kind::int64>(std::forward<T>(map), MAKE_PAIR(timeout));
+                <json::kind::int64>(std::forward<T>(map), MAKE_PAIR(timeout, timeout));
 
                 json::array arr;
 
@@ -149,9 +149,9 @@ namespace Pars
                 json::object ob(MainParser::get_storage_ptr());
                 ob = MainParser::parse_OptPairs_as_obj
                 (
-                    MAKE_OP(offset),
-                    MAKE_OP(limit),
-                    MAKE_OP(timeout)        
+                    MAKE_OP(offset, offset),
+                    MAKE_OP(limit, limit),
+                    MAKE_OP(timeout, timeout)        
                 );
 
                 json::array arr;

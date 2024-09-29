@@ -17,8 +17,8 @@ namespace Pars
             optstr last_name;
             optbool is_forum;
 
-            static inline size_t req_fields = 2;
-            static inline size_t opt_fields = 5;
+            static constexpr const size_t req_fields = 2;
+            static constexpr const  size_t opt_fields = 5;
 
             public:
 
@@ -132,25 +132,25 @@ namespace Pars
             (T&&  map)
             {   
                 MainParser::field_from_map
-                <json::kind::uint64>(std::forward<T>(map), MAKE_PAIR(id));
+                <json::kind::uint64>(std::forward<T>(map), MAKE_PAIR(id, id));
 
                 MainParser::field_from_map
-                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(type));
+                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(type, type));
 
                 MainParser::field_from_map
-                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(title));
+                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(title, title));
 
                 MainParser::field_from_map
-                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(username));
+                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(username, username));
 
                 MainParser::field_from_map
-                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(first_name));
+                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(first_name, first_name));
 
                 MainParser::field_from_map
-                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(last_name));
+                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(last_name, last_name));
 
                 MainParser::field_from_map
-                <json::kind::bool_>(std::forward<T>(map), MAKE_PAIR(is_forum));
+                <json::kind::bool_>(std::forward<T>(map), MAKE_PAIR(is_forum, is_forum));
             }
 
 
@@ -188,18 +188,18 @@ namespace Pars
                 json::object ob(MainParser::get_storage_ptr());
                 ob = MainParser::parse_ObjPairs_as_obj
                 (
-                    PAIR(id),
-                    PAIR(std::move(type))
+                    PAIR(id, id),
+                    PAIR(type, std::move(type))
                 );
 
                 json::object ob2(MainParser::get_storage_ptr());
                 ob2 = MainParser::parse_OptPairs_as_obj
                 (
-                    MAKE_OP(std::move(title)),
-                    MAKE_OP(std::move(username)),
-                    MAKE_OP(std::move(first_name)),
-                    MAKE_OP(std::move(last_name)),
-                    MAKE_OP(is_forum)
+                    MAKE_OP(title, std::move(title)),
+                    MAKE_OP(username, std::move(username)),
+                    MAKE_OP(first_name, std::move(first_name)),
+                    MAKE_OP(last_name, std::move(last_name)),
+                    MAKE_OP(is_forum, is_forum)
                 );
 
                 MainParser::container_move(ob2, ob);

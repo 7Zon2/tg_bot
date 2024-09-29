@@ -97,31 +97,31 @@ namespace Pars
             fields_from_map(T && map)
             {
                 MainParser::field_from_map
-                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(file_id));
+                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(file_id, file_id));
 
                 MainParser::field_from_map
-                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(file_unique_id));
+                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(file_unique_id, file_unique_id));
 
                 MainParser::field_from_map
-                <json::kind::double_>(std::forward<T>(map), MAKE_PAIR(file_size));
+                <json::kind::double_>(std::forward<T>(map), MAKE_PAIR(file_size, file_size));
 
                 MainParser::field_from_map
-                <json::kind::double_>(std::forward<T>(map), MAKE_PAIR(duration));
+                <json::kind::double_>(std::forward<T>(map), MAKE_PAIR(duration, duration));
 
                 MainParser::field_from_map
-                <json::kind::object>(std::forward<T>(map), MAKE_PAIR(thumbnail));
+                <json::kind::object>(std::forward<T>(map), MAKE_PAIR(thumbnail, thumbnail));
 
                 MainParser::field_from_map
-                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(file_name));
+                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(file_name, file_name));
 
                 MainParser::field_from_map
-                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(mime_type));
+                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(mime_type, mime_type));
 
                 MainParser::field_from_map
-                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(performer));
+                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(performer, performer));
 
                 MainParser::field_from_map
-                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(title));
+                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(title, title));
             }
 
 
@@ -177,8 +177,8 @@ namespace Pars
                 json::object ob2(MainParser::get_storage_ptr());
                 ob2 = MainParser::parse_OptPairs_as_obj
                     (
-                        MAKE_OP(std::move(title)),
-                        MAKE_OP(std::move(performer))
+                        MAKE_OP(title, std::move(title)),
+                        MAKE_OP(performer, std::move(performer))
                     );
 
                 MainParser::container_move(std::move(ob2), ob);
