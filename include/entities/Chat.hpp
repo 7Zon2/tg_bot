@@ -24,6 +24,9 @@ namespace Pars
 
             Chat(){}
 
+            template<is_all_json_entities T>
+            Chat(T&& val):TelegramEntities(std::forward<T>(val)){}
+
             Chat
             (
                 const size_t id,

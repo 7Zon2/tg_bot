@@ -49,6 +49,9 @@ namespace Pars
 
             message(){}
 
+            template<is_all_json_entities T>
+            message(T&& val): TelegramEntities(std::forward<T>(val)){}
+
             message
             (
                 uint64_t message_id,
@@ -162,16 +165,16 @@ namespace Pars
                <json::kind::uint64>(std::forward<T>(map), MAKE_PAIR(date, date));
      
                MainParser::field_from_map
-               <json::kind::object>(std::forward<T>(map), MAKE_PAIR(chat, Utils::forward_like<T>(chat)));
+               <json::kind::object>(std::forward<T>(map), MAKE_PAIR(chat, chat));
                    
                MainParser::field_from_map
                <json::kind::uint64>(std::forward<T>(map), MAKE_PAIR(message_thread_id, message_thread_id));
                             
                MainParser::field_from_map
-               <json::kind::object>(std::forward<T>(map), MAKE_PAIR(from, Utils::forward_like<T>(from)));
+               <json::kind::object>(std::forward<T>(map), MAKE_PAIR(from, from));
                            
                MainParser::field_from_map
-               <json::kind::object>(std::forward<T>(map), MAKE_PAIR(sender_chat, Utils::forward_like<T>(sender_chat)));
+               <json::kind::object>(std::forward<T>(map), MAKE_PAIR(sender_chat, sender_chat));
                               
                MainParser::field_from_map
                <json::kind::uint64>(std::forward<T>(map), MAKE_PAIR(sender_boost_count, sender_boost_count));

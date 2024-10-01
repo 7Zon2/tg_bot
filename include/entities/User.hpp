@@ -31,6 +31,9 @@ namespace Pars
 
             User(){}
 
+            template<is_all_json_entities T>
+            User(T&& val) : TelegramEntities(std::forward<T>(val)){}
+
             User
             (
                 uint64_t id,

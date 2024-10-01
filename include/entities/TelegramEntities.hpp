@@ -16,6 +16,34 @@ namespace Pars
 
             public:
             
+            TelegramEntities(){}
+
+            template<is_all_json_entities T>
+            TelegramEntities(T&& val)
+            {
+                json::value val_ = std::forward<T>(val);
+                auto map = verify_fields(std::move(val_));
+                if (map.has_value())
+                {
+                    fields_from_map(std::move(map.value()));
+                }
+            }
+
+
+            template<is_all_json_entities T>
+            void operator=(T&& val)
+            {
+                json::value val_ = std::forward<T>(val);
+                auto map = verify_fields(std::move(val_));
+                if (map.has_value())
+                {
+                    fields_from_map(std::move(map.value()));
+                }
+            }
+            
+
+            public:
+
             template<typename...T>
             [[nodiscard]]
             static json::object
@@ -49,33 +77,24 @@ namespace Pars
                 return ob;
             }
 
-            template<is_all_json_entities T>
-            void operator=(T&& val)
-            {
-                json::value val_ = std::forward<T>(val);
-                auto map = verify_fields(val_);
-                if (map.has_value())
-                {
-                    fields_from_map(std::move(map.value()));
-                }
-            }
-            
 
+            template<as_json_value T>
             [[nodiscard]]
             static
             opt_fields_map
-            requested_fields(json::value val)
+            requested_fields(T&& val)
             {
-                return Derived::requested_fields(std::move(val)); 
+                return Derived::requested_fields(std::forward<T>(val)); 
             }
 
 
+            template<as_json_value T>
             [[nodiscard]]
             static
             fields_map
-            optional_fields(json::value val)
+            optional_fields(T&& val)
             {
-                return Derived::optional_fields(std::move(val));
+                return Derived::optional_fields(std::forward<T>(val));
             }
 
 
@@ -105,18 +124,19 @@ namespace Pars
             }
 
 
+            template<as_json_value T>
             [[nodiscard]]
             static 
             opt_fields_map
-            verify_fields(json::value val)
+            verify_fields(T&& val)
             {
-                auto req_map = Derived::requested_fields(std::move(val));
+                auto req_map = Derived::requested_fields(val);
                 if(! req_map.has_value())
                 {
                     return std::nullopt;
                 }
 
-                auto opt_map = Derived::optional_fields(std::move(val));
+                auto opt_map = Derived::optional_fields(std::forward<T>(val));
 
                 auto map = std::move(req_map.value());
 

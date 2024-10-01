@@ -69,6 +69,13 @@ namespace Pars
 
     #define URL_REQUEST(field) "/"#field"?"
 
+ 
+    template<typename T>
+    concept as_pointer = 
+    (
+        std::is_pointer_v<std::remove_cvref_t<T>> ||
+        std::is_pointer_v<std::remove_cvref_t<decltype(std::declval<T>().get())>>
+    );
 
     template<typename T>
     concept as_json_value = std::is_same_v<json::value, std::remove_reference_t<T>>;
@@ -491,6 +498,24 @@ namespace Pars
         }
 
 
+        template<is_fields_map MAP>
+        [[nodiscard]]
+        static  
+        json::value
+        field_from_map
+        (
+            MAP&& map, 
+            json::string_view field
+        )
+        {
+            auto it = map.find(field);
+            if (it!=map.end())
+                return it->second();
+            else
+                return nullptr;
+        }
+
+
         template
         <
             json::kind Kind, 
@@ -505,6 +530,27 @@ namespace Pars
             std::pair<U, T>&& field
         )
         {
+
+            auto field_for_field = []
+            <typename F>(F& field, auto value) 
+            {
+                if constexpr (as_pointer<F>) 
+                {
+                    if (field == nullptr)
+                    {
+                        F ptr{new std::remove_cvref_t<decltype(*field)>()};
+                        field = std::move(ptr);
+                    }
+                
+                    *field = std::move(value);
+                }
+                else 
+                {
+                    field = std::move(value);
+                }
+            };
+
+
             auto it = map.find(field.first);
             if(it != map.end())
             {
@@ -514,18 +560,26 @@ namespace Pars
                 if constexpr (std::is_lvalue_reference_v<MAP>)
                 {
                     op = value_to_type<Kind>(it->second);
+                    if ( ! op.has_value())
+                    {
+                        return false;
+                    }
                 }
                 else
                 {
                     auto move_it = std::make_move_iterator(it);
                     op = value_to_type<Kind>(std::move(move_it->second));
+                    if ( ! op.has_value())
+                    {
+                        return false;
+                    }
                 }
 
-                if(op.has_value())
-                {
-                    field.second = std::move(op.value());
-                    return true;
-                }
+                if constexpr (is_opt<T>)
+                    field_for_field(field.second.value(), std::move(op.value()));
+                else
+                    field_for_field(field.second, std::move(op.value()));
+                return true;
             }
 
             return false;

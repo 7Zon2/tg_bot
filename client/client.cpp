@@ -204,7 +204,7 @@ class session : public std::enable_shared_from_this<session>
         );
         json::string data = Pars::MainParser::serialize_to_string(val);
         json::string target = get_url_bot_target();
-        PostRequest(data, target,"application/json",false);
+        PostRequest(std::move(data), std::move(target),"application/json",false);
     }
 
 
@@ -254,8 +254,9 @@ class session : public std::enable_shared_from_this<session>
             }
 
             json::array& arr = res.result.value();
-            //size_t update_id = res.result[0];
-            //Pars::TG::message mes = forward_like<T>(arr[1]);
+            size_t update_id = arr[0].as_int64();
+            Pars::TG::message mes = std::move(arr[1]);
+            print(mes.chat.type);
         }
         catch(const std::exception& ex)
         {
@@ -285,13 +286,13 @@ class session : public std::enable_shared_from_this<session>
             std::launch::async,
             [&var]()
             {
-                auto opt_map = Res::verify_fields(var);
+                auto opt_map = Res::verify_fields(std::move(var));
                 if (! opt_map.has_value())
                     throw std::runtime_error{"Failed verify_fields\n"};
                 else
                 {
                     Res obj{};
-                    obj.fields_from_map(opt_map.value());
+                    obj.fields_from_map(std::move(opt_map.value()));
                     return obj;
                 }
             }
@@ -392,14 +393,14 @@ class session : public std::enable_shared_from_this<session>
     public:
 
     [[nodiscard]]
-    std::string PrepareMultiPart(std::string_view data)
+    json::string PrepareMultiPart(json::string_view data)
     {
         #define MULTI_PART_BOUNDARY "Fairy"
         #define CRLF "\r\n"
 
         req_.set(http::field::content_type,"multipart/form-data; boundary=" MULTI_PART_BOUNDARY);
 
-        std::string temp
+        json::string temp
         {
             "--" MULTI_PART_BOUNDARY CRLF
             R"(Content-Disposition: form-data; name="file"; filename=somefile)" CRLF
@@ -416,9 +417,9 @@ class session : public std::enable_shared_from_this<session>
 
     void PostRequest
     (
-        std::string_view data, 
-        std::string_view target,
-        std::string_view content_type, 
+        json::string_view data, 
+        json::string_view target,
+        json::string_view content_type, 
         bool multipart
     )
     {  
@@ -426,7 +427,7 @@ class session : public std::enable_shared_from_this<session>
         req_.set(http::field::host, host_);
         if(multipart)
         {
-            std::string file = PrepareMultiPart(data);
+            json::string file = PrepareMultiPart(data);
             req_.body() = file;
             print("PreparedMultiRequest:\n\n");
             std::cout<<req_<<std::endl;
