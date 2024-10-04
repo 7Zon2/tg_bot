@@ -42,16 +42,16 @@ Boost_LIBRARY_DIR_RELEASE:PATH=/home/zon/my_libs/boost_1_86_0/stage/lib
 CMAKE_ADDR2LINE:FILEPATH=/usr/bin/llvm-addr2line
 
 //Path to a program.
-CMAKE_AR:FILEPATH=/home/zon/sycl_workspace/llvm/build/bin/llvm-ar
+CMAKE_AR:FILEPATH=/usr/bin/llvm-ar
 
 //No help, variable specified on the command line.
 CMAKE_BUILD_TYPE:STRING=Debug
 
-//No help, variable specified on the command line.
-CMAKE_CXX_COMPILER:FILEPATH=/home/zon/sycl_workspace/llvm/build/bin/clang++
+//CXX compiler
+CMAKE_CXX_COMPILER:STRING=/usr/bin/clang++
 
 //LLVM archiver
-CMAKE_CXX_COMPILER_AR:FILEPATH=/home/zon/sycl_workspace/llvm/build/bin/llvm-ar
+CMAKE_CXX_COMPILER_AR:FILEPATH=/usr/bin/llvm-ar
 
 //`clang-scan-deps` dependency scanner
 CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS:FILEPATH=/usr/bin/clang-scan-deps
@@ -74,11 +74,11 @@ CMAKE_CXX_FLAGS_RELEASE:STRING=-O3 -DNDEBUG
 //Flags used by the CXX compiler during RELWITHDEBINFO builds.
 CMAKE_CXX_FLAGS_RELWITHDEBINFO:STRING=-O2 -g -DNDEBUG
 
-//No help, variable specified on the command line.
-CMAKE_C_COMPILER:FILEPATH=/home/zon/sycl_workspace/llvm/build/bin/clang
+//C compiler
+CMAKE_C_COMPILER:STRING=/usr/bin/clang
 
 //LLVM archiver
-CMAKE_C_COMPILER_AR:FILEPATH=/home/zon/sycl_workspace/llvm/build/bin/llvm-ar
+CMAKE_C_COMPILER_AR:FILEPATH=/usr/bin/llvm-ar
 
 //`clang-scan-deps` dependency scanner
 CMAKE_C_COMPILER_CLANG_SCAN_DEPS:FILEPATH=/usr/bin/clang-scan-deps
@@ -158,7 +158,7 @@ CMAKE_MODULE_LINKER_FLAGS_RELWITHDEBINFO:STRING=
 CMAKE_NM:FILEPATH=/usr/bin/llvm-nm
 
 //Path to a program.
-CMAKE_OBJCOPY:FILEPATH=/home/zon/sycl_workspace/llvm/build/bin/llvm-objcopy
+CMAKE_OBJCOPY:FILEPATH=/usr/bin/llvm-objcopy
 
 //Path to a program.
 CMAKE_OBJDUMP:FILEPATH=/usr/bin/llvm-objdump

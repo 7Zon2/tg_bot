@@ -9,6 +9,12 @@ namespace Pars
         {
             using TelegramEntities<Chat>::operator = ;
 
+            static constexpr const  size_t req_fields = 2;
+            static constexpr const  size_t opt_fields = 5;
+            static inline const  json::string entity_name{"chat"};
+
+            public:
+
             size_t id;
             json::string type;
             optstr title;
@@ -17,8 +23,6 @@ namespace Pars
             optstr last_name;
             optbool is_forum;
 
-            static constexpr const size_t req_fields = 2;
-            static constexpr const  size_t opt_fields = 5;
 
             public:
 

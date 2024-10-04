@@ -14,8 +14,9 @@ namespace Pars
             optint timeout{};
             std::optional<std::vector<json::string>> allowed_updates{};
 
-            static const constexpr size_t req_fields = 0;
-            static const constexpr size_t opt_fields = 4;
+            static  constexpr size_t req_fields = 0;
+            static  constexpr size_t opt_fields = 4;
+            static  const inline json::string entity_name{"getUpdates"}; 
 
             public:
 

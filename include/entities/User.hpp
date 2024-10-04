@@ -11,6 +11,12 @@ namespace Pars
 
             using TelegramEntities::operator = ;
 
+            static constexpr const size_t req_fields  = 3;
+            static constexpr const size_t opt_fields  = 9;
+            static const inline json::string entity_name {"user"}; 
+
+            public:
+
             uint64_t id;
             bool is_bot;
             json::string first_name;
@@ -23,9 +29,6 @@ namespace Pars
             optbool can_read_all_group_messages  = {};
             optbool supports_inline_queries      = {};
             optbool can_connect_to_business      = {};
-
-            static inline size_t req_fields  = 3;
-            static inline size_t opt_fields  = 9; 
 
             public:
 

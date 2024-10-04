@@ -11,8 +11,10 @@ namespace Pars
         {
             public:
 
-            static inline size_t req_fields = Derived::req_fields;
-            static inline size_t opt_fields = Derived::opt_fields;
+            static const inline  json::string entity_name = Derived::entity_name;
+
+            static constexpr  size_t req_fields = Derived::req_fields;
+            static constexpr  size_t opt_fields = Derived::opt_fields;
 
             public:
             
@@ -40,7 +42,65 @@ namespace Pars
                     fields_from_map(std::move(map.value()));
                 }
             }
+
+
+            template<is_fields_map T>
+            void operator=(T&& map)
+            {
+                if constexpr (std::is_polymorphic_v<std::remove_reference_t<Derived>>)
+                {
+                    auto it = map.find(get_entity_name());
+                    if (it!=map.end())
+                    {
+                        auto entity_map = verify_fields(Utils::forward_like<T>(it->second), get_entity_name());
+                        if (entity_map.has_value())
+                        {
+                            fields_from_map(std::move(entity_map.value()));
+                        }
+                    }
+                }
+                else
+                {
+                    auto it = map.find(entity_name);
+                    if (it!=map.end())
+                    {
+                        *this = Utils::forward_like<T>(it->second);
+                    }
+                }
+            }
             
+
+            [[nodiscard]]
+            virtual 
+            json::string
+            get_entity_name()
+            {
+                return static_cast<Derived&>(*this).get_entity_name();
+            }
+
+
+            [[nodiscard]]
+            virtual
+            opt_fields_map
+            verify_fields
+            (json::value& val, json::string_view name)
+            {
+                if (name != get_entity_name())
+                {
+                    return {};
+                }
+                return verify_fields(val, name);
+            }
+
+
+            [[nodiscard]]
+            virtual 
+            opt_fields_map
+            verify_fields
+            (json::value && val, json::string_view name)
+            {
+                return {};
+            }
 
             public:
 

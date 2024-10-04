@@ -501,7 +501,7 @@ namespace Pars
         template<is_fields_map MAP>
         [[nodiscard]]
         static  
-        json::value
+        std::optional<json::value>
         field_from_map
         (
             MAP&& map, 
@@ -512,7 +512,7 @@ namespace Pars
             if (it!=map.end())
                 return it->second();
             else
-                return nullptr;
+                return std::nullopt;
         }
 
 

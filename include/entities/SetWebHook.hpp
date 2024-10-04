@@ -8,6 +8,12 @@ namespace Pars
     {
         struct SetWebHook : TelegramEntities<SetWebHook>
         {
+            using TelegramEntities::operator =;
+
+            static const inline  json::string entity_name{"setwebhook"};
+            static constexpr  size_t req_fields = 1;
+            static constexpr  size_t opt_fields = 6;  
+
             public:
 
             json::string url;
@@ -46,13 +52,12 @@ namespace Pars
 
             public:
 
-
+            template<as_json_value T>
             [[nodiscard]]
             static
             opt_fields_map
-            requested_fields(json::value val) 
+            requested_fields(T&& val) 
             {
-                const size_t sz = 1;
 
                 auto opt = MainParser::check_pointer_validation(std::move(val), std::make_pair("/setwebhook", json::kind::object));
                 if(opt.has_value() == false)
@@ -62,11 +67,11 @@ namespace Pars
                 
                 auto map = MainParser::mapped_pointers_validation
                 (
-                    val,
+                    std::forward<T>(val),
                     std::make_pair("/setwebhook/url", json::kind::uint64)
                 );
 
-                if(map.size() < sz)
+                if(map.size() != req_fields)
                 {
                     return std::nullopt;
                 }
@@ -75,14 +80,15 @@ namespace Pars
             }
 
 
+            template<as_json_value T>
             [[nodiscard]]
             static
             fields_map
-            optional_fields(json::value val)
+            optional_fields(T&& val)
             {
                 auto map = MainParser::mapped_pointers_validation
                 (
-                    std::move(val),
+                    std::forward<T>(val),
                     std::make_pair("/setwebhook/certificate", json::kind::string),
                     std::make_pair("/setwebhook/ip_address", json::kind::string),
                     std::make_pair("/setwebhook/max_connections", json::kind::int64),

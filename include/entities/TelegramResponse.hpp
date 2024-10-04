@@ -9,13 +9,16 @@ namespace Pars
         {
             public:
 
+            using TelegramEntities::operator =;
+
             bool ok;
             optint error_code;
             optstr description;
             optarray result; 
 
-            static inline size_t req_fields = 1;
-            static inline size_t opt_fields = 3;
+            static const inline json::string entity_name{"telegramresponse"};
+            static constexpr size_t req_fields = 1;
+            static constexpr size_t opt_fields = 3;
 
             public:
 

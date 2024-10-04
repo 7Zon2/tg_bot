@@ -260,7 +260,7 @@ class session : public std::enable_shared_from_this<session>
         }
         catch(const std::exception& ex)
         {
-            print(ex.what());
+            print(ex.what()); 
             return;
         }
     }

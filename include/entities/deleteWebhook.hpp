@@ -10,10 +10,13 @@ namespace Pars
         {
             public:
 
+            using TelegramEntities::operator =;
+
             bool drop_pending_updates;
 
-            static inline size_t req_fields = 1;
-            static inline size_t opt_fields = 0;
+            static constexpr size_t req_fields = 1;
+            static constexpr size_t opt_fields = 0;
+            static const inline json::string entity_name {"deletewebhook"};
 
             public:
 
@@ -23,19 +26,31 @@ namespace Pars
             :drop_pending_updates(drop_pending_updates){}
 
 
+            template<as_json_value T>
             [[nodiscard]]
             static 
             opt_fields_map 
-            requested_fields(json::value val)
+            requested_fields(T&& val)
             {
-               return TelegramResponse::verify_fields(std::move(val));
+                auto map = MainParser::mapped_pointers_validation
+                (
+                    std::forward<T>(val),
+                    std::make_pair(JS_POINTER(deletewebhook, drop_pending_updates), json::kind::bool_)
+                );
+
+                if (map.size() != req_fields)
+                {
+                    return {};
+                }
+                return map;
             }
 
 
+            template<as_json_value T>
             [[nodiscard]]
             static 
-            std::unordered_map<json::string, json::value>
-            optional_fields(json::value val)
+            fields_map
+            optional_fields(T&& val)
             {
                 return {};
             }

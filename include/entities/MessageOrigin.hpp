@@ -11,28 +11,62 @@ namespace Pars
             using TelegramEntities::operator=;
 
             json::string type;
-            size_t date;
+            size_t date_;
 
+            static inline const json::string entity_name{"messageorigin"};
             static constexpr size_t req_fields = 2;
             static constexpr size_t opt_fields = 0;
 
             public:
 
+            [[nodiscard]]
+            json::string 
+            get_entity_name() override
+            {
+                return entity_name;
+            }
+
+
             MessageOrigin(){}
 
             MessageOrigin(json::string type, const size_t date)
-                : type(std::move(type)), date(date){}
+                : type(std::move(type)), date_(date){}
 
             virtual ~MessageOrigin() = 0;
 
             public:
+
+            [[nodiscard]]
+            opt_fields_map
+            verify_fields
+            (json::value & val, json::string_view name) override
+            {
+                if (name != get_entity_name())
+                {
+                    return {};
+                }           
+                return TelegramEntities<MessageOrigin>::verify_fields(val);
+            }
+
+
+            [[nodiscard]]
+            opt_fields_map
+            verify_fields
+            (json::value && val, json::string_view name) override
+            {
+                if (name != get_entity_name())
+                {
+                    return {};
+                }
+                return  TelegramEntities<MessageOrigin>::verify_fields(std::move(val));
+            }
 
 
             template<as_json_value T>
             [[nodiscard]]
             static 
             opt_fields_map
-            requested_fields(T&& val, json::string_view method)
+            requested_fields(T&& val, json::string_view method = FIELD_NAME(messageorigin))
             {
                 json::string meth{"/"};
                 meth+=method;
@@ -77,7 +111,7 @@ namespace Pars
                 <json::kind::string>(std::move(map), MAKE_PAIR(type, type));
 
                 MainParser::field_from_map
-                <json::kind::uint64>(std::move(map), std::make_pair("date",std::ref(date)));
+                <json::kind::uint64>(std::move(map), std::make_pair("date",std::ref(date_)));
             }
 
 
@@ -89,7 +123,7 @@ namespace Pars
                 <json::kind::string>(map, MAKE_PAIR(type, type));
 
                 MainParser::field_from_map
-                <json::kind::uint64>(map, MAKE_PAIR(date, date));
+                <json::kind::uint64>(map, MAKE_PAIR(date, date_));
             }
 
 
@@ -107,7 +141,11 @@ namespace Pars
             )
             {
                 json::object ob(MainParser::get_storage_ptr());
-                ob["messageorigin"] = MainParser::parse_ObjPairs_as_obj(PAIR(type, std::move(type)), PAIR(date, date)); 
+                ob["messageorigin"] = MainParser::parse_ObjPairs_as_obj
+                (
+                    PAIR(type, std::move(type)), 
+                    PAIR(date, date)
+                ); 
                 return ob;
             }
         };
@@ -123,10 +161,19 @@ namespace Pars
 
             User sender_user;
 
-            static constexpr const size_t req_fields = 3;
-            static constexpr const size_t opt_fields = 0;
+            static constexpr size_t req_fields = 3;
+            static constexpr size_t opt_fields = 0;
+            static inline const json::string entity_name{"messageoriginuser"}; 
 
             public:
+
+            [[nodiscard]]
+            json::string 
+            get_entity_name() override
+            {
+                return entity_name;
+            }
+
 
             MessageOriginUser(){}
 
@@ -143,15 +190,69 @@ namespace Pars
 
              }
 
-             public:
+            public:
+
+            [[nodiscard]]
+            opt_fields_map
+            verify_fields
+            (json::value & val, json::string_view name) override
+            {
+                if (name != get_entity_name())
+                {
+                    return {};
+                }
+                 
+                auto map = TelegramEntities<MessageOrigin>::verify_fields(val);
+                if (! map.has_value())
+                {
+                    return {};
+                }
+
+                auto map_2 = TelegramEntities<MessageOriginUser>::verify_fields(val);
+                if (! map_2.has_value())
+                {
+                    return {};
+                }
+
+                MainParser::container_move(std::move(map.value()), map_2.value());
+                return map_2;
+            }
 
 
             [[nodiscard]]
+            opt_fields_map
+            verify_fields
+            (json::value && val, json::string_view name) override
+            {
+                if (name != get_entity_name())
+                {
+                    return {};
+                }
+                 
+                auto map = TelegramEntities<MessageOrigin>::verify_fields(std::move(val));
+                if (! map.has_value())
+                {
+                    return {};
+                }
+
+                auto map_2 = TelegramEntities<MessageOriginUser>::verify_fields(std::move(val));
+                if (! map_2.has_value())
+                {
+                    return {};
+                }
+
+                MainParser::container_move(std::move(map.value()), map_2.value());
+                return map_2;
+            }
+
+
+            template<as_json_value T>
+            [[nodiscard]]
             static 
             opt_fields_map
-            requested_fields(json::value val)
+            requested_fields(T&& val)
             {
-                auto map = MessageOrigin::requested_fields(std::move(val), FIELD_NAME(messageoriginuser));
+                auto map = MessageOrigin::requested_fields(std::forward<T>(val), FIELD_NAME(messageoriginuser));
                 if(map.has_value() == false)
                 {
                     return map;
@@ -159,7 +260,7 @@ namespace Pars
 
                 auto map2 = MainParser::mapped_pointers_validation
                 (
-                    std::move(val),
+                    std::forward<T>(val),
                     std::make_pair(JS_POINTER(messageoriginuser, sender_user), json::kind::object)
                 );
 
@@ -172,11 +273,13 @@ namespace Pars
                 return std::move(map.value());
             }
 
+
+            template<as_json_value T>
             [[nodiscard]]
             static fields_map
-            optional_fields(json::value val)
+            optional_fields(T&& val)
             {
-                return MessageOrigin::optional_fields(std::move(val));
+                return MessageOrigin::optional_fields(std::forward<T>(val));
             }
 
 
@@ -209,7 +312,7 @@ namespace Pars
                 return MessageOriginUser::fields_to_value
                 (
                     type,
-                    date,
+                    date_,
                     sender_user
                 );
             }
@@ -222,7 +325,7 @@ namespace Pars
                 return MessageOriginUser::fields_to_value
                 (
                     std::move(type),
-                    date,
+                    date_,
                     std::move(sender_user)
                 );
             }
@@ -256,10 +359,19 @@ namespace Pars
 
             json::string sender_user_name;
 
-            static inline size_t req_fields = 3;
-            static inline size_t opt_fields = 0;
+            static constexpr size_t req_fields = 3;
+            static constexpr size_t opt_fields = 0;
+            static const inline json::string enity_name{"messageoriginhiddenuser"};
 
             public:
+
+            [[nodiscard]]
+            json::string 
+            get_entity_name() override
+            {
+                return entity_name;
+            }
+
 
             MessageOriginHiddenUser(){}
 
@@ -278,12 +390,68 @@ namespace Pars
 
             public:
 
+
+            [[nodiscard]]
+            opt_fields_map
+            verify_fields
+            (json::value & val, json::string_view name) override
+            {
+                if (name != get_entity_name())
+                {
+                    return {};
+                }
+                 
+                auto map = TelegramEntities<MessageOrigin>::verify_fields(val);
+                if (! map.has_value())
+                {
+                    return {};
+                }
+
+                auto map_2 = TelegramEntities<MessageOriginHiddenUser>::verify_fields(val);
+                if (! map_2.has_value())
+                {
+                    return {};
+                }
+
+                MainParser::container_move(std::move(map.value()), map_2.value());
+                return map_2;
+            }
+
+
+            [[nodiscard]]
+            opt_fields_map
+            verify_fields
+            (json::value && val, json::string_view name) override
+            {
+                if (name != get_entity_name())
+                {
+                    return {};
+                }
+                 
+                auto map = TelegramEntities<MessageOrigin>::verify_fields(std::move(val));
+                if (! map.has_value())
+                {
+                    return {};
+                }
+
+                auto map_2 = TelegramEntities<MessageOriginHiddenUser>::verify_fields(std::move(val));
+                if (! map_2.has_value())
+                {
+                    return {};
+                }
+
+                MainParser::container_move(std::move(map.value()), map_2.value());
+                return map_2;
+            }
+
+
+            template<as_json_value T>
             [[nodiscard]]
             static 
             opt_fields_map
-            requested_fields(json::value val)
+            requested_fields(T&& val)
             {
-                auto map = MessageOrigin::requested_fields(std::move(val), FIELD_NAME(MessageOriginHiddenUser));
+                auto map = MessageOrigin::requested_fields(std::forward<T>(val), FIELD_NAME(MessageOriginHiddenUser));
                 if(map.has_value() == false)
                 {
                     return map;
@@ -291,7 +459,7 @@ namespace Pars
 
                 auto map2 = MainParser::mapped_pointers_validation
                 (
-                    std::move(val),
+                    std::forward<T>(val),
                     std::make_pair(JS_POINTER(messageoriginhiddenuser, sender_user_name), json::kind::string)
                 );
 
@@ -307,11 +475,13 @@ namespace Pars
             }
 
 
+            template<as_json_value T>
+            [[nodiscard]]
             static
             fields_map
-            optional_fields(json::value val)
+            optional_fields(T&& val)
             {
-                return MessageOrigin::optional_fields(std::move(val));
+                return MessageOrigin::optional_fields(std::forward<T>(val));
             }
 
 
@@ -344,7 +514,7 @@ namespace Pars
                 return MessageOriginHiddenUser::fields_to_value
                 (
                     type,
-                    date,
+                    date_,
                     sender_user_name
                 );
             }
@@ -357,7 +527,7 @@ namespace Pars
                 return MessageOriginHiddenUser::fields_to_value
                 (
                     std::move(type),
-                    date,
+                    date_,
                     std::move(sender_user_name)
                 );
             }
@@ -389,10 +559,19 @@ namespace Pars
             TG::Chat sender_chat;
             optstr  author_signature = {};
 
-            static constexpr const size_t req_fields = 3;
-            static constexpr const size_t opt_fields = 1;
+            static constexpr    size_t req_fields = 3;
+            static constexpr    size_t opt_fields = 1;
+            static const inline json::string entity_name{"messageoriginchat"};
 
             public:
+
+            [[nodiscard]]
+            json::string 
+            get_entity_name() override
+            {
+                return entity_name;
+            }
+
 
             MessageOriginChat(){}
 
@@ -415,11 +594,66 @@ namespace Pars
 
 
             [[nodiscard]]
+            opt_fields_map
+            verify_fields
+            (json::value & val, json::string_view name) override
+            {
+                if (name != get_entity_name())
+                {
+                    return {};
+                }
+                 
+                auto map = TelegramEntities<MessageOrigin>::verify_fields(val);
+                if (! map.has_value())
+                {
+                    return {};
+                }
+
+                auto chat_map = TelegramEntities<MessageOriginChat>::verify_fields(val);
+                if (! chat_map.has_value())
+                {
+                    return {};
+                }
+
+                MainParser::container_move(std::move(map.value()), chat_map.value());
+                return chat_map;
+            }
+
+
+            [[nodiscard]]
+            opt_fields_map
+            verify_fields
+            (json::value && val, json::string_view name) override
+            {
+                if (name != get_entity_name())
+                {
+                    return {};
+                }
+                 
+                auto map = TelegramEntities<MessageOrigin>::verify_fields(std::move(val));
+                if (! map.has_value())
+                {
+                    return {};
+                }
+
+                auto chat_map = TelegramEntities<MessageOriginChat>::verify_fields(std::move(val));
+                if (! chat_map.has_value())
+                {
+                    return {};
+                }
+
+                MainParser::container_move(std::move(map.value()), chat_map.value());
+                return chat_map;
+            }
+
+
+            template<as_json_value T>
+            [[nodiscard]]
             static 
             opt_fields_map
-            requested_fields(json::value val)
+            requested_fields(T&& val)
             {
-                auto map = MessageOrigin::requested_fields(std::move(val), FIELD_NAME(MessageOriginHiddenUser));
+                auto map = MessageOrigin::requested_fields(std::forward<T>(val), FIELD_NAME(MessageOriginHiddenUser));
                 if(map.has_value() == false)
                 {
                     return map;
@@ -427,7 +661,7 @@ namespace Pars
 
                 auto map2 = MainParser::mapped_pointers_validation
                 (
-                    std::move(val),
+                    std::forward<T>(val),
                     std::make_pair(JS_POINTER(MessageOriginChat, sender_chat), json::kind::object)
                 );
 
@@ -441,14 +675,15 @@ namespace Pars
             }
 
 
+            template<as_json_value T>
             [[nodiscard]]
             static
             fields_map
-            optional_fields(json::value val)
+            optional_fields(T&& val)
             {
                 return MainParser::mapped_pointers_validation
                 (
-                    std::move(val),
+                    std::forward<T>(val),
                     std::make_pair(JS_POINTER(messageoriginchat, author_signature), json::kind::string)
                 );
             }
@@ -489,7 +724,7 @@ namespace Pars
                 return MessageOriginChat::fields_to_value
                 (
                     type,
-                    date,
+                    date_,
                     sender_chat,
                     author_signature
                 );
@@ -503,7 +738,7 @@ namespace Pars
                 return MessageOriginChat::fields_to_value
                 (
                     std::move(type),
-                    date,
+                    date_,
                     std::move(sender_chat),
                     std::move(author_signature)
                 );
@@ -545,10 +780,19 @@ namespace Pars
             size_t message_id;
             optstr author_signature;
 
-            static constexpr const size_t req_fields = 4;
-            static constexpr const size_t opt_fields = 1;
+            static constexpr  size_t req_fields = 4;
+            static constexpr  size_t opt_fields = 1;
+            static const inline json::string enity_name{"messageoriginchannel"};
 
             public:
+
+            [[nodiscard]]
+            json::string 
+            get_entity_name() override
+            {
+                return entity_name;
+            }
+
 
             MessageOriginChannel(){}
 
@@ -572,11 +816,66 @@ namespace Pars
             public:
 
             [[nodiscard]]
+            opt_fields_map
+            verify_fields
+            (json::value & val, json::string_view name) override
+            {
+                if (name != get_entity_name())
+                {
+                    return {};
+                }
+                 
+                auto map = TelegramEntities<MessageOrigin>::verify_fields(val);
+                if (! map.has_value())
+                {
+                    return {};
+                }
+
+                auto channel_map = TelegramEntities<MessageOriginChannel>::verify_fields(val);
+                if (! channel_map.has_value())
+                {
+                    return {};
+                }
+
+                MainParser::container_move(std::move(map.value()), channel_map.value());
+                return channel_map;
+            }
+
+
+            [[nodiscard]]
+            opt_fields_map
+            verify_fields
+            (json::value && val, json::string_view name) override
+            {
+                if (name != get_entity_name())
+                {
+                    return {};
+                }
+                 
+                auto map = TelegramEntities<MessageOrigin>::verify_fields(std::move(val));
+                if (! map.has_value())
+                {
+                    return {};
+                }
+
+                auto channel_map = TelegramEntities<MessageOriginChannel>::verify_fields(std::move(val));
+                if (! channel_map.has_value())
+                {
+                    return {};
+                }
+
+                MainParser::container_move(std::move(map.value()), channel_map.value());
+                return channel_map;
+            }
+
+
+            template<as_json_value T>
+            [[nodiscard]]
             static 
             opt_fields_map
-            requested_fields(json::value val)
+            requested_fields(T&& val)
             {
-                auto map = MessageOrigin::requested_fields(std::move(val), FIELD_NAME(messageoriginchannel));
+                auto map = MessageOrigin::requested_fields(std::forward<T>(val), FIELD_NAME(messageoriginchannel));
                 if(map.has_value() == false)
                 {
                     return map;
@@ -584,7 +883,7 @@ namespace Pars
 
                 auto map2 = MainParser::mapped_pointers_validation
                 (
-                    std::move(val),
+                    std::forward<T>(val),
                     std::make_pair(JS_POINTER(messageoriginchannel, chat), json::kind::object),
                     std::make_pair(JS_POINTER(messageoriginchannel, message_id), json::kind::uint64)
                 );
@@ -599,13 +898,14 @@ namespace Pars
             }
 
 
+            template<as_json_value T>
             [[nodiscard]]
             static fields_map
-            optional_fields(json::value val)
+            optional_fields(T&& val)
             {
                 return MainParser::mapped_pointers_validation
                 (
-                    std::move(val),
+                    std::forward<T>(val),
                     std::make_pair(JS_POINTER(messageoriginchannel, author_signature), json::kind::string)
                 );
             }
@@ -646,7 +946,7 @@ namespace Pars
                 return MessageOriginChannel::fields_to_value
                 (
                     type,
-                    date,
+                    date_,
                     chat,
                     message_id,
                     author_signature
@@ -661,7 +961,7 @@ namespace Pars
                 return MessageOriginChannel::fields_to_value
                 (
                     std::move(type),
-                    date,
+                    date_,
                     std::move(chat),
                     message_id,
                     std::move(author_signature)
@@ -688,6 +988,41 @@ namespace Pars
                 return res;
             }
         };
+
+
+        template<is_fields_map T>
+        [[nodiscard]]
+        std::unique_ptr<MessageOrigin>
+        find_MessageOriginHeirs
+        (T&& map)
+        {
+            std::unique_ptr<MessageOrigin> ptr;
+            auto it = map.find(FIELD_NAME(messageoriginchat));
+            if (it != map.end())
+            {
+                ptr = std::make_unique<MessageOriginChat>();
+                ptr->fields_from_map(std::forward<T>(map));
+                return ptr;
+            }
+
+            it = map.find(FIELD_NAME(messageoriginchannel));
+            if (it != map.end())
+            {
+                ptr = std::make_unique<MessageOriginChannel>();
+                ptr->fields_from_map(std::forward<T>(map));
+                return ptr;
+            }
+
+            it = map.find(FIELD_NAME(messageoriginhiddenuser));
+            if (it != map.end())
+            {
+                ptr = std::make_unique<MessageOriginHiddenUser>();
+                ptr->fields_from_map(std::forward<T>(map));
+                return ptr;
+            }
+
+            return ptr;
+        }
 
     }// namespace TG
 

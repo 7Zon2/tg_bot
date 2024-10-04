@@ -2,6 +2,7 @@
 #include "TelegramEntities.hpp"
 #include "User.hpp"
 #include "Chat.hpp"
+#include "MessageOrigin.hpp"
 
 namespace Pars
 {
@@ -13,6 +14,10 @@ namespace Pars
 
             using optuser = std::optional<User>;
             using optchat = std::optional<Chat>;
+
+            static inline const json::string entity_name{"message"};
+            static constexpr  size_t req_fields = 3;
+            static constexpr  size_t opt_fields = 17;
 
             public:
 
@@ -41,9 +46,6 @@ namespace Pars
             optstr author_signature;
             optstr text;
              
-
-            static constexpr size_t req_fields = 3;
-            static constexpr size_t opt_fields = 17;
 
             public:
 
@@ -102,14 +104,15 @@ namespace Pars
 
             public:
 
+            template<as_json_value T>
             [[nodiscard]]
             static
             opt_fields_map
-            requested_fields(json::value val)
+            requested_fields(T&& val)
             {
                 auto message_map = MainParser::mapped_pointers_validation
                 (
-                    std::move(val),
+                    std::forward<T>(val),
                     std::make_pair(JS_POINTER(message, message_id), json::kind::uint64),
                     std::make_pair(JS_POINTER(message, date), json::kind::uint64),
                     std::make_pair(JS_POINTER(message, user), json::kind::object)
@@ -124,14 +127,15 @@ namespace Pars
             }
 
 
+            template<as_json_value T>
             [[nodiscard]]
             static 
             fields_map
-            optional_fields(json::value val)
+            optional_fields(T&& val)
             {
                 return MainParser::mapped_pointers_validation
                 (
-                    std::move(val),
+                    std::forward<T>(val),
                     std::make_pair(JS_POINTER(message, message_thread_id), json::kind::uint64),
                     std::make_pair(JS_POINTER(message, from), json::kind::object),
                     std::make_pair(JS_POINTER(message, sender_chat), json::kind::object),
@@ -184,10 +188,19 @@ namespace Pars
                                           
                MainParser::field_from_map
                <json::kind::object>(std::forward<T>(map), MAKE_PAIR(sender_business_bot, sender_business_bot));
-                                          
-               MainParser::field_from_map
-               <json::kind::object>(std::forward<T>(map), MAKE_PAIR(forward_origin, forward_origin));
-                                                                               
+
+                if (! forward_origin)
+                {
+                    forward_origin = Pars::TG::find_MessageOriginHeirs(std::forward<T>(map));
+                }
+                else if(! forward_origin.value())
+                {
+                    forward_origin = Pars::TG::find_MessageOriginHeirs(std::forward<T>(map));
+                }
+
+                auto & ptr = forward_origin.value();
+                *ptr = std::forward<T>(map);
+                                                                            
                MainParser::field_from_map
                <json::kind::bool_>(std::forward<T>(map), MAKE_PAIR(is_topic_message, is_topic_message));
                                                                           
