@@ -16,11 +16,11 @@ include_directories(${Boost_INCLUDE_DIRS})
 
 target_compile_features(flags INTERFACE cxx_std_23)
 
-target_compile_options(flags INTERFACE -pthread; -Wall; -O0; -g)
+target_compile_options(flags INTERFACE -pthread; -Wall; -O0; -g; -pedantic-errors)
 
 target_include_directories(flags INTERFACE ${PROJECT_SOURCE_DIR}/include)
 
-target_link_libraries(flags INTERFACE  OpenSSL::SSL OpenSSL::Crypto ${Boost_LIBRARIES})
+target_link_libraries(flags INTERFACE  OpenSSL::SSL OpenSSL::Crypto  stdc++exp dl  ${Boost_LIBRARIES}) 
 
 add_subdirectory(serv)
 add_subdirectory(client)

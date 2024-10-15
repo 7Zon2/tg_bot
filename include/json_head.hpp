@@ -26,7 +26,7 @@ namespace Utils
                 return static_cast<U&>(u);
         }
         else
-        {
+        {  
             if constexpr (is_const)
                 return std::move(std::as_const(u));
             else
@@ -71,11 +71,7 @@ namespace Pars
 
  
     template<typename T>
-    concept as_pointer = 
-    (
-        std::is_pointer_v<std::remove_cvref_t<T>> ||
-        std::is_pointer_v<std::remove_cvref_t<decltype(std::declval<T>().get())>>
-    );
+    concept as_pointer = (std::is_pointer_v<std::remove_cvref_t<T>> ||  std::is_pointer_v<std::remove_cvref_t<decltype(std::declval<T>().get())>>);
 
     template<typename T>
     concept as_json_value = std::is_same_v<json::value, std::remove_reference_t<T>>;
@@ -171,11 +167,7 @@ namespace Pars
 
 
     template<typename T>
-    concept is_opt = requires(T&& t)
-    {
-        t.has_value();
-        t.value();
-    };
+    concept is_opt = std::is_same_v<std::optional<typename T::value_type>, std::remove_cvref_t<T>>;
 
 
     template<typename T>
@@ -534,19 +526,30 @@ namespace Pars
             auto field_for_field = []
             <typename F>(F& field, auto value) 
             {
-                if constexpr (as_pointer<F>) 
+                if constexpr (is_opt<F>)
                 {
-                    if (field == nullptr)
+                    using type = typename F::value_type;
+                    if constexpr (as_pointer<type>)
                     {
-                        F ptr{new std::remove_cvref_t<decltype(*field)>()};
-                        field = std::move(ptr);
+                        using value_type = std::remove_cvref_t<decltype(*std::declval<type>())>;
+
+                        field = F{new value_type(std::move(value))}; 
                     }
-                
-                    *field = std::move(value);
+                    else
+                    {
+                        field = std::move(value);
+                    }
                 }
-                else 
+                else
                 {
-                    field = std::move(value);
+                    if constexpr (as_pointer<F>) 
+                    {
+                        field = F{new std::remove_cvref_t<decltype(*field)>(std::move(value))}; 
+                    }
+                    else 
+                    {  
+                        field = std::move(value);
+                    }
                 }
             };
 
@@ -575,10 +578,7 @@ namespace Pars
                     }
                 }
 
-                if constexpr (is_opt<T>)
-                    field_for_field(field.second.value(), std::move(op.value()));
-                else
-                    field_for_field(field.second, std::move(op.value()));
+                field_for_field(field.second, std::move(op.value()));
                 return true;
             }
 

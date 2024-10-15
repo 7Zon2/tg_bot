@@ -1,13 +1,13 @@
 [
 {
   "directory": "/home/zon/vs_code/tg_bot/build",
-  "command": "/usr/bin/clang++ -I/home/zon/my_libs/boost_1_86_0 -I/home/zon/vs_code/tg_bot/include -g -std=gnu++23 -pthread -Wall -O0 -g -o serv/CMakeFiles/serv.dir/serv.cpp.o -c /home/zon/vs_code/tg_bot/serv/serv.cpp",
+  "command": "/usr/bin/x86_64-redhat-linux-g++ -I/home/zon/my_libs/boost_1_86_0 -I/home/zon/vs_code/tg_bot/include -g -std=gnu++23 -pthread -Wall -O0 -g -pedantic-errors -o serv/CMakeFiles/serv.dir/serv.cpp.o -c /home/zon/vs_code/tg_bot/serv/serv.cpp",
   "file": "/home/zon/vs_code/tg_bot/serv/serv.cpp",
   "output": "serv/CMakeFiles/serv.dir/serv.cpp.o"
 },
 {
   "directory": "/home/zon/vs_code/tg_bot/build",
-  "command": "/usr/bin/clang++ -I/home/zon/my_libs/boost_1_86_0 -I/home/zon/vs_code/tg_bot/include -g -std=gnu++23 -pthread -Wall -O0 -g -o client/CMakeFiles/cl.dir/client.cpp.o -c /home/zon/vs_code/tg_bot/client/client.cpp",
+  "command": "/usr/bin/x86_64-redhat-linux-g++ -I/home/zon/my_libs/boost_1_86_0 -I/home/zon/vs_code/tg_bot/include -g -std=gnu++23 -pthread -Wall -O0 -g -pedantic-errors -o client/CMakeFiles/cl.dir/client.cpp.o -c /home/zon/vs_code/tg_bot/client/client.cpp",
   "file": "/home/zon/vs_code/tg_bot/client/client.cpp",
   "output": "client/CMakeFiles/cl.dir/client.cpp.o"
 }

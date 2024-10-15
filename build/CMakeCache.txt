@@ -38,26 +38,67 @@ Boost_LIBRARY_DIR_DEBUG:PATH=/home/zon/my_libs/boost_1_86_0/stage/lib
 //Boost library directory RELEASE
 Boost_LIBRARY_DIR_RELEASE:PATH=/home/zon/my_libs/boost_1_86_0/stage/lib
 
-//Path to a program.
-CMAKE_ADDR2LINE:FILEPATH=/usr/bin/llvm-addr2line
+//Boost stacktrace_addr2line library (debug)
+Boost_STACKTRACE_ADDR2LINE_LIBRARY_DEBUG:FILEPATH=/home/zon/my_libs/boost_1_86_0/stage/lib/libboost_stacktrace_addr2line.so
+
+//Boost stacktrace_addr2line library (release)
+Boost_STACKTRACE_ADDR2LINE_LIBRARY_RELEASE:FILEPATH=/home/zon/my_libs/boost_1_86_0/stage/lib/libboost_stacktrace_addr2line.so
+
+//Boost stacktrace_backtrace library (debug)
+Boost_STACKTRACE_BACKTRACE_LIBRARY_DEBUG:FILEPATH=Boost_STACKTRACE_BACKTRACE_LIBRARY_DEBUG-NOTFOUND
+
+//Boost stacktrace_backtrace library (release)
+Boost_STACKTRACE_BACKTRACE_LIBRARY_RELEASE:FILEPATH=Boost_STACKTRACE_BACKTRACE_LIBRARY_RELEASE-NOTFOUND
+
+//Boost stacktrace_backtrace_ library (debug)
+Boost_STACKTRACE_BACKTRACE__LIBRARY_DEBUG:FILEPATH=Boost_STACKTRACE_BACKTRACE__LIBRARY_DEBUG-NOTFOUND
+
+//Boost stacktrace_backtrace_ library (release)
+Boost_STACKTRACE_BACKTRACE__LIBRARY_RELEASE:FILEPATH=Boost_STACKTRACE_BACKTRACE__LIBRARY_RELEASE-NOTFOUND
+
+//Boost stacktrace_basic library (debug)
+Boost_STACKTRACE_BASIC_LIBRARY_DEBUG:FILEPATH=/home/zon/my_libs/boost_1_86_0/stage/lib/libboost_stacktrace_basic.so
+
+//Boost stacktrace_basic library (release)
+Boost_STACKTRACE_BASIC_LIBRARY_RELEASE:FILEPATH=/home/zon/my_libs/boost_1_86_0/stage/lib/libboost_stacktrace_basic.so
+
+//Boost stacktrace_from_exception library (debug)
+Boost_STACKTRACE_FROM_EXCEPTION_LIBRARY_DEBUG:FILEPATH=/home/zon/my_libs/boost_1_86_0/stage/lib/libboost_stacktrace_from_exception.so
+
+//Boost stacktrace_from_exception library (release)
+Boost_STACKTRACE_FROM_EXCEPTION_LIBRARY_RELEASE:FILEPATH=/home/zon/my_libs/boost_1_86_0/stage/lib/libboost_stacktrace_from_exception.so
+
+//Boost stacktrace_ library (debug)
+Boost_STACKTRACE__LIBRARY_DEBUG:FILEPATH=Boost_STACKTRACE__LIBRARY_DEBUG-NOTFOUND
+
+//Boost stacktrace_ library (release)
+Boost_STACKTRACE__LIBRARY_RELEASE:FILEPATH=Boost_STACKTRACE__LIBRARY_RELEASE-NOTFOUND
+
+//Boost _Boost_STACKTRACE_BACKTRACE_HEADERS library (debug)
+Boost__BOOST_STACKTRACE_BACKTRACE_HEADERS_LIBRARY_DEBUG:FILEPATH=Boost__BOOST_STACKTRACE_BACKTRACE_HEADERS_LIBRARY_DEBUG-NOTFOUND
+
+//Boost _Boost_STACKTRACE_BACKTRACE_HEADERS library (release)
+Boost__BOOST_STACKTRACE_BACKTRACE_HEADERS_LIBRARY_RELEASE:FILEPATH=Boost__BOOST_STACKTRACE_BACKTRACE_HEADERS_LIBRARY_RELEASE-NOTFOUND
 
 //Path to a program.
-CMAKE_AR:FILEPATH=/usr/bin/llvm-ar
+CMAKE_ADDR2LINE:FILEPATH=/usr/bin/addr2line
+
+//Path to a program.
+CMAKE_AR:FILEPATH=/usr/bin/ar
 
 //No help, variable specified on the command line.
 CMAKE_BUILD_TYPE:STRING=Debug
 
-//CXX compiler
-CMAKE_CXX_COMPILER:STRING=/usr/bin/clang++
+//No help, variable specified on the command line.
+CMAKE_CXX_COMPILER:FILEPATH=/usr/bin/x86_64-redhat-linux-g++
 
-//LLVM archiver
-CMAKE_CXX_COMPILER_AR:FILEPATH=/usr/bin/llvm-ar
+//A wrapper around 'ar' adding the appropriate '--plugin' option
+// for the GCC compiler
+CMAKE_CXX_COMPILER_AR:FILEPATH=CMAKE_CXX_COMPILER_AR-NOTFOUND
 
-//`clang-scan-deps` dependency scanner
-CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS:FILEPATH=/usr/bin/clang-scan-deps
-
-//Generate index for LLVM archive
-CMAKE_CXX_COMPILER_RANLIB:FILEPATH=/usr/bin/llvm-ranlib
+//A wrapper around 'ranlib' adding the appropriate '--plugin' option
+// for the GCC compiler
+CMAKE_CXX_COMPILER_RANLIB:FILEPATH=CMAKE_CXX_COMPILER_RANLIB-NOTFOUND
 
 //Flags used by the CXX compiler during all build types.
 CMAKE_CXX_FLAGS:STRING=
@@ -74,17 +115,16 @@ CMAKE_CXX_FLAGS_RELEASE:STRING=-O3 -DNDEBUG
 //Flags used by the CXX compiler during RELWITHDEBINFO builds.
 CMAKE_CXX_FLAGS_RELWITHDEBINFO:STRING=-O2 -g -DNDEBUG
 
-//C compiler
-CMAKE_C_COMPILER:STRING=/usr/bin/clang
+//No help, variable specified on the command line.
+CMAKE_C_COMPILER:FILEPATH=/usr/bin/x86_64-redhat-linux-gcc
 
-//LLVM archiver
-CMAKE_C_COMPILER_AR:FILEPATH=/usr/bin/llvm-ar
+//A wrapper around 'ar' adding the appropriate '--plugin' option
+// for the GCC compiler
+CMAKE_C_COMPILER_AR:FILEPATH=CMAKE_C_COMPILER_AR-NOTFOUND
 
-//`clang-scan-deps` dependency scanner
-CMAKE_C_COMPILER_CLANG_SCAN_DEPS:FILEPATH=/usr/bin/clang-scan-deps
-
-//Generate index for LLVM archive
-CMAKE_C_COMPILER_RANLIB:FILEPATH=/usr/bin/llvm-ranlib
+//A wrapper around 'ranlib' adding the appropriate '--plugin' option
+// for the GCC compiler
+CMAKE_C_COMPILER_RANLIB:FILEPATH=CMAKE_C_COMPILER_RANLIB-NOTFOUND
 
 //Flags used by the C compiler during all build types.
 CMAKE_C_FLAGS:STRING=
@@ -102,7 +142,7 @@ CMAKE_C_FLAGS_RELEASE:STRING=-O3 -DNDEBUG
 CMAKE_C_FLAGS_RELWITHDEBINFO:STRING=-O2 -g -DNDEBUG
 
 //Path to a program.
-CMAKE_DLLTOOL:FILEPATH=/usr/bin/llvm-dlltool
+CMAKE_DLLTOOL:FILEPATH=CMAKE_DLLTOOL-NOTFOUND
 
 //Flags used by the linker during all build types.
 CMAKE_EXE_LINKER_FLAGS:STRING=
@@ -155,13 +195,13 @@ CMAKE_MODULE_LINKER_FLAGS_RELEASE:STRING=
 CMAKE_MODULE_LINKER_FLAGS_RELWITHDEBINFO:STRING=
 
 //Path to a program.
-CMAKE_NM:FILEPATH=/usr/bin/llvm-nm
+CMAKE_NM:FILEPATH=/usr/bin/nm
 
 //Path to a program.
-CMAKE_OBJCOPY:FILEPATH=/usr/bin/llvm-objcopy
+CMAKE_OBJCOPY:FILEPATH=/usr/bin/objcopy
 
 //Path to a program.
-CMAKE_OBJDUMP:FILEPATH=/usr/bin/llvm-objdump
+CMAKE_OBJDUMP:FILEPATH=/usr/bin/objdump
 
 //Value Computed by CMake
 CMAKE_PROJECT_DESCRIPTION:STATIC=
@@ -173,10 +213,10 @@ CMAKE_PROJECT_HOMEPAGE_URL:STATIC=
 CMAKE_PROJECT_NAME:STATIC=http
 
 //Path to a program.
-CMAKE_RANLIB:FILEPATH=/usr/bin/llvm-ranlib
+CMAKE_RANLIB:FILEPATH=/usr/bin/ranlib
 
 //Path to a program.
-CMAKE_READELF:FILEPATH=/usr/bin/llvm-readelf
+CMAKE_READELF:FILEPATH=/usr/bin/readelf
 
 //Flags used by the linker during the creation of shared libraries
 // during all build types.
@@ -226,7 +266,7 @@ CMAKE_STATIC_LINKER_FLAGS_RELEASE:STRING=
 CMAKE_STATIC_LINKER_FLAGS_RELWITHDEBINFO:STRING=
 
 //Path to a program.
-CMAKE_STRIP:FILEPATH=/usr/bin/llvm-strip
+CMAKE_STRIP:FILEPATH=/usr/bin/strip
 
 //Path to a program.
 CMAKE_TAPI:FILEPATH=CMAKE_TAPI-NOTFOUND
@@ -306,6 +346,34 @@ Boost_JSON_LIBRARY_RELEASE-ADVANCED:INTERNAL=1
 Boost_LIBRARY_DIR_DEBUG-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: Boost_LIBRARY_DIR_RELEASE
 Boost_LIBRARY_DIR_RELEASE-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: Boost_STACKTRACE_ADDR2LINE_LIBRARY_DEBUG
+Boost_STACKTRACE_ADDR2LINE_LIBRARY_DEBUG-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: Boost_STACKTRACE_ADDR2LINE_LIBRARY_RELEASE
+Boost_STACKTRACE_ADDR2LINE_LIBRARY_RELEASE-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: Boost_STACKTRACE_BACKTRACE_LIBRARY_DEBUG
+Boost_STACKTRACE_BACKTRACE_LIBRARY_DEBUG-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: Boost_STACKTRACE_BACKTRACE_LIBRARY_RELEASE
+Boost_STACKTRACE_BACKTRACE_LIBRARY_RELEASE-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: Boost_STACKTRACE_BACKTRACE__LIBRARY_DEBUG
+Boost_STACKTRACE_BACKTRACE__LIBRARY_DEBUG-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: Boost_STACKTRACE_BACKTRACE__LIBRARY_RELEASE
+Boost_STACKTRACE_BACKTRACE__LIBRARY_RELEASE-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: Boost_STACKTRACE_BASIC_LIBRARY_DEBUG
+Boost_STACKTRACE_BASIC_LIBRARY_DEBUG-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: Boost_STACKTRACE_BASIC_LIBRARY_RELEASE
+Boost_STACKTRACE_BASIC_LIBRARY_RELEASE-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: Boost_STACKTRACE_FROM_EXCEPTION_LIBRARY_DEBUG
+Boost_STACKTRACE_FROM_EXCEPTION_LIBRARY_DEBUG-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: Boost_STACKTRACE_FROM_EXCEPTION_LIBRARY_RELEASE
+Boost_STACKTRACE_FROM_EXCEPTION_LIBRARY_RELEASE-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: Boost_STACKTRACE__LIBRARY_DEBUG
+Boost_STACKTRACE__LIBRARY_DEBUG-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: Boost_STACKTRACE__LIBRARY_RELEASE
+Boost_STACKTRACE__LIBRARY_RELEASE-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: Boost__BOOST_STACKTRACE_BACKTRACE_HEADERS_LIBRARY_DEBUG
+Boost__BOOST_STACKTRACE_BACKTRACE_HEADERS_LIBRARY_DEBUG-ADVANCED:INTERNAL=1
+//ADVANCED property for variable: Boost__BOOST_STACKTRACE_BACKTRACE_HEADERS_LIBRARY_RELEASE
+Boost__BOOST_STACKTRACE_BACKTRACE_HEADERS_LIBRARY_RELEASE-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CMAKE_ADDR2LINE
 CMAKE_ADDR2LINE-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CMAKE_AR
@@ -328,8 +396,6 @@ CMAKE_CTEST_COMMAND:INTERNAL=/usr/bin/ctest
 CMAKE_CXX_COMPILER-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CMAKE_CXX_COMPILER_AR
 CMAKE_CXX_COMPILER_AR-ADVANCED:INTERNAL=1
-//ADVANCED property for variable: CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS
-CMAKE_CXX_COMPILER_CLANG_SCAN_DEPS-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CMAKE_CXX_COMPILER_RANLIB
 CMAKE_CXX_COMPILER_RANLIB-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CMAKE_CXX_FLAGS
@@ -346,8 +412,6 @@ CMAKE_CXX_FLAGS_RELWITHDEBINFO-ADVANCED:INTERNAL=1
 CMAKE_C_COMPILER-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CMAKE_C_COMPILER_AR
 CMAKE_C_COMPILER_AR-ADVANCED:INTERNAL=1
-//ADVANCED property for variable: CMAKE_C_COMPILER_CLANG_SCAN_DEPS
-CMAKE_C_COMPILER_CLANG_SCAN_DEPS-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CMAKE_C_COMPILER_RANLIB
 CMAKE_C_COMPILER_RANLIB-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CMAKE_C_FLAGS
@@ -470,7 +534,7 @@ PKG_CONFIG_EXECUTABLE-ADVANCED:INTERNAL=1
 //Last used BOOST_ROOT value.
 _BOOST_ROOT_LAST:INTERNAL=/home/zon/my_libs/boost_1_86_0
 //Components requested for this build tree.
-_Boost_COMPONENTS_SEARCHED:INTERNAL=container;json
+_Boost_COMPONENTS_SEARCHED:INTERNAL=container;json;stacktrace_addr2line;stacktrace_basic;stacktrace_from_exception
 //Last used Boost_INCLUDE_DIR value.
 _Boost_INCLUDE_DIR_LAST:INTERNAL=/home/zon/my_libs/boost_1_86_0
 //Last used Boost_LIBRARY_DIR_DEBUG value.

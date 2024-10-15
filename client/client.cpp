@@ -3,7 +3,8 @@
 #include "certif.hpp"
 #include "print.hpp"
 #include "coro_future.hpp"
-
+#include <stacktrace>
+#include <boost/stacktrace/stacktrace.hpp>
 
 template<typename T>
 concept is_getUpdates = std::is_same_v<std::remove_reference_t<T>, Pars::TG::getUpdates>;
@@ -75,7 +76,7 @@ class session : public std::enable_shared_from_this<session>
 
 
     void resolve()
-    {
+    {  
         // Look up the domain name
         resolver_.async_resolve
         (
@@ -178,7 +179,7 @@ class session : public std::enable_shared_from_this<session>
     protected:
 
     void simple_requset()
-    {
+    {   
         req_.version(version_);
         req_.method(http::verb::get);
         req_.set(http::field::host, host_);
@@ -254,9 +255,11 @@ class session : public std::enable_shared_from_this<session>
             }
 
             json::array& arr = res.result.value();
-            size_t update_id = arr[0].as_int64();
-            Pars::TG::message mes = std::move(arr[1]);
-            print(mes.chat.type);
+            auto it = arr.begin();
+            for(auto &&i : arr)
+            {
+                print(i);
+            }
         }
         catch(const std::exception& ex)
         {
@@ -501,7 +504,7 @@ class session : public std::enable_shared_from_this<session>
         print("Connecting...\n\n", "connected endpoint:\n");
         print_endpoint(ep);
         print("\n\n");
-
+        
         handshake();
     }
 
@@ -513,7 +516,7 @@ class session : public std::enable_shared_from_this<session>
             return fail(ec, "handshake");
 
         print("Handshake...\n");
-
+        
         try
         {
            auto resp = start_getUpdates(Pars::TG::getUpdates{});
@@ -606,6 +609,17 @@ class session : public std::enable_shared_from_this<session>
 int main(int argc, char** argv)
 {
 
+    std::set_terminate([]()
+    {
+        try
+        {
+            std::cerr<<std::stacktrace::current()<<std::endl;
+        }
+        catch(...)
+        {}
+        std::abort();
+    });
+
     if(argc != 2)
     {
       print
@@ -622,8 +636,7 @@ int main(int argc, char** argv)
     int version = 11;
 
     try
-    {
-         
+    {         
         net::io_context ioc;
 
         ssl::context ctx{ssl::context::tlsv13_client};
@@ -648,6 +661,8 @@ int main(int argc, char** argv)
     }
     catch(const std::exception& e)
     {
+        std::cerr<<std::stacktrace::current()<<std::endl;
+        //std::cerr<<boost::stacktrace::from_current_exception()<<std::endl;
         std::cerr << e.what() << '\n';
     }
   

@@ -1,6 +1,8 @@
 #include "head.hpp"
 #include "certif.hpp"
 #include "print.hpp"
+#include <exception>
+#include <boost/stacktrace/stacktrace.hpp>
 
 // Handles an HTTP server connection
 class session : public std::enable_shared_from_this<session>
@@ -327,6 +329,17 @@ class listener : public std::enable_shared_from_this<listener>
 
 int main()
 { 
+    std::set_terminate([]()
+    {
+        try
+        {
+            std::cerr<<boost::stacktrace::stacktrace()<<std::endl;
+        }
+        catch(...)
+        {}
+        std::abort();
+    });
+
     try
     {
         const auto  address  = net::ip::make_address("127.0.0.1");

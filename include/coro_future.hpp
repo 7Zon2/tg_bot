@@ -5,8 +5,8 @@
  #include <chrono>
  #include <future>
  #include <type_traits>
-
-
+ #include <stdexcept>
+ #include <stacktrace>
 
  template<typename T, typename...Args>
  requires(std::is_constructible_v<T>)
@@ -50,7 +50,8 @@
 
 
         void unhandled_exception() noexcept
-        {
+        {      
+            std::cerr<<std::stacktrace::current()<<std::endl;
             this->set_exception(std::current_exception());
         }
     };      
@@ -83,7 +84,8 @@ struct std::coroutine_traits<std::future<void>, Args...>
 
         void
         unhandled_exception() noexcept
-        {
+        {   
+            std::cerr<<std::stacktrace::current()<<std::endl;
             this->set_exception(std::current_exception());
         }
     };

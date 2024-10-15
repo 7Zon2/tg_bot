@@ -129,7 +129,12 @@ namespace Pars
 
             [[nodiscard]]
             virtual json::value 
-            fields_to_value() = 0;
+            fields_to_value() & = 0;
+
+
+            [[nodiscard]]
+            virtual json::value
+            fields_to_value() && = 0;
 
 
             [[nodiscard]]
