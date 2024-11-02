@@ -35,10 +35,13 @@ namespace Pars
             template<is_all_json_entities T>
             void operator=(T&& val)
             {
+                print("\n", "TelegramEntities operator  =\n");
                 json::value val_ = std::forward<T>(val);
                 auto map = verify_fields(std::move(val_));
                 if (map.has_value())
                 {
+                    print("\nPrint_Map\n");
+                    MainParser::print_map(map.value());
                     fields_from_map(std::move(map.value()));
                 }
             }
@@ -204,6 +207,11 @@ namespace Pars
                 {
                     map.insert_or_assign(std::move(i.first), std::move(i.second));
                 }
+
+                print("\nverify_fields map:\n============================================\n");
+                MainParser::print_map(map);
+                print("\n=================================================\n");
+
 
                 return map;
             }

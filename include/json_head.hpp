@@ -438,12 +438,40 @@ namespace Pars
         static std::optional<json::value>
         check_pointer_validation(T&& val, std::pair<json::string_view, json::kind> pair)
         {
+
+            auto checkInt = [&pair]
+            (json::kind t, auto& it) -> std::optional<json::value>
+            {
+                if (t == json::kind::int64) 
+                    return std::forward<T>(*it).as_int64();
+                else
+                    return std::nullopt;
+            };
+
+            auto checkUInt = [&pair]
+            (json::kind t, auto& it) -> std::optional<json::value>
+            {
+                if (t == json::kind::uint64) 
+                    return  std::forward<T>(*it).as_uint64();
+                else
+                    return  std::nullopt;
+            };
+
+
             boost::system::error_code er;
 
+            print("pointer:", pair.first,"\n");
             auto it = val.find_pointer(pair.first, er);
             if(er)
             {
-                return std::nullopt;
+                size_t pos = pair.first.find_last_of("/");
+                if(pos == pair.first.npos)
+                    return std::nullopt;
+                
+                json::string_view temp{pair.first.begin() + pos, pair.first.end()}; 
+                it = val.find_pointer(temp, er);
+                if(er)
+                    return std::nullopt;
             }
 
             std::optional<json::value> opt{};
@@ -457,7 +485,7 @@ namespace Pars
 
                 case json::kind::double_ : {(t == pair.second)  ? opt =  std::forward<T>(*it).as_double()  : opt = std::nullopt; break;}
 
-                case json::kind::int64   : {(t == pair.second)  ? opt =  std::forward<T>(*it).as_int64()   : opt = std::nullopt; break;}
+                case json::kind::int64   : {(t == pair.second)  ? opt =  std::forward<T>(*it).as_int64()   : opt = checkInt(t, it); break;}
 
                 case json::kind::null    : {(t == pair.second)  ? opt =  nullptr          : opt = std::nullopt; break;}
 
@@ -465,7 +493,7 @@ namespace Pars
 
                 case json::kind::string  : {(t == pair.second)  ? opt =  std::forward<T>(*it).as_string()  : opt = std::nullopt; break;}
 
-                case json::kind::uint64  : {(t == pair.second)  ? opt =  std::forward<T>(*it).as_uint64()  : opt = std::nullopt; break;}
+                case json::kind::uint64  : {(t == pair.second)  ? opt =  std::forward<T>(*it).as_uint64()  : opt = checkUInt(t, it); break;}
 
                 default:
                     break;
@@ -524,16 +552,19 @@ namespace Pars
         {
 
             auto field_for_field = []
-            <typename F>(F& field, auto value) 
+            <typename F>(F& field, auto&& value) 
             {
-                if constexpr (is_opt<F>)
+                using F_Type  = std::remove_cvref_t<F>;
+
+                if constexpr (is_opt<F_Type>)
                 {
                     using type = typename F::value_type;
+
                     if constexpr (as_pointer<type>)
                     {
                         using value_type = std::remove_cvref_t<decltype(*std::declval<type>())>;
 
-                        field = F{new value_type(std::move(value))}; 
+                        field = type{new value_type(std::move(value))}; 
                     }
                     else
                     {
@@ -542,9 +573,9 @@ namespace Pars
                 }
                 else
                 {
-                    if constexpr (as_pointer<F>) 
+                    if constexpr (as_pointer<F_Type>) 
                     {
-                        field = F{new std::remove_cvref_t<decltype(*field)>(std::move(value))}; 
+                        field = F_Type{new std::remove_cvref_t<decltype(*field)>(std::move(value))}; 
                     }
                     else 
                     {  
@@ -563,20 +594,15 @@ namespace Pars
                 if constexpr (std::is_lvalue_reference_v<MAP>)
                 {
                     op = value_to_type<Kind>(it->second);
-                    if ( ! op.has_value())
-                    {
-                        return false;
-                    }
                 }
                 else
                 {
                     auto move_it = std::make_move_iterator(it);
                     op = value_to_type<Kind>(std::move(move_it->second));
-                    if ( ! op.has_value())
-                    {
-                        return false;
-                    }
                 }
+
+                if (!op.has_value())
+                    return false;
 
                 field_for_field(field.second, std::move(op.value()));
                 return true;
@@ -624,10 +650,12 @@ namespace Pars
                         str += temp[i];
                     }       
 
+                    print("CleanUp_pointer:", str,"\n");
                     return str;
                 }
                 else
                 {
+                    print("CleanUp_pointer:", vw,"\n");
                     return vw;
                 }
             };
@@ -637,6 +665,7 @@ namespace Pars
             {
                 if (opt.has_value())
                 {
+                    MainParser::pretty_print(std::cout, opt.value());
                     map.insert_or_assign(cleanUp_pointer(pointer), std::move(opt.value()));
                 }
             }; 
@@ -880,6 +909,17 @@ namespace Pars
 
 
         public:
+
+        static void
+        print_map(const fields_map& map)
+        {
+            for(auto&& i : map)
+            {
+                print(i.first,":");
+                pretty_print(std::cout, i.second);
+            }
+        }
+
 
         static void
         pretty_print( std::ostream& os, json::value const& jv, std::string* indent = nullptr )

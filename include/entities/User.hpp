@@ -73,20 +73,16 @@ namespace Pars
             public:
 
 
+            template<as_json_value T>
             [[nodiscard]]
             static
             opt_fields_map 
-            requested_fields(json::value val) 
+            requested_fields(T&& val) 
             {
-                auto opt = MainParser::check_pointer_validation(std::move(val), std::make_pair("/user", json::kind::object));
-                if(opt.has_value() == false)
-                {
-                    return std::nullopt;
-                }
-                
+               
                 auto map = MainParser::mapped_pointers_validation
                 (
-                    std::move(val),
+                    std::forward<T>(val),
                     std::make_pair("/user/id", json::kind::uint64),
                     std::make_pair("/user/is_bot", json::kind::bool_),
                     std::make_pair("/user/first_name", json::kind::string)
@@ -101,14 +97,15 @@ namespace Pars
             }
 
 
+            template<as_json_value T>
             [[nodiscard]]
             static
             fields_map
-            optional_fields(json::value val)
+            optional_fields(T&& val)
             {
-                auto map = MainParser::mapped_pointers_validation
+                return MainParser::mapped_pointers_validation
                 (
-                    std::move(val),
+                    std::forward<T>(val),
                     std::make_pair("/user/last_name", json::kind::string),
                     std::make_pair("/user/username",  json::kind::string),
                     std::make_pair("/user/language_code", json::kind::string),
@@ -119,8 +116,6 @@ namespace Pars
                     std::make_pair("/user/supports_inline_queries", json::kind::bool_),
                     std::make_pair("/user/can_connect_to_business", json::kind::bool_)
                 );
-
-                return map;
             }
 
 
@@ -128,6 +123,10 @@ namespace Pars
             void fields_from_map
             (T && map)
             {
+                print("\nuser map:\n");
+                MainParser::print_map(map);
+                print("\n\n");
+
                 MainParser::field_from_map
                 <json::kind::uint64>( std::forward<T>(map),  std::make_pair("id", std::ref(id)));
 
@@ -135,13 +134,13 @@ namespace Pars
                 <json::kind::bool_>( std::forward<T>(map),  std::make_pair("is_bot", std::ref(is_bot)));
 
                 MainParser::field_from_map
-                <json::kind::string>( std::forward<T>(map),  std::make_pair("first_name", std::ref(first_name)));
+                <json::kind::string>(  std::forward<T>(map),  std::make_pair("first_name", std::ref(first_name)));
 
                 MainParser::field_from_map
-                <json::kind::string>( std::forward<T>(map),  std::make_pair("last_name", std::ref(last_name)));
+                <json::kind::string>(  std::forward<T>(map),  std::make_pair("last_name", std::ref(last_name)));
 
                 MainParser::field_from_map
-                <json::kind::string>( std::forward<T>(map),  std::make_pair("username",  std::ref(username)));
+                <json::kind::string>(  std::forward<T>(map),  std::make_pair("username",  std::ref(username)));
 
                 MainParser::field_from_map
                 <json::kind::string>(  std::forward<T>(map),  std::make_pair("language_code", std::ref(language_code)));

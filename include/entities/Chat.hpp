@@ -97,16 +97,20 @@ namespace Pars
             }
 
 
+            template<as_json_value T>
             [[nodiscard]]
             static
             opt_fields_map
-            requested_fields(json::value val)
+            requested_fields(T&& val)
             {
+                print("\nchat::\n");
+                MainParser::pretty_print(std::cout, val);
+                print("\n\n");
                 auto map = MainParser::mapped_pointers_validation
                 (
-                    std::move(val),
-                    std::make_pair(JS_POINTER(Chat, id), json::kind::uint64),
-                    std::make_pair(JS_POINTER(Chat, type), json::kind::string)
+                    std::forward<T>(val),
+                    std::make_pair(JS_POINTER(сhat, id), json::kind::int64),
+                    std::make_pair(JS_POINTER(сhat, type), json::kind::string)
                 );            
 
                 if (map.size() != req_fields)
@@ -116,19 +120,20 @@ namespace Pars
             }
 
 
+            template<as_json_value T>
             [[nodiscard]]
             static
             fields_map
-            optional_fields(json::value val)
+            optional_fields(T&& val)
             {
                 return MainParser::mapped_pointers_validation
-                (
-                    std::move(val),
-                    std::make_pair(JS_POINTER(Chat, title), json::kind::string),
-                    std::make_pair(JS_POINTER(Chat, username), json::kind::string),
-                    std::make_pair(JS_POINTER(Chat, first_name), json::kind::string),
-                    std::make_pair(JS_POINTER(Chat, last_name), json::kind::string),
-                    std::make_pair(JS_POINTER(Chat, is_forum),  json::kind::bool_)
+                ( 
+                    std::forward<T>(val),
+                    std::make_pair(JS_POINTER(сhat, title), json::kind::string),
+                    std::make_pair(JS_POINTER(сhat, username), json::kind::string),
+                    std::make_pair(JS_POINTER(сhat, first_name), json::kind::string),
+                    std::make_pair(JS_POINTER(сhat, last_name), json::kind::string),
+                    std::make_pair(JS_POINTER(сhat, is_forum),  json::kind::bool_)
                 );
             }
 
@@ -139,7 +144,7 @@ namespace Pars
             (T&&  map)
             {   
                 MainParser::field_from_map
-                <json::kind::uint64>(std::forward<T>(map), MAKE_PAIR(id, id));
+                <json::kind::int64>(std::forward<T>(map), MAKE_PAIR(id, id));
 
                 MainParser::field_from_map
                 <json::kind::string>(std::forward<T>(map), MAKE_PAIR(type, type));

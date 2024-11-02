@@ -997,16 +997,16 @@ namespace Pars
 
         template<is_fields_map T>
         [[nodiscard]]
-        std::unique_ptr<MessageOrigin>
+        std::optional<std::unique_ptr<MessageOrigin>>
         find_MessageOriginHeirs
         (T&& map)
         {
-            std::unique_ptr<MessageOrigin> ptr;
+            std::optional<std::unique_ptr<MessageOrigin>> ptr;
             auto it = map.find(FIELD_NAME(messageoriginchat));
             if (it != map.end())
             {
                 ptr = std::make_unique<MessageOriginChat>();
-                ptr->fields_from_map(std::forward<T>(map));
+                (*ptr)->fields_from_map(std::forward<T>(map));
                 return ptr;
             }
 
@@ -1014,7 +1014,7 @@ namespace Pars
             if (it != map.end())
             {
                 ptr = std::make_unique<MessageOriginChannel>();
-                ptr->fields_from_map(std::forward<T>(map));
+                (*ptr)->fields_from_map(std::forward<T>(map));
                 return ptr;
             }
 
@@ -1022,7 +1022,7 @@ namespace Pars
             if (it != map.end())
             {
                 ptr = std::make_unique<MessageOriginHiddenUser>();
-                ptr->fields_from_map(std::forward<T>(map));
+                (*ptr)->fields_from_map(std::forward<T>(map));
                 return ptr;
             }
 

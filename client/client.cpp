@@ -233,6 +233,21 @@ class session : public std::enable_shared_from_this<session>
 
     void parse_result(Pars::TG::TelegramResponse response)
     {
+        auto find_message = [](auto& b, auto& e) -> std::optional<Pars::TG::message>
+        {
+            for(; b < e; ++b)
+            {
+                json::value val = b->at_pointer("/message"); 
+                if(val != nullptr)
+                {
+                    Pars::TG::message msg{};
+                    msg = std::move(b->as_object());
+                    return msg;
+                }
+            }
+            return {};
+        };
+
         if (! response.ok)
         {
             return;
@@ -255,15 +270,23 @@ class session : public std::enable_shared_from_this<session>
             }
 
             json::array& arr = res.result.value();
-            auto it = arr.begin();
-            for(auto &&i : arr)
+            auto b = arr.begin();
+            auto e = arr.end();
+
+            auto mes = find_message(b, e);
+            if(mes.has_value())
             {
-                print(i);
+                print("Message reply:\n");
+                Pars::MainParser::pretty_print(std::cout, mes.value().fields_to_value());
+            }
+            else
+            {
+                print("Message reply is empty\n");
             }
         }
         catch(const std::exception& ex)
         {
-            print(ex.what()); 
+            print(ex.what(),"\n"); 
             return;
         }
     }

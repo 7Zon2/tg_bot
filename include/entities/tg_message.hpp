@@ -113,9 +113,9 @@ namespace Pars
                 auto message_map = MainParser::mapped_pointers_validation
                 (
                     std::forward<T>(val),
-                    std::make_pair(JS_POINTER(message, message_id), json::kind::uint64),
-                    std::make_pair(JS_POINTER(message, date), json::kind::uint64),
-                    std::make_pair(JS_POINTER(message, user), json::kind::object)
+                    std::make_pair(JS_POINTER(message, message_id), json::kind::int64),
+                    std::make_pair(JS_POINTER(message, date), json::kind::int64),
+                    std::make_pair(JS_POINTER(message, chat), json::kind::object)
                 );
 
                 if (message_map.size() != req_fields)
@@ -162,62 +162,61 @@ namespace Pars
             fields_from_map
             (T && map)
             {
-               MainParser::field_from_map
-               <json::kind::uint64>(std::forward<T>(map), MAKE_PAIR(message_id, message_id));
+                print("\nmessage:\n======================================================================\n");
+                MainParser::print_map(map);
 
                MainParser::field_from_map
-               <json::kind::uint64>(std::forward<T>(map), MAKE_PAIR(date, date));
+               <json::kind::int64>(map, MAKE_PAIR(message_id, message_id));
+
+               MainParser::field_from_map
+               <json::kind::int64>(map, MAKE_PAIR(date, date));
      
                MainParser::field_from_map
-               <json::kind::object>(std::forward<T>(map), MAKE_PAIR(chat, chat));
+               <json::kind::object>(map, MAKE_PAIR(chat, chat));
                    
                MainParser::field_from_map
-               <json::kind::uint64>(std::forward<T>(map), MAKE_PAIR(message_thread_id, message_thread_id));
+               <json::kind::int64>(map, MAKE_PAIR(message_thread_id, message_thread_id));
                             
                MainParser::field_from_map
-               <json::kind::object>(std::forward<T>(map), MAKE_PAIR(from, from));
+               <json::kind::object>(map, MAKE_PAIR(from, from));
                            
                MainParser::field_from_map
-               <json::kind::object>(std::forward<T>(map), MAKE_PAIR(sender_chat, sender_chat));
+               <json::kind::object>(map, MAKE_PAIR(sender_chat, sender_chat));
                               
                MainParser::field_from_map
-               <json::kind::uint64>(std::forward<T>(map), MAKE_PAIR(sender_boost_count, sender_boost_count));
+               <json::kind::int64>(map, MAKE_PAIR(sender_boost_count, sender_boost_count));
                                           
                MainParser::field_from_map
-               <json::kind::uint64>(std::forward<T>(map), MAKE_PAIR(sender_boost_count, sender_boost_count));
+               <json::kind::int64>(map, MAKE_PAIR(sender_boost_count, sender_boost_count));
                                           
                MainParser::field_from_map
-               <json::kind::object>(std::forward<T>(map), MAKE_PAIR(sender_business_bot, sender_business_bot));
+               <json::kind::object>(map, MAKE_PAIR(sender_business_bot, sender_business_bot));
 
-                if (! forward_origin)
-                {
-                    forward_origin = Pars::TG::find_MessageOriginHeirs(std::forward<T>(map));
-                }
-                else if(! forward_origin.value())
-                {
-                    forward_origin = Pars::TG::find_MessageOriginHeirs(std::forward<T>(map));
-                }
 
-                auto & ptr = forward_origin.value();
-                *ptr = std::forward<T>(map);
+                forward_origin = Pars::TG::find_MessageOriginHeirs(map);
+                if (forward_origin)
+                {
+                    auto & ptr = forward_origin.value();
+                    *ptr = map;
+                }
                                                                             
                MainParser::field_from_map
-               <json::kind::bool_>(std::forward<T>(map), MAKE_PAIR(is_topic_message, is_topic_message));
+               <json::kind::bool_>(map, MAKE_PAIR(is_topic_message, is_topic_message));
                                                                           
                MainParser::field_from_map
-               <json::kind::bool_>(std::forward<T>(map), MAKE_PAIR(is_automatic_forward, is_automatic_forward));
+               <json::kind::bool_>(map, MAKE_PAIR(is_automatic_forward, is_automatic_forward));
                                                                                          
                MainParser::field_from_map
-               <json::kind::object>(std::forward<T>(map), MAKE_PAIR(reply_to_message, reply_to_message));
+               <json::kind::object>(map, MAKE_PAIR(reply_to_message, reply_to_message));
 
                MainParser::field_from_map
-               <json::kind::object>(std::forward<T>(map), MAKE_PAIR(via_bot, via_bot));
+               <json::kind::object>(map, MAKE_PAIR(via_bot, via_bot));
 
                MainParser::field_from_map
-               <json::kind::uint64>(std::forward<T>(map), MAKE_PAIR(edit_date, edit_date));
+               <json::kind::int64>(map, MAKE_PAIR(edit_date, edit_date));
 
                MainParser::field_from_map
-               <json::kind::bool_>(std::forward<T>(map), MAKE_PAIR(is_from_offline, is_from_offline));
+               <json::kind::bool_>(map, MAKE_PAIR(is_from_offline, is_from_offline));
 
                MainParser::field_from_map
                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(media_group_id, media_group_id));
@@ -227,6 +226,8 @@ namespace Pars
 
                MainParser::field_from_map
                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(text, text));
+
+                print("\n======================================================================\n");
             }
 
 
