@@ -52,7 +52,10 @@ namespace Pars
             message(){}
 
             template<is_all_json_entities T>
-            message(T&& val): TelegramEntities(std::forward<T>(val)){}
+            message(T&& val)
+            {
+                create(std::forward<T>(val));
+            }
 
             message
             (
@@ -162,8 +165,6 @@ namespace Pars
             fields_from_map
             (T && map)
             {
-                print("\nmessage:\n======================================================================\n");
-                MainParser::print_map(map);
 
                MainParser::field_from_map
                <json::kind::int64>(map, MAKE_PAIR(message_id, message_id));
@@ -172,13 +173,13 @@ namespace Pars
                <json::kind::int64>(map, MAKE_PAIR(date, date));
      
                MainParser::field_from_map
-               <json::kind::object>(map, MAKE_PAIR(chat, chat));
+               <json::kind::object>(std::forward<T>(map), MAKE_PAIR(chat, chat));
                    
                MainParser::field_from_map
                <json::kind::int64>(map, MAKE_PAIR(message_thread_id, message_thread_id));
                             
                MainParser::field_from_map
-               <json::kind::object>(map, MAKE_PAIR(from, from));
+               <json::kind::object>(std::forward<T>(map), MAKE_PAIR(from, from));
                            
                MainParser::field_from_map
                <json::kind::object>(map, MAKE_PAIR(sender_chat, sender_chat));
@@ -190,7 +191,7 @@ namespace Pars
                <json::kind::int64>(map, MAKE_PAIR(sender_boost_count, sender_boost_count));
                                           
                MainParser::field_from_map
-               <json::kind::object>(map, MAKE_PAIR(sender_business_bot, sender_business_bot));
+               <json::kind::object>(std::forward<T>(map), MAKE_PAIR(sender_business_bot, sender_business_bot));
 
 
                 forward_origin = Pars::TG::find_MessageOriginHeirs(map);
@@ -207,10 +208,10 @@ namespace Pars
                <json::kind::bool_>(map, MAKE_PAIR(is_automatic_forward, is_automatic_forward));
                                                                                          
                MainParser::field_from_map
-               <json::kind::object>(map, MAKE_PAIR(reply_to_message, reply_to_message));
+               <json::kind::object>(std::forward<T>(map), MAKE_PAIR(reply_to_message, reply_to_message));
 
                MainParser::field_from_map
-               <json::kind::object>(map, MAKE_PAIR(via_bot, via_bot));
+               <json::kind::object>(std::forward<T>(map), MAKE_PAIR(via_bot, via_bot));
 
                MainParser::field_from_map
                <json::kind::int64>(map, MAKE_PAIR(edit_date, edit_date));
@@ -227,7 +228,6 @@ namespace Pars
                MainParser::field_from_map
                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(text, text));
 
-                print("\n======================================================================\n");
             }
 
 

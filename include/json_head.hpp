@@ -186,6 +186,9 @@ namespace Pars
     template<typename T>
     concept is_opt_fields_map = std::is_same_v<std::remove_reference_t<T>, opt_fields_map>;
 
+    template<typename T>
+    concept is_ref_wrapper   = std::is_same_v<std::remove_reference_t<T>, std::reference_wrapper<typename T::type>>;
+
 
     struct MainParser
     {
@@ -303,6 +306,7 @@ namespace Pars
 
         template<json::kind type, as_json_value T>
         [[nodiscard]]
+        constexpr
         static auto
         value_to_type
         (T&&  val)
@@ -314,7 +318,6 @@ namespace Pars
                 if (val.is_bool())
                 {
                     op = std::forward<T>(val).as_bool();
-                    return op;
                 }
 
                 return op;
@@ -326,31 +329,21 @@ namespace Pars
                 if(val.is_double())
                 {
                     op = std::forward<T>(val).as_double();
-                    return op;
                 } 
 
                 return op;
             }
-            else if constexpr( type == json::kind::uint64)
+            else if constexpr( type == json::kind::uint64 || type == json::kind::int64)
             {
                 std::optional<uint64_t> op;
 
                 if(val.is_uint64())
                 {
                     op = std::forward<T>(val).as_uint64();
-                    return op;
                 }
-
-                return op;
-            }
-            else if constexpr( type == json::kind::int64)
-            {
-                std::optional<int64_t> op;
-
-                if(val.is_int64())
+                else if( val.is_int64())
                 {
                     op = std::forward<T>(val).as_int64();
-                    return op;
                 }
 
                 return op;
@@ -362,7 +355,6 @@ namespace Pars
                 if(val.is_string())
                 {
                     op = std::forward<T>(val).as_string();
-                    return op;
                 }
 
                 return op;
@@ -374,7 +366,6 @@ namespace Pars
                 if(val.is_object())
                 {
                     op = std::forward<T>(val).as_object();
-                    return op;
                 }
 
                 return op;
@@ -386,7 +377,6 @@ namespace Pars
                 if(val.is_array())
                 {
                     op = std::forward<T>(val).as_array();
-                    return op;
                 }
 
                 return op;
@@ -398,7 +388,6 @@ namespace Pars
                 if(val.is_null())
                 {
                     op = nullptr;
-                    return op;
                 }
 
                 return op;
@@ -558,7 +547,7 @@ namespace Pars
 
                 if constexpr (is_opt<F_Type>)
                 {
-                    using type = typename F::value_type;
+                    using type = typename F_Type::value_type;
 
                     if constexpr (as_pointer<type>)
                     {

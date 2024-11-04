@@ -9,6 +9,19 @@ namespace Pars
         template<typename Derived>
         struct TelegramEntities
         {
+            protected:
+
+            template<is_all_json_entities T>
+            void create(T&& val)
+            {
+                json::value val_ = std::forward<T>(val);
+                auto map = verify_fields(std::move(val_));
+                if (map.has_value())
+                {
+                    fields_from_map(std::move(map.value()));
+                }
+            }
+
             public:
 
             static const inline  json::string entity_name = Derived::entity_name;
@@ -21,27 +34,12 @@ namespace Pars
             TelegramEntities(){}
 
             template<is_all_json_entities T>
-            TelegramEntities(T&& val)
-            {
-                json::value val_ = std::forward<T>(val);
-                auto map = verify_fields(std::move(val_));
-                if (map.has_value())
-                {
-                    fields_from_map(std::move(map.value()));
-                }
-            }
-
-
-            template<is_all_json_entities T>
             void operator=(T&& val)
             {
-                print("\n", "TelegramEntities operator  =\n");
                 json::value val_ = std::forward<T>(val);
                 auto map = verify_fields(std::move(val_));
                 if (map.has_value())
                 {
-                    print("\nPrint_Map\n");
-                    MainParser::print_map(map.value());
                     fields_from_map(std::move(map.value()));
                 }
             }
@@ -207,11 +205,6 @@ namespace Pars
                 {
                     map.insert_or_assign(std::move(i.first), std::move(i.second));
                 }
-
-                print("\nverify_fields map:\n============================================\n");
-                MainParser::print_map(map);
-                print("\n=================================================\n");
-
 
                 return map;
             }

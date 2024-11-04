@@ -17,9 +17,9 @@ namespace Pars
 
             public:
 
-            uint64_t id;
-            bool is_bot;
-            json::string first_name;
+            uint64_t id ={};
+            bool is_bot = {};
+            json::string first_name = {};
             optstr  last_name     = {};
             optstr  username      = {};
             optstr  language_code = {};
@@ -35,7 +35,10 @@ namespace Pars
             User(){}
 
             template<is_all_json_entities T>
-            User(T&& val) : TelegramEntities(std::forward<T>(val)){}
+            User(T&& val)
+            {
+                create(std::forward<T>(val));
+            }
 
             User
             (

@@ -209,7 +209,6 @@ class session : public std::enable_shared_from_this<session>
     }
 
 
-
     template<typename T>
     requires (std::is_same_v<std::remove_reference_t<T>, Pars::TG::getUpdates>)
     void GetUpdatesRequest(T&& obj)
@@ -229,9 +228,18 @@ class session : public std::enable_shared_from_this<session>
         PostRequest("", target, "multipart/form-data",true);
     }
 
-    public:
+    protected:
 
-    void parse_result(Pars::TG::TelegramResponse response)
+    template<Pars::TG::is_message T>
+    bool prepare_response
+    (T&& mes)
+    {
+        Pars::TG::message mes_;
+    }
+
+
+    void parse_result
+    (Pars::TG::TelegramResponse response)
     {
         auto find_message = [](auto& b, auto& e) -> std::optional<Pars::TG::message>
         {

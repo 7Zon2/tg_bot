@@ -16,7 +16,8 @@ include_directories(${Boost_INCLUDE_DIRS})
 
 target_compile_features(flags INTERFACE cxx_std_23)
 
-target_compile_options(flags INTERFACE -pthread; -Wall; -O0; -g; -pedantic-errors)
+target_compile_options(flags INTERFACE -pthread; -Wall; -O0; -g; -pedantic-errors;)
+target_link_options(flags INTERFACE -fsanitize=address)
 
 target_include_directories(flags INTERFACE ${PROJECT_SOURCE_DIR}/include)
 
