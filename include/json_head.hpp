@@ -69,6 +69,8 @@ namespace Pars
 
     #define URL_REQUEST(field) "/"#field"?"
 
+    #define URL_BIND(str, field) str+=std::move(field); str+="&";
+
  
     template<typename T>
     concept as_pointer = (std::is_pointer_v<std::remove_cvref_t<T>> ||  std::is_pointer_v<std::remove_cvref_t<decltype(std::declval<T>().get())>>);
@@ -727,9 +729,17 @@ namespace Pars
 
         [[nodiscard]]
         static json::value
-        parse_string_as_value(std::string_view vw)
+        parse_string_as_value(json::string str)
         {
-            return json::string{vw};
+            return std::move(str);
+        }
+
+
+        [[nodiscard]]
+        static json::value
+        parse_string_as_value(std::string str)
+        {
+            return json::string(std::move(str));
         }
 
 

@@ -24,6 +24,8 @@ namespace Pars
 
             public:
 
+            using type = Derived;
+
             static const inline  json::string entity_name = Derived::entity_name;
 
             static constexpr  size_t req_fields = Derived::req_fields;
@@ -169,9 +171,17 @@ namespace Pars
 
             [[nodiscard]]
             json::string
-            fields_to_url() 
+            fields_to_url() &
             {
                 return static_cast<Derived&>(*this).fields_to_url();
+            }
+
+
+            [[nodiscard]]
+            json::string
+            fields_to_url() &&
+            {
+                return static_cast<Derived&&>(*this).fields_to_url();
             }
 
             public:

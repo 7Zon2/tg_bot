@@ -6,11 +6,14 @@ namespace Pars
 {
     namespace TG
     {
+        template<typename Derived>
+        struct TelegramEntities;
         struct User;
         struct Chat;
         struct message;
         struct deletewebhook;
         struct SetWebHook;
+        struct SendMessage;
         struct MessageOrigin;
         struct TelegramResponse;
         struct LinkPreviewOptions;
@@ -24,6 +27,9 @@ namespace Pars
         struct Voice;
 
         template<typename T>
+        concept is_TelegramBased = std::is_base_of_v<TelegramEntities<typename T::type>, typename T::type>;
+
+        template<typename T>
         concept is_TelegramResponse = std::is_same_v<std::remove_reference_t<T>, TelegramResponse>;
 
         template<typename T>
@@ -33,7 +39,10 @@ namespace Pars
         concept is_user    = std::is_same_v<std::remove_reference_t<T>, User>;
 
         template<typename T>
-        concept is_message = std::is_same_v<std::remove_reference_t<T>, message>;
+        concept is_message = std::is_same_v<std::remove_cvref_t<T>, message>;
+
+        template<typename T>
+        concept is_sendmessage = std::is_same_v<std::remove_reference_t<T>, SendMessage>;
 
         template<typename T>
         concept is_messageOriginBase = std::is_base_of_v<MessageOrigin, std::remove_reference_t<T>>; 

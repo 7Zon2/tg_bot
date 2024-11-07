@@ -18,6 +18,7 @@ class session : public std::enable_shared_from_this<session>
     const json::string port_;
     const json::string token_; 
     const json::string certif_;
+    json::string bot_url;
 
     json::string target_;
     tcp::resolver resolver_;
@@ -48,12 +49,15 @@ class session : public std::enable_shared_from_this<session>
     , resolver_(ex) 
     , stream_(ex, ctx)
     {
+        bot_url.append("/bot");
+        bot_url.append(token_);
         print
         (
             "host: ", host_, "\n"
             "port: ", port_, "\n"
             "version: ",  version_, "\n"
             "token: "   , token_, "\n"
+            "bot url: ", bot_url, "\n"
         );
     }
 
@@ -159,22 +163,11 @@ class session : public std::enable_shared_from_this<session>
 
     public:
 
-    json::string
-    get_url_bot_target()
-    {
-        json::string str;
-        str.append("/bot");
-        str.append(token_);
-        return str;
-    }
-
-
     void set_target
     (std::string_view target)
     {
         target_ = target;
     }
-
 
     protected:
 
@@ -193,7 +186,7 @@ class session : public std::enable_shared_from_this<session>
         req_.version(version_);
         req_.method(http::verb::get);
         req_.set(http::field::host, host_);
-        req_.target(get_url_bot_target());
+        req_.target(bot_url);
     }
 
 
@@ -204,18 +197,18 @@ class session : public std::enable_shared_from_this<session>
             del
         );
         json::string data = Pars::MainParser::serialize_to_string(val);
-        json::string target = get_url_bot_target();
+        json::string target = bot_url;
         PostRequest(std::move(data), std::move(target),"application/json",false);
     }
 
 
-    template<typename T>
-    requires (std::is_same_v<std::remove_reference_t<T>, Pars::TG::getUpdates>)
-    void GetUpdatesRequest(T&& obj)
+    template<Pars::TG::is_TelegramBased T>
+    void prepare_post_request(T&& obj, json::string_view content_type = "text/html")
     {
-        json::string url = get_url_bot_target();
-        url += obj.fields_to_url();
-        PostRequest("", url, "application/json", false);
+        json::string url = bot_url;
+        url += std::forward<T>(obj).fields_to_url();
+        print("\n\nsend_post_request\n\n",url,"\n\n");
+        PostRequest("", std::move(url), content_type, false);
     }
 
 
@@ -223,7 +216,7 @@ class session : public std::enable_shared_from_this<session>
     {
         json::string certif = CRTF::load_cert(certif_);
 
-        json::string target = get_url_bot_target();
+        json::string target = bot_url;
 
         PostRequest("", target, "multipart/form-data",true);
     }
@@ -231,17 +224,47 @@ class session : public std::enable_shared_from_this<session>
     protected:
 
     template<Pars::TG::is_message T>
+    [[nodiscard]]
     bool prepare_response
     (T&& mes)
     {
-        Pars::TG::message mes_;
+        static json::string command{"/echo"};
+
+        if (!mes.text.has_value())
+            return false;
+
+        json::string txt = Utils::forward_like<T>(mes.text.value());
+        size_t pos = txt.find_first_of(command);
+        if (pos == txt.npos)
+            return false;
+
+        const size_t chat_id = mes.chat.id;
+
+        try
+        {
+            txt = json::string{std::make_move_iterator(txt.begin()) + command.size(), std::make_move_iterator(txt.end())};
+            if (txt.empty())
+            {
+                txt = "There is nothing. Where everything is gone?";    
+            }
+            Pars::TG::SendMessage send{chat_id, std::move(txt)};
+            prepare_post_request(std::move(send));
+            return true;
+        }
+        catch(const std::exception& ex)
+        {
+            print(ex.what());
+            return false;
+        }
     }
 
 
     void parse_result
     (Pars::TG::TelegramResponse response)
     {
-        auto find_message = [](auto& b, auto& e) -> std::optional<Pars::TG::message>
+        using namespace Pars;
+
+        auto find_message = [](auto& b, auto& e) -> std::optional<TG::message>
         {
             for(; b < e; ++b)
             {
@@ -261,7 +284,7 @@ class session : public std::enable_shared_from_this<session>
             return;
         }
 
-        Pars::TG::TelegramResponse res = std::move(response);
+        TG::TelegramResponse res = std::move(response);
 
         try
         {
@@ -285,7 +308,15 @@ class session : public std::enable_shared_from_this<session>
             if(mes.has_value())
             {
                 print("Message reply:\n");
-                Pars::MainParser::pretty_print(std::cout, mes.value().fields_to_value());
+                MainParser::pretty_print(std::cout, mes.value().fields_to_value());
+                bool is_sent = prepare_response(std::move(mes.value()));
+                if(is_sent)
+                {
+                    TG::TelegramResponse obj = start_request_response<TG::TelegramResponse>().get();
+                    req_.clear();
+                    print("Message after sent response:\n");
+                    MainParser::pretty_print(std::cout, obj.fields_to_value());
+                }
             }
             else
             {
@@ -299,11 +330,50 @@ class session : public std::enable_shared_from_this<session>
         }
     }
 
-    template<typename Res>
-    requires (std::is_base_of_v<Pars::TG::TelegramEntities<Res>,Res>)
+    
+    template<Pars::TG::is_TelegramBased Answer = Pars::TG::TelegramResponse>
+    void start_waiting()
+    {   
+        using namespace Pars;
+
+        try
+        {
+            boost::asio::post(resolver_.get_executor(), [self = shared_from_this()]
+            {
+                TG::TelegramResponse resp = start_getUpdates();
+                if (!resp.ok)
+                {
+                    return;
+                }
+
+                http::read(self->stream_, self->buffer_, self->res_);
+                json::value val = Pars::MainParser::parse_string_as_value(std::move(self->res_).body());
+                val = Pars::MainParser::try_parse_value(std::move(val));
+                auto opt_map = Answer::verify_fields(std::move(val));
+                if (opt_map.has_value())
+                {
+                    Answer obj{};
+                    obj.fields_from_map(std::move(opt_map.value()));
+                    self->parse_result(std::move(obj));
+                } 
+                self->start_waiting();
+            });
+        }
+        catch(const std::exception& e)
+        {
+            print(e.what());
+            shutdown();
+        }
+    }
+
+
+    template<Pars::TG::is_TelegramBased Res, bool Only_read = false>
     std::future<Res> start_request_response()
     {
-        co_await std::async(std::launch::async, [this](){http::write(stream_, req_);});
+        if constexpr (Only_read == false)
+        {
+            co_await std::async(std::launch::async, [this](){http::write(stream_, req_); req_.clear();});
+        }
         co_await std::async(std::launch::async, [this](){res_.clear(), http::read(stream_, buffer_, res_);});
         co_await std::async(std::launch::async, &session::print_response, this);
         json::value var = co_await std::async
@@ -311,7 +381,7 @@ class session : public std::enable_shared_from_this<session>
             std::launch::async,
             [this]()
             {
-                return Pars::MainParser::parse_string_as_value(res_.body());
+                return Pars::MainParser::parse_string_as_value(std::move(res_).body());
             }
         );
         var      = co_await std::async(std::launch::async, [&var]{ return Pars::MainParser::try_parse_value(var);});
@@ -339,24 +409,56 @@ class session : public std::enable_shared_from_this<session>
     template<typename T>
     requires (std::is_same_v<std::remove_reference_t<T>, Pars::TG::getUpdates>)
     [[nodiscard]]
+    bool
+    send_getUpdates(T&& upd = Pars::TG::getUpdates{})
+    {
+        using namespace std::chrono;
+        static const seconds timeout_ = 25;
+        static std::atomic<seconds> last_time = duration_cast<seconds>(high_resolution_clock::now());
+
+        upd.timeout = timeout_;
+        seconds current_time = duration_cast<seconds>(high_resolution_clock::now());
+        seconds dif = current_time - last_time;
+        
+        if (dif > timeout_)
+        {
+            print("dif Time:", dif);
+            if(! last_time.compare_exchange_weak(last_time, current_time))
+                return false;
+        }
+
+        prepare_post_request(std::forward<T>(upd));
+        http::write(stream_, req_); 
+        req_.clear();
+        return true;
+    }
+
+
+    template<typename T>
+    requires (std::is_same_v<std::remove_reference_t<T>, Pars::TG::getUpdates>)
+    [[nodiscard]]
     Pars::TG::TelegramResponse 
-    start_getUpdates(T&& upd)
+    start_getUpdates(T&& upd = Pars::TG::getUpdates{})
     {
         using namespace Pars::TG;
-        try
+        bool is = send_getUpdates(std::forward<T>(upd));
+        if(!is)
         {
-            GetUpdatesRequest(upd);
-            TelegramResponse obj = start_request_response<TelegramResponse>().get();
-            req_.clear();
+            return {};
+        }
+
+        try
+        {    
+            TelegramResponse obj = start_request_response<TelegramResponse, true>().get();
             return obj;
         }
         catch(const std::exception& e)
         {
-            req_.clear();
             std::cerr << e.what() << '\n';
             throw e;
         }
     }
+
 
     [[nodiscard]]
     Pars::TG::deletewebhook 
@@ -427,7 +529,9 @@ class session : public std::enable_shared_from_this<session>
     public:
 
     [[nodiscard]]
-    json::string PrepareMultiPart(json::string_view data)
+    json::string 
+    PrepareMultiPart
+    (json::string_view data)
     {
         #define MULTI_PART_BOUNDARY "Fairy"
         #define CRLF "\r\n"
@@ -449,6 +553,7 @@ class session : public std::enable_shared_from_this<session>
         return temp;
     }
 
+
     void PostRequest
     (
         json::string_view data, 
@@ -457,6 +562,7 @@ class session : public std::enable_shared_from_this<session>
         bool multipart
     )
     {  
+        req_.clear();
         req_.method(http::verb::post);
         req_.set(http::field::host, host_);
         if(multipart)
@@ -527,7 +633,11 @@ class session : public std::enable_shared_from_this<session>
 
 
     void
-    on_connect(beast::error_code ec, tcp::resolver::results_type::endpoint_type ep)
+    on_connect
+    (
+        beast::error_code ec,
+        tcp::resolver::results_type::endpoint_type ep
+    )
     {
         if(ec)
             return fail(ec, "connect");
@@ -541,7 +651,8 @@ class session : public std::enable_shared_from_this<session>
 
 
     void
-    on_handshake(beast::error_code ec)
+    on_handshake
+    (beast::error_code ec)
     {
         if(ec)
             return fail(ec, "handshake");
@@ -560,7 +671,7 @@ class session : public std::enable_shared_from_this<session>
             return;
         }
         
-        read();
+        start_waiting();
     }
 
 
@@ -602,7 +713,8 @@ class session : public std::enable_shared_from_this<session>
 
 
     void
-    on_shutdown(beast::error_code ec)
+    on_shutdown
+    (beast::error_code ec)
     {
         print("Shutdown...\n",ec.what());
 

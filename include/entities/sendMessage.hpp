@@ -23,13 +23,12 @@ namespace Pars
             SendMessage
             (
                 const size_t chat_id,
-                json::string text
+                json::string text_
             )
             :
-                chat_id(chat_id),
-                text(std::move(text))
+                chat_id(chat_id)
             {
-
+                text = std::move(text_);
             }
 
             template<is_all_json_entities T>
@@ -37,6 +36,25 @@ namespace Pars
             {
                 create(std::forward<T>(val));
             }
+
+            public:
+
+            template<typename Self>
+            [[nodiscard]]
+            json::string
+            fields_to_url(this Self&& self) 
+            {
+                json::string id{FIELD_EQUAL(chat_id)};
+                id  += std::to_string(self.chat_id);
+
+                json::string txt{FIELD_EQUAL(text)};
+                txt += Utils::forward_like<Self>(self.text.value());
+
+                json::string req{URL_REQUEST(sendMessage)};
+                URL_BIND(req, id);
+                URL_BIND(req, txt);
+                return req;
+            } 
 
 
             template<as_json_value T>
@@ -50,7 +68,7 @@ namespace Pars
                 (
                     std::forward<T>(val),
                     std::make_pair(JS_POINTER(sendmessage, text), json::kind::string),
-                    std::make_pair(JS_POINTER(sendmessage, chat_id), json::kind::int64),
+                    std::make_pair(JS_POINTER(sendmessage, chat_id), json::kind::int64)
                 );
 
                 if (message_map.size() != req_fields)
@@ -118,7 +136,8 @@ namespace Pars
                 return req_ob;
             }
 
-        } 
-    }
+        };
 
-}//namespace TG
+    } //namespace TG
+
+}//namespace Pars
