@@ -14,7 +14,8 @@ namespace Pars
             bool ok;
             optint error_code;
             optstr description;
-            optarray result; 
+            optvalue result; 
+            optuint update_id;
 
             static const inline json::string entity_name{"telegramresponse"};
             static constexpr size_t req_fields = 1;
@@ -29,7 +30,7 @@ namespace Pars
                 bool ok,
                 optint error_code,
                 optstr description,
-                optarray result
+                optvalue result
             )
             :
                 ok(ok),
@@ -91,8 +92,22 @@ namespace Pars
                 MainParser::field_from_map
                 <json::kind::string>(std::forward<T>(map), std::make_pair("description", std::ref(description)));
 
+
+                optarray arr{MainParser::get_storage_ptr()};
                 MainParser::field_from_map
-                <json::kind::array>(std::forward<T>(map), std::make_pair("result", std::ref(result)));
+                <json::kind::array>(std::forward<T>(map), std::make_pair("result", std::ref(arr)));
+
+                if(!arr.has_value())
+                    return;
+
+                
+                result = MainParser::parse_jsonArray_as_value(std::move(arr.value()));
+                boost::system::error_code er;
+                json::value* v = result.value().find_pointer("/update_id", er);
+                if (!er)
+                {
+                    update_id = v->as_int64();
+                }
             }
 
             
@@ -106,7 +121,8 @@ namespace Pars
                     self.ok,
                     self.error_code,
                     forward_like<Self>(self.description),
-                    forward_like<Self>(self.result)
+                    forward_like<Self>(self.result),
+                    self.update_id
                 );
             }
 
@@ -118,7 +134,8 @@ namespace Pars
                 bool ok,
                 optint error_code,
                 optstr description,
-                optarray result
+                optvalue result,
+                optuint  update_id
             )
             {
                 json::object ob(MainParser::get_storage_ptr());
@@ -128,7 +145,8 @@ namespace Pars
                 ob2 = MainParser::parse_OptPairs_as_obj
                 (
                     MAKE_OP(error_code, error_code),
-                    MAKE_OP(descrtiption, std::move(description))
+                    MAKE_OP(descrtiption, std::move(description)),
+                    MAKE_OP(update_id, update_id)
                 );
 
                 Pars::MainParser::container_move(std::move(ob2), ob);

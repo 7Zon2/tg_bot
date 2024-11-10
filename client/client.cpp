@@ -4,6 +4,8 @@
 #include "print.hpp"
 #include "coro_future.hpp"
 #include <stacktrace>
+#include <unordered_set>
+#include <stack>
 #include <boost/stacktrace/stacktrace.hpp>
 
 template<typename T>
@@ -27,6 +29,47 @@ class session : public std::enable_shared_from_this<session>
     beast::flat_buffer buffer_; // (Must persist between reads)
     http::request<http::string_body> req_;
     http::response<http::string_body> res_;
+
+    struct UpdateStorage
+    {
+        std::unordered_set<size_t> updated_set;
+        std::stack<size_t>  update_stack;
+    };
+
+    UpdateStorage UpdateStorage_;
+
+    struct Timer
+    {
+        Timer() = delete;
+
+        static inline const std::chrono::seconds timeout{25};
+        static inline std::atomic<std::chrono::seconds> last_time
+        {std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now().time_since_epoch())};
+
+        static inline std::atomic<std::chrono::seconds> current_time
+        {std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now().time_since_epoch())};
+
+        [[nodiscard]]
+        static 
+        std::chrono::seconds 
+        get_dif()
+        {
+            using namespace std::chrono;
+            current_time.store(duration_cast<seconds>(high_resolution_clock::now().time_since_epoch()), std::memory_order_release);
+            return current_time.load(std::memory_order_relaxed) - last_time.load(std::memory_order_relaxed);
+        }
+
+
+        [[nodiscard]]
+        static bool 
+        update()
+        {
+            using namespace std::chrono;
+            current_time.store(duration_cast<seconds>(high_resolution_clock::now().time_since_epoch()), std::memory_order_release);
+            auto past_time = last_time.load(std::memory_order_relaxed); 
+            return last_time.compare_exchange_strong(past_time, current_time, std::memory_order_relaxed, std::memory_order_relaxed);
+        }
+    };
 
 
     public:
@@ -228,26 +271,44 @@ class session : public std::enable_shared_from_this<session>
     bool prepare_response
     (T&& mes)
     {
+
+        using namespace Pars;
+
+        auto NothingMessage = []
+        (const size_t chat_id)
+        {
+            static json::string txt{"There is nothing. Where everything is gone?"}; 
+            return TG::SendMessage(chat_id, txt);
+        };
+
         static json::string command{"/echo"};
 
         if (!mes.text.has_value())
+        {
             return false;
-
-        json::string txt = Utils::forward_like<T>(mes.text.value());
-        size_t pos = txt.find_first_of(command);
-        if (pos == txt.npos)
-            return false;
+        }
 
         const size_t chat_id = mes.chat.id;
+        json::string txt = Utils::forward_like<T>(mes.text.value());
+        size_t pos = txt.find_first_of(command);
+        if(pos == txt.npos)
+        {
+            prepare_post_request(NothingMessage(chat_id));
+            return true;
+        }
 
         try
         {
             txt = json::string{std::make_move_iterator(txt.begin()) + command.size(), std::make_move_iterator(txt.end())};
+            TG::SendMessage send{};
             if (txt.empty())
             {
-                txt = "There is nothing. Where everything is gone?";    
+                send = NothingMessage(chat_id);    
             }
-            Pars::TG::SendMessage send{chat_id, std::move(txt)};
+            else
+            {
+                send = TG::SendMessage{chat_id, std::move(txt)};
+            }
             prepare_post_request(std::move(send));
             return true;
         }
@@ -260,31 +321,41 @@ class session : public std::enable_shared_from_this<session>
 
 
     void parse_result
-    (Pars::TG::TelegramResponse response)
+    (Pars::TG::TelegramResponse res)
     {
         using namespace Pars;
 
-        auto find_message = [](auto& b, auto& e) -> std::optional<TG::message>
+        auto find_message = [](json::value && value) -> std::optional<TG::message>
         {
-            for(; b < e; ++b)
+            boost::system::error_code er;
+            json::value* val = value.find_pointer("/message", er);
+            if(er)
             {
-                json::value val = b->at_pointer("/message"); 
-                if(val != nullptr)
-                {
-                    Pars::TG::message msg{};
-                    msg = std::move(b->as_object());
-                    return msg;
-                }
+                return {};
             }
-            return {};
+
+            Pars::TG::message msg{};
+            msg = std::move(val->as_object());
+            return msg;
         };
 
-        if (! response.ok)
+        if (! res.ok)
         {
             return;
         }
 
-        TG::TelegramResponse res = std::move(response);
+        if (!res.update_id.has_value())
+        {
+            return;
+        }
+
+        auto it =  UpdateStorage_.updated_set.insert(res.update_id.value());
+        if (!it.second)
+        {
+            return;
+        }
+        UpdateStorage_.update_stack.push(res.update_id.value() + 1);
+
 
         try
         {
@@ -300,11 +371,7 @@ class session : public std::enable_shared_from_this<session>
                 return;
             }
 
-            json::array& arr = res.result.value();
-            auto b = arr.begin();
-            auto e = arr.end();
-
-            auto mes = find_message(b, e);
+            auto mes = find_message(std::move(res.result.value()));
             if(mes.has_value())
             {
                 print("Message reply:\n");
@@ -313,7 +380,6 @@ class session : public std::enable_shared_from_this<session>
                 if(is_sent)
                 {
                     TG::TelegramResponse obj = start_request_response<TG::TelegramResponse>().get();
-                    req_.clear();
                     print("Message after sent response:\n");
                     MainParser::pretty_print(std::cout, obj.fields_to_value());
                 }
@@ -339,23 +405,9 @@ class session : public std::enable_shared_from_this<session>
         try
         {
             boost::asio::post(resolver_.get_executor(), [self = shared_from_this()]
-            {
-                TG::TelegramResponse resp = start_getUpdates();
-                if (!resp.ok)
-                {
-                    return;
-                }
-
-                http::read(self->stream_, self->buffer_, self->res_);
-                json::value val = Pars::MainParser::parse_string_as_value(std::move(self->res_).body());
-                val = Pars::MainParser::try_parse_value(std::move(val));
-                auto opt_map = Answer::verify_fields(std::move(val));
-                if (opt_map.has_value())
-                {
-                    Answer obj{};
-                    obj.fields_from_map(std::move(opt_map.value()));
-                    self->parse_result(std::move(obj));
-                } 
+            {   
+                TG::TelegramResponse resp = self->start_getUpdates<true>(TG::getUpdates{});
+                self->parse_result(std::move(resp));
                 self->start_waiting();
             });
         }
@@ -367,21 +419,30 @@ class session : public std::enable_shared_from_this<session>
     }
 
 
-    template<Pars::TG::is_TelegramBased Res, bool Only_read = false>
+    template<Pars::TG::is_TelegramBased Res, bool OnlyRead = false>
     std::future<Res> start_request_response()
     {
-        if constexpr (Only_read == false)
+        if constexpr (OnlyRead == false)
         {
-            co_await std::async(std::launch::async, [this](){http::write(stream_, req_); req_.clear();});
+            co_await std::async(std::launch::async, [this]()
+            {
+                http::write(stream_, req_); 
+                req_.clear();
+            });
         }
-        co_await std::async(std::launch::async, [this](){res_.clear(), http::read(stream_, buffer_, res_);});
+        co_await std::async(std::launch::async, [this]()
+        {
+            res_.clear(); 
+            buffer_.clear(); 
+            http::read(stream_, buffer_, res_);
+        });
         co_await std::async(std::launch::async, &session::print_response, this);
         json::value var = co_await std::async
         (
             std::launch::async,
             [this]()
             {
-                return Pars::MainParser::parse_string_as_value(std::move(res_).body());
+                return  json::string{std::move(res_).body()};
             }
         );
         var      = co_await std::async(std::launch::async, [&var]{ return Pars::MainParser::try_parse_value(var);});
@@ -406,46 +467,44 @@ class session : public std::enable_shared_from_this<session>
 
     public:
 
-    template<typename T>
+    template<bool isForce = false, typename T>
     requires (std::is_same_v<std::remove_reference_t<T>, Pars::TG::getUpdates>)
-    [[nodiscard]]
-    bool
-    send_getUpdates(T&& upd = Pars::TG::getUpdates{})
+    void
+    send_getUpdates(T&& upd)
     {
-        using namespace std::chrono;
-        static const seconds timeout_ = 25;
-        static std::atomic<seconds> last_time = duration_cast<seconds>(high_resolution_clock::now());
 
-        upd.timeout = timeout_;
-        seconds current_time = duration_cast<seconds>(high_resolution_clock::now());
-        seconds dif = current_time - last_time;
-        
-        if (dif > timeout_)
+        upd.timeout = Timer::timeout.count();
+        if (UpdateStorage_.update_stack.empty())
         {
-            print("dif Time:", dif);
-            if(! last_time.compare_exchange_weak(last_time, current_time))
-                return false;
+            upd.offset = -1;
+        } 
+        else
+        {
+            upd.offset = UpdateStorage_.update_stack.top();
         }
 
-        prepare_post_request(std::forward<T>(upd));
-        http::write(stream_, req_); 
-        req_.clear();
-        return true;
+        print("dif Time:", Timer::get_dif(),"\n");
+        if (Timer::get_dif() > Timer::timeout || isForce == true)
+        {
+            if(Timer::update())
+            {
+                req_.clear();
+                prepare_post_request(std::forward<T>(upd));
+                http::write(stream_, req_); 
+                req_.clear();
+            }
+        }
     }
 
 
-    template<typename T>
+    template<bool isForce = false, typename T>
     requires (std::is_same_v<std::remove_reference_t<T>, Pars::TG::getUpdates>)
     [[nodiscard]]
     Pars::TG::TelegramResponse 
-    start_getUpdates(T&& upd = Pars::TG::getUpdates{})
+    start_getUpdates(T&& upd)
     {
         using namespace Pars::TG;
-        bool is = send_getUpdates(std::forward<T>(upd));
-        if(!is)
-        {
-            return {};
-        }
+        send_getUpdates<isForce>(std::forward<T>(upd));
 
         try
         {    
@@ -459,72 +518,6 @@ class session : public std::enable_shared_from_this<session>
         }
     }
 
-
-    [[nodiscard]]
-    Pars::TG::deletewebhook 
-    start_delete_web_hook(const bool del)
-    {
-        try
-        {
-            using namespace Pars::TG;
-            DeleteWebhookRequest(del);
-            deletewebhook obj = start_request_response<deletewebhook>().get();
-            req_.clear();
-            return obj;
-        }
-        catch(const std::exception& e)
-        {
-            req_.clear();
-            std::cerr << e.what() << '\n';
-            throw e;
-        }
-    }
-
-
-    [[nodiscard]]
-    Pars::TG::TelegramResponse 
-    start_get_webhook_request()
-    { 
-        using namespace Pars::TG;
-        try
-        {
-            GetWebhookRequest();
-            TelegramResponse obj = start_request_response<TelegramResponse>().get();
-            req_.clear();
-            if (obj.ok == false)
-                throw std::runtime_error{"GetWebhook response failed\n"};
-            return obj;
-        }
-        catch(const std::exception& e)
-        {
-            req_.clear();
-            std::cerr << e.what() << '\n';
-            throw e;
-        }
-    }
-
-
-    [[nodiscard]]
-    Pars::TG::TelegramResponse 
-    start_set_webhook_request()
-    {
-        using namespace Pars::TG;
-        try
-        {
-            SetWebhookRequest();
-            TelegramResponse obj = start_request_response<TelegramResponse>().get();
-            req_.clear();
-            if (obj.ok == false)
-                throw std::runtime_error{"SetWebhook response failed\n"};
-            return obj;
-        }
-        catch(const std::exception& e)
-        {
-            req_.clear();
-            std::cerr << e.what() << '\n';
-            throw e;
-        }
-    }
 
     public:
 
@@ -661,7 +654,7 @@ class session : public std::enable_shared_from_this<session>
         
         try
         {
-           auto resp = start_getUpdates(Pars::TG::getUpdates{});
+           Pars::TG::TelegramResponse resp = start_getUpdates<true>(Pars::TG::getUpdates{});
            parse_result(std::move(resp));
         }
         catch(const std::exception& e)
@@ -805,7 +798,6 @@ int main(int argc, char** argv)
     catch(const std::exception& e)
     {
         std::cerr<<std::stacktrace::current()<<std::endl;
-        //std::cerr<<boost::stacktrace::from_current_exception()<<std::endl;
         std::cerr << e.what() << '\n';
     }
   

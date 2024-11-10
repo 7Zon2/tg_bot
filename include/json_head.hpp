@@ -37,6 +37,7 @@ namespace Utils
 
 namespace Pars
 {           
+    using optvalue  = std::optional<json::value>;
     using optarray  = std::optional<json::array>;
     using optobj    = std::optional<json::object>;
     using optstrw   = std::optional<json::string_view>;
@@ -76,16 +77,16 @@ namespace Pars
     concept as_pointer = (std::is_pointer_v<std::remove_cvref_t<T>> ||  std::is_pointer_v<std::remove_cvref_t<decltype(std::declval<T>().get())>>);
 
     template<typename T>
-    concept as_json_value = std::is_same_v<json::value, std::remove_reference_t<T>>;
+    concept as_json_value = std::is_same_v<json::value, std::decay_t<T>>;
 
     template<typename T>
-    concept as_json_array = std::is_same_v<json::array, std::remove_reference_t<T>>;
+    concept as_json_array = std::is_same_v<json::array, std::decay_t<T>>;
 
     template<typename T>
-    concept as_json_object  = std::is_same_v<json::object, std::remove_reference_t<T>>;
+    concept as_json_object  = std::is_same_v<json::object, std::decay_t<T>>;
 
     template<typename T>
-    concept as_json_string =std::is_same_v<json::string, std::remove_reference_t<T>>;
+    concept as_json_string =std::is_same_v<json::string, std::decay_t<T>>;
 
     template<typename T>
     concept as_json_view = requires 
@@ -238,6 +239,7 @@ namespace Pars
             return ptr_;
         }
 
+
         [[nodiscard]]
         static json::string
         make_json_pointer
@@ -278,12 +280,24 @@ namespace Pars
         {
             try
             {
+                size_t sz = 0;
                 pars_.reset();
-                pars_.write(vw);
-                if(pars_.done() == false)  
-                    throw std::runtime_error{"json parse message error\n"};
+                while(sz != vw.size())
+                {
+                    boost::system::error_code er;
+                    sz += pars_.write_some(vw.data() + sz,512,er);
+                    if(er)
+                    { 
+                        print(er.message(),"\n"); 
+                        throw std::runtime_error{"json parse message error\n"};
+                    }
 
-                pars_.finish();
+                    if(pars_.done())
+                    {
+                        break;
+                    }
+                }
+
                 json::value v = pars_.release();
                 pars_.reset();
                 return v;
@@ -424,6 +438,21 @@ namespace Pars
         }
 
 
+        template<as_json_array T>
+        [[nodiscard]]
+        static json::value
+        parse_jsonArray_as_value(T&& arr)
+        {
+            json::string str(MainParser::get_storage_ptr());
+            for(auto&& i : arr)
+            {
+                str+=MainParser::serialize_to_string(Utils::forward_like<T>(i));
+            }
+
+            return MainParser::try_parse_message(str);
+        }
+
+
         template<as_json_value T>
         [[nodiscard]]
         static std::optional<json::value>
@@ -495,11 +524,6 @@ namespace Pars
 
 
         template<typename T, typename U>
-        requires requires(T&& f, U&& t)
-        {
-            f.begin(); f.end();
-            t.begin(); t.end(); 
-        }
         static void
         container_move(T&& from, U& to)
         {
@@ -685,10 +709,13 @@ namespace Pars
         }
 
 
+
+        template<is_all_json_entities T>
         [[nodiscard]]
         static json::string
-        serialize_to_string(const json::value& val)
+        serialize_to_string(T && obj)
         {
+            json::value val = std::forward<T>(obj);
             json::string str;
             ser_.reset(&val);
 
@@ -726,31 +753,6 @@ namespace Pars
 
 
         public:
-
-        [[nodiscard]]
-        static json::value
-        parse_string_as_value(json::string str)
-        {
-            return std::move(str);
-        }
-
-
-        [[nodiscard]]
-        static json::value
-        parse_string_as_value(std::string str)
-        {
-            return json::string(std::move(str));
-        }
-
-
-        template<typename T>
-        requires (std::is_integral_v<T>)
-        [[nodiscard]]
-        static json::value
-        parse_number_as_value(T number)
-        {
-            return number;
-        }
 
 
         template<typename T,typename U>
