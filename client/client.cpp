@@ -7,6 +7,7 @@
 #include <unordered_set>
 #include <stack>
 #include <boost/stacktrace/stacktrace.hpp>
+#include "tg_exceptions.hpp"
 
 template<typename T>
 concept is_getUpdates = std::is_same_v<std::remove_reference_t<T>, Pars::TG::getUpdates>;
@@ -251,7 +252,7 @@ class session : public std::enable_shared_from_this<session>
         json::string url = bot_url;
         url += std::forward<T>(obj).fields_to_url();
         print("\n\nsend_post_request\n\n",url,"\n\n");
-        PostRequest("", std::move(url), content_type, false);
+        PostRequest(" ", std::move(url), content_type, false);
     }
 
 
@@ -274,42 +275,63 @@ class session : public std::enable_shared_from_this<session>
 
         using namespace Pars;
 
-        auto NothingMessage = []
-        (const size_t chat_id)
+        auto NothingMessage = [&]
         {
             static json::string txt{"There is nothing. Where everything is gone?"}; 
-            return TG::SendMessage(chat_id, txt);
+            prepare_post_request(TG::SendMessage(mes.chat.id, txt));
         };
+
 
         static json::string command{"/echo"};
 
         if (!mes.text.has_value())
         {
+            NothingMessage();
+            return false;
+        }
+        if (mes.text.value().size() <= command.size())
+        {
+            NothingMessage();
             return false;
         }
 
+
         const size_t chat_id = mes.chat.id;
-        json::string txt = Utils::forward_like<T>(mes.text.value());
-        size_t pos = txt.find_first_of(command);
-        if(pos == txt.npos)
+        json::string& ref = mes.text.value();
+        json::string substr{ref.begin(), ref.begin()+command.size()};
+        if(substr != command)
         {
-            prepare_post_request(NothingMessage(chat_id));
-            return true;
+            NothingMessage();
+            return false;
         }
 
         try
         {
-            txt = json::string{std::make_move_iterator(txt.begin()) + command.size(), std::make_move_iterator(txt.end())};
-            TG::SendMessage send{};
-            if (txt.empty())
+            size_t max_offset = 0;
+            size_t offset = command.size();
+            const size_t limit = 2048;
+            json::string txt = Utils::forward_like<T>(ref);
+
+            while(offset < txt.size())
             {
-                send = NothingMessage(chat_id);    
+                if (txt.size() - offset > limit)
+                {
+                    max_offset = limit;  
+                }
+                else
+                {
+                    max_offset =  txt.size() - offset;
+                }   
+
+                substr = json::string
+                {std::make_move_iterator(txt.begin()) + offset,
+                std::make_move_iterator(txt.begin()) + offset + max_offset};
+
+                TG::SendMessage send{chat_id, std::move(substr)};
+                prepare_post_request(std::move(send));
+                offset = offset + limit;
             }
-            else
-            {
-                send = TG::SendMessage{chat_id, std::move(txt)};
-            }
-            prepare_post_request(std::move(send));
+
             return true;
         }
         catch(const std::exception& ex)
@@ -337,6 +359,29 @@ class session : public std::enable_shared_from_this<session>
             Pars::TG::message msg{};
             msg = std::move(val->as_object());
             return msg;
+        };
+
+        auto SendReply = [&]()
+        {
+            auto mes = find_message(std::move(res.result.value()));
+            if(!mes.has_value())
+            {
+                print("Message reply is empty\n");
+            }
+
+            print("Message reply:\n");
+            MainParser::pretty_print(std::cout, mes.value().fields_to_value());
+            bool is_sent = prepare_response(std::move(mes.value()));
+            if(true)
+            {
+                TG::TelegramResponse obj = start_request_response<TG::TelegramResponse>().get();
+                if(obj.update_id.has_value())
+                {
+                    UpdateStorage_.update_stack.push(obj.update_id.value() + 1);
+                }
+                print("Message after sent response:\n");
+                MainParser::pretty_print(std::cout, obj.fields_to_value());
+            }
         };
 
         if (! res.ok)
@@ -371,23 +416,7 @@ class session : public std::enable_shared_from_this<session>
                 return;
             }
 
-            auto mes = find_message(std::move(res.result.value()));
-            if(mes.has_value())
-            {
-                print("Message reply:\n");
-                MainParser::pretty_print(std::cout, mes.value().fields_to_value());
-                bool is_sent = prepare_response(std::move(mes.value()));
-                if(is_sent)
-                {
-                    TG::TelegramResponse obj = start_request_response<TG::TelegramResponse>().get();
-                    print("Message after sent response:\n");
-                    MainParser::pretty_print(std::cout, obj.fields_to_value());
-                }
-            }
-            else
-            {
-                print("Message reply is empty\n");
-            }
+            SendReply();
         }
         catch(const std::exception& ex)
         {
@@ -404,12 +433,11 @@ class session : public std::enable_shared_from_this<session>
 
         try
         {
-            boost::asio::post(resolver_.get_executor(), [self = shared_from_this()]
-            {   
-                TG::TelegramResponse resp = self->start_getUpdates<true>(TG::getUpdates{});
-                self->parse_result(std::move(resp));
-                self->start_waiting();
-            });
+            while(true)
+            {
+                TG::TelegramResponse resp = start_getUpdates<true>(TG::getUpdates{});
+                parse_result(std::move(resp));
+            }
         }
         catch(const std::exception& e)
         {
@@ -432,9 +460,40 @@ class session : public std::enable_shared_from_this<session>
         }
         co_await std::async(std::launch::async, [this]()
         {
-            res_.clear(); 
-            buffer_.clear(); 
-            http::read(stream_, buffer_, res_);
+            http::response_parser<http::string_body> parser_;
+            auto& res = parser_.get();
+
+            boost::system::error_code er;
+            http::read_header(stream_, buffer_, parser_, er);
+
+            if(er && er!=http::error::need_buffer)
+            {
+                print("\n\n",er.what(),"\n\n");
+                buffer_.clear();
+                throw boost::system::system_error(er);
+            }
+            assert(parser_.is_header_done());
+            print("\nResponse Header:\n\n", res.base(),"\n");
+
+            while(!parser_.is_done())
+            {
+                http::read(stream_, buffer_, parser_, er);
+                if(er && er != http::error::need_buffer)
+                {
+                    buffer_.clear();
+                    throw boost::system::system_error(er);
+                }
+            }
+
+            res_ = std::move(res);
+            print("\nBody lenght: ", res_.body().size(),"\n");
+            print("\nResponse Body:\n\n", res_.body());
+
+            if(res_.result() != http::status::ok)
+            {
+                buffer_.clear();
+                throw BadRequestException{};
+            }
         });
         co_await std::async(std::launch::async, &session::print_response, this);
         json::value var = co_await std::async
@@ -442,7 +501,8 @@ class session : public std::enable_shared_from_this<session>
             std::launch::async,
             [this]()
             {
-                return  json::string{std::move(res_).body()};
+                json::string str{std::move(res_).body()};
+                return str;
             }
         );
         var      = co_await std::async(std::launch::async, [&var]{ return Pars::MainParser::try_parse_value(var);});
@@ -511,6 +571,11 @@ class session : public std::enable_shared_from_this<session>
             TelegramResponse obj = start_request_response<TelegramResponse, true>().get();
             return obj;
         }
+        catch (const BadRequestException& e)
+        {
+            print(e.what());
+            return {};
+        }
         catch(const std::exception& e)
         {
             std::cerr << e.what() << '\n';
@@ -546,7 +611,6 @@ class session : public std::enable_shared_from_this<session>
         return temp;
     }
 
-
     void PostRequest
     (
         json::string_view data, 
@@ -574,7 +638,6 @@ class session : public std::enable_shared_from_this<session>
         }
         req_.set(http::field::user_agent, "Raven-Fairy");
         req_.target(target);
-
         req_.prepare_payload();
     }
 

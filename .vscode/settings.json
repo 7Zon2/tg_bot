@@ -113,7 +113,8 @@
         "stacktrace": "cpp",
         "syncstream": "cpp",
         "text_encoding": "cpp",
-        "valarray": "cpp"
+        "valarray": "cpp",
+        "*.inc": "cpp"
     },
     "C_Cpp.default.compilerPath": "/home/zon/sycl_workspace/llvm/build/bin/clang++",
     "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",

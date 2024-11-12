@@ -92,21 +92,34 @@ namespace Pars
                 MainParser::field_from_map
                 <json::kind::string>(std::forward<T>(map), std::make_pair("description", std::ref(description)));
 
-
                 optarray arr{MainParser::get_storage_ptr()};
                 MainParser::field_from_map
                 <json::kind::array>(std::forward<T>(map), std::make_pair("result", std::ref(arr)));
 
                 if(!arr.has_value())
+                {
                     return;
+                }
+
+                if(arr.value().empty())
+                {
+                    return;
+                }
 
                 
-                result = MainParser::parse_jsonArray_as_value(std::move(arr.value()));
-                boost::system::error_code er;
-                json::value* v = result.value().find_pointer("/update_id", er);
-                if (!er)
+                try
                 {
-                    update_id = v->as_int64();
+                    result = MainParser::parse_jsonArray_as_value(std::move(arr.value()));
+                    boost::system::error_code er;
+                    json::value* v = result.value().find_pointer("/update_id", er);
+                    if (!er)
+                    {
+                        update_id = v->as_int64();
+                    }
+                }
+                catch(const std::exception& e)
+                {
+                    std::cerr << e.what() << '\n';
                 }
             }
 

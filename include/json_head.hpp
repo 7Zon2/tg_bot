@@ -280,12 +280,20 @@ namespace Pars
         {
             try
             {
+                static const size_t count = 512;
                 size_t sz = 0;
                 pars_.reset();
                 while(sz != vw.size())
                 {
                     boost::system::error_code er;
-                    sz += pars_.write_some(vw.data() + sz,512,er);
+                    if (vw.size() < count)
+                    {
+                        sz+=pars_.write(vw, er);
+                    }
+                    else
+                    {
+                        sz += pars_.write_some(vw.data() + sz, count, er);
+                    }
                     if(er)
                     { 
                         print(er.message(),"\n"); 
@@ -480,7 +488,6 @@ namespace Pars
 
             boost::system::error_code er;
 
-            print("pointer:", pair.first,"\n");
             auto it = val.find_pointer(pair.first, er);
             if(er)
             {
@@ -665,12 +672,10 @@ namespace Pars
                         str += temp[i];
                     }       
 
-                    print("CleanUp_pointer:", str,"\n");
                     return str;
                 }
                 else
                 {
-                    print("CleanUp_pointer:", vw,"\n");
                     return vw;
                 }
             };
