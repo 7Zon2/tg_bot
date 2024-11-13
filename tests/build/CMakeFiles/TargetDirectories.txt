@@ -1,3 +1,0 @@
-/home/zon/vs_code/tg_bot/tests/build/CMakeFiles/main.dir
-/home/zon/vs_code/tg_bot/tests/build/CMakeFiles/edit_cache.dir
-/home/zon/vs_code/tg_bot/tests/build/CMakeFiles/rebuild_cache.dir
