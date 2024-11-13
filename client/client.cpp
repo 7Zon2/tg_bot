@@ -283,7 +283,7 @@ class session : public std::enable_shared_from_this<session>
 
 
         static json::string command{"/echo"};
-
+        
         if (!mes.text.has_value())
         {
             NothingMessage();
