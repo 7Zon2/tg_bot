@@ -2,12 +2,17 @@
 #include "entities/entities.hpp"
 #include "certif.hpp"
 #include "print.hpp"
+#include <boost/asio/use_future.hpp>
 #include "coro_future.hpp"
 #include <stacktrace>
 #include <unordered_set>
 #include <stack>
 #include <boost/stacktrace/stacktrace.hpp>
+#include <boost/asio/awaitable.hpp>
+#include <boost/asio/co_spawn.hpp>
+#include <boost/asio/detached.hpp>
 #include "tg_exceptions.hpp"
+#include "responses/interface.hpp"
 
 template<typename T>
 concept is_getUpdates = std::is_same_v<std::remove_reference_t<T>, Pars::TG::getUpdates>;
@@ -16,20 +21,25 @@ concept is_getUpdates = std::is_same_v<std::remove_reference_t<T>, Pars::TG::get
 // Performs an HTTP GET and prints the response
 class session : public std::enable_shared_from_this<session>
 {
+
     const json::string host_;
     const int version_;
     const json::string port_;
     const json::string token_; 
     const json::string certif_;
     json::string bot_url;
-
     json::string target_;
-    tcp::resolver resolver_;
 
-    beast::ssl_stream<beast::tcp_stream> stream_;
+    ssl::context ctx_;
+    boost::asio::any_io_executor ex_;
+    tcp::resolver resolver_;
+    boost::asio::ssl::stream<beast::tcp_stream> stream_;
+
     beast::flat_buffer buffer_; // (Must persist between reads)
     http::request<http::string_body> req_;
     http::response<http::string_body> res_;
+
+    private:
 
     struct UpdateStorage
     {
@@ -38,6 +48,8 @@ class session : public std::enable_shared_from_this<session>
     };
 
     UpdateStorage UpdateStorage_;
+
+    private:
 
     struct Timer
     {
@@ -73,7 +85,7 @@ class session : public std::enable_shared_from_this<session>
     };
 
 
-    public:
+    protected:
 
     explicit
     session
@@ -90,8 +102,10 @@ class session : public std::enable_shared_from_this<session>
     , version_(version)
     , port_(port)
     , token_(token)
-    , resolver_(ex) 
-    , stream_(ex, ctx)
+     ,ctx_(std::move(ctx))
+     , ex_(ex)
+    , resolver_(ex_)
+    ,stream_(ex_,ctx_)
     {
         bot_url.append("/bot");
         bot_url.append(token_);
@@ -105,104 +119,91 @@ class session : public std::enable_shared_from_this<session>
         );
     }
 
-
     virtual ~session(){}
+
+    public:
+
+    static
+    boost::asio::awaitable<void>
+    create_and_run
+    (
+        std::string_view host,
+        const int version,
+        std::string_view port,
+        std::string_view token,
+        ssl::context& ctx
+    )
+    {
+        auto executor = co_await boost::asio::this_coro::executor;
+        session ses_(host, version, port, token, executor, ctx);
+        co_await ses_.run();
+    }
 
     public:
 
     void shutdown()
     {
-        stream_.async_shutdown
-        (
-            beast::bind_front_handler
-            (
-                &session::on_shutdown,
-                shared_from_this()
-            )
-        );
+        std::cout<<"\nShutdown...\n"<<std::endl;
+
+        boost::system::error_code er;
+        stream_.shutdown(er);
+        print(er.what());
+
+        if(er == net::error::eof)
+        {
+            // Rationale:
+            // http://stackoverflow.com/questions/25587403/boost-asio-ssl-async-shutdown-always-finishes-with-an-error
+            print("\nconnection was closed with the eof error\n");
+            er = {};
+        }
+        else
+        {
+            print("\nconnection was closed gracefully\n");
+        }
     }
 
 
-    void resolve()
-    {  
+    boost::asio::awaitable<void>
+    resolve()
+    {
         // Look up the domain name
-        resolver_.async_resolve
-        (
-            host_.data(),
-            port_.data(),
-            beast::bind_front_handler
-            (
-                &session::on_resolve,
-                shared_from_this()
-            )
-        );
+        auto res = co_await resolver_.async_resolve(host_, port_);
+        co_await connect(res);
     }
 
 
-    void connect(const tcp::resolver::results_type& results)
+    boost::asio::awaitable<void>
+    connect(const tcp::resolver::results_type& results)
     {
-        beast::get_lowest_layer(stream_).expires_after(std::chrono::seconds(30));
-
         // Make the connection on the IP address we get from a lookup
-        beast::get_lowest_layer(stream_).async_connect
-        (
-            results,
-            beast::bind_front_handler
-            (
-                &session::on_connect,
-                shared_from_this()
-            )
-        );
+        auto ep = co_await beast::get_lowest_layer(stream_).async_connect(results);
+
+        print("Connecting...\n\n", "connected endpoint:\n");
+        print_endpoint(ep);
+        print("\n\n");
+
+       co_await handshake();
     }
 
-
-    void handshake()
+    boost::asio::awaitable<void>
+    handshake()
     {
+        print("Handshake...\n");
         // Perform the SSL handshake
-        stream_.async_handshake
-        (
-            ssl::stream_base::client,
-            beast::bind_front_handler
-            (
-                &session::on_handshake,
-                shared_from_this()
-            )
-        );
-    }
+        co_await stream_.async_handshake(ssl::stream_base::client);
 
+        try
+        {
+            Pars::TG::TelegramResponse resp = co_await start_getUpdates<true>(Pars::TG::getUpdates{});
+            parse_result(std::move(resp));
+        }
+        catch(const std::exception& e)
+        {
+            std::cerr << e.what() << '\n';
+            shutdown();
+        }
 
-    void write()
-    {
-        beast::get_lowest_layer(stream_).expires_after(std::chrono::seconds(30));
-
-        http::async_write
-        (
-            stream_, 
-            req_,
-            beast::bind_front_handler
-            (
-                &session::on_write,
-                shared_from_this()
-            )
-        );
-    }
-
-
-    void read()
-    {
-        beast::get_lowest_layer(stream_).expires_after(std::chrono::seconds(1000));
-
-        http::async_read
-        (
-            stream_, 
-            buffer_, 
-            res_,
-            beast::bind_front_handler
-            (
-                &session::on_read,
-                shared_from_this()
-            )
-        );
+        co_await start_waiting();
     }
 
     public:
@@ -267,82 +268,38 @@ class session : public std::enable_shared_from_this<session>
 
     protected:
 
+    template< Pars::TG::is_TelegramBased U, bool OnlyRead, bool OnlyWrite>
+    boost::asio::awaitable<bool>
+    send_response
+    (U&& obj)
+    {
+        using namespace Pars;
+        prepare_post_request(std::forward<U>(obj));
+        TG::TelegramResponse response = co_await start_request_response<TG::TelegramResponse, OnlyRead, OnlyWrite>();
+        if(response.update_id.has_value())
+        {
+            UpdateStorage_.update_stack.push(response.update_id.value() + 1);
+        }
+        print("Message after sent response:\n");
+        MainParser::pretty_print(std::cout, response.fields_to_value());
+        co_return response.ok;
+    }
+
     template<Pars::TG::is_message T>
-    [[nodiscard]]
-    bool prepare_response
+    boost::asio::awaitable<void>
+    send_response
     (T&& mes)
     {
-
         using namespace Pars;
+        auto funcMessage = &session::send_response<TG::SendMessage, false, true>;
 
-        auto NothingMessage = [&]
-        {
-            static json::string txt{"There is nothing. Where everything is gone?"}; 
-            prepare_post_request(TG::SendMessage(mes.chat.id, txt));
-        };
-
-
-        static json::string command{"/echo"};
-        
-        if (!mes.text.has_value())
-        {
-            NothingMessage();
-            return false;
-        }
-        if (mes.text.value().size() <= command.size())
-        {
-            NothingMessage();
-            return false;
-        }
-
-
-        const size_t chat_id = mes.chat.id;
-        json::string& ref = mes.text.value();
-        json::string substr{ref.begin(), ref.begin()+command.size()};
-        if(substr != command)
-        {
-            NothingMessage();
-            return false;
-        }
-
-        try
-        {
-            size_t max_offset = 0;
-            size_t offset = command.size();
-            const size_t limit = 2048;
-            json::string txt = Utils::forward_like<T>(ref);
-
-            while(offset < txt.size())
-            {
-                if (txt.size() - offset > limit)
-                {
-                    max_offset = limit;  
-                }
-                else
-                {
-                    max_offset =  txt.size() - offset;
-                }   
-
-                substr = json::string
-                {std::make_move_iterator(txt.begin()) + offset,
-                std::make_move_iterator(txt.begin()) + offset + max_offset};
-
-                TG::SendMessage send{chat_id, std::move(substr)};
-                prepare_post_request(std::move(send));
-                offset = offset + limit;
-            }
-
-            return true;
-        }
-        catch(const std::exception& ex)
-        {
-            print(ex.what());
-            return false;
-        }
+        auto command = Commands::prepare_command(std::forward<T>(mes));
+        co_await command.get_await(funcMessage, *this);
     }
 
 
-    void parse_result
+    boost::asio::awaitable<void>
+    parse_result
     (Pars::TG::TelegramResponse res)
     {
         using namespace Pars;
@@ -361,7 +318,7 @@ class session : public std::enable_shared_from_this<session>
             return msg;
         };
 
-        auto SendReply = [&]()
+        auto SendReply = [&]() -> boost::asio::awaitable<void>
         {
             auto mes = find_message(std::move(res.result.value()));
             if(!mes.has_value())
@@ -371,33 +328,23 @@ class session : public std::enable_shared_from_this<session>
 
             print("Message reply:\n");
             MainParser::pretty_print(std::cout, mes.value().fields_to_value());
-            bool is_sent = prepare_response(std::move(mes.value()));
-            if(true)
-            {
-                TG::TelegramResponse obj = start_request_response<TG::TelegramResponse>().get();
-                if(obj.update_id.has_value())
-                {
-                    UpdateStorage_.update_stack.push(obj.update_id.value() + 1);
-                }
-                print("Message after sent response:\n");
-                MainParser::pretty_print(std::cout, obj.fields_to_value());
-            }
+            co_await send_response(std::move(mes.value()));
         };
 
         if (! res.ok)
         {
-            return;
+            co_return;
         }
 
         if (!res.update_id.has_value())
         {
-            return;
+            co_return;
         }
 
         auto it =  UpdateStorage_.updated_set.insert(res.update_id.value());
         if (!it.second)
         {
-            return;
+            co_return;
         }
         UpdateStorage_.update_stack.push(res.update_id.value() + 1);
 
@@ -413,21 +360,23 @@ class session : public std::enable_shared_from_this<session>
             if (! res.result.has_value())
             {
                 print("result array is empty\n");
-                return;
+                co_return;
             }
 
-            SendReply();
+            co_await SendReply();
         }
         catch(const std::exception& ex)
         {
             print(ex.what(),"\n"); 
-            return;
+            co_return;
         }
     }
 
     
     template<Pars::TG::is_TelegramBased Answer = Pars::TG::TelegramResponse>
-    void start_waiting()
+    [[nodiscard]]
+    boost::asio::awaitable<void>
+    start_waiting()
     {   
         using namespace Pars;
 
@@ -435,8 +384,8 @@ class session : public std::enable_shared_from_this<session>
         {
             while(true)
             {
-                TG::TelegramResponse resp = start_getUpdates<true>(TG::getUpdates{});
-                parse_result(std::move(resp));
+                TG::TelegramResponse resp = co_await start_getUpdates<true>(TG::getUpdates{});
+                co_await parse_result(std::move(resp));
             }
         }
         catch(const std::exception& e)
@@ -447,92 +396,57 @@ class session : public std::enable_shared_from_this<session>
     }
 
 
-    template<Pars::TG::is_TelegramBased Res, bool OnlyRead = false>
-    std::future<Res> start_request_response()
+    template<Pars::TG::is_TelegramBased Res, bool OnlyRead = false, bool OnlyWrite = false>
+    [[nodiscard]]
+    boost::asio::awaitable<Res>
+    start_request_response()
     {
+        bool isopen = beast::get_lowest_layer(stream_).socket().is_open();
+        if (! isopen)
+        {
+            throw std::runtime_error{"\nSocket is not open'\n"};
+        }
+
+        size_t writable = 0;
         if constexpr (OnlyRead == false)
         {
-            co_await std::async(std::launch::async, [this]()
-            {
-                http::write(stream_, req_); 
-                req_.clear();
-            });
+            writable = co_await http::async_write(stream_ , req_, boost::asio::use_awaitable);
+            print("\nwritable:", writable,"\n");
         }
-        co_await std::async(std::launch::async, [this]()
+        if constexpr(OnlyWrite == true)
         {
-            http::response_parser<http::string_body> parser_;
-            auto& res = parser_.get();
-
-            boost::system::error_code er;
-            http::read_header(stream_, buffer_, parser_, er);
-
-            if(er && er!=http::error::need_buffer)
-            {
-                print("\n\n",er.what(),"\n\n");
-                buffer_.clear();
-                throw boost::system::system_error(er);
-            }
-            assert(parser_.is_header_done());
-            print("\nResponse Header:\n\n", res.base(),"\n");
-
-            while(!parser_.is_done())
-            {
-                http::read(stream_, buffer_, parser_, er);
-                if(er && er != http::error::need_buffer)
-                {
-                    buffer_.clear();
-                    throw boost::system::system_error(er);
-                }
-            }
-
+            co_return Res{};
+        }
+        else
+        {
+            http::response<http::string_body> res;
+            size_t readable = co_await http::async_read(stream_, buffer_, res, boost::asio::use_awaitable);
+            buffer_.consume(-1);
             res_ = std::move(res);
-            print("\nBody lenght: ", res_.body().size(),"\n");
-            print("\nResponse Body:\n\n", res_.body());
+            print("\nreadable:", readable,"\n");
+            print_response();
 
-            if(res_.result() != http::status::ok)
+            json::value var =  json::string{std::move(res_).body()};
+            var     =  Pars::MainParser::try_parse_value(var);
+            auto opt_map = Res::verify_fields(std::move(var));
+            if (! opt_map.has_value())
             {
-                buffer_.clear();
-                throw BadRequestException{};
+                throw std::runtime_error{"Failed verify_fields\n"};
             }
-        });
-        co_await std::async(std::launch::async, &session::print_response, this);
-        json::value var = co_await std::async
-        (
-            std::launch::async,
-            [this]()
-            {
-                json::string str{std::move(res_).body()};
-                return str;
-            }
-        );
-        var      = co_await std::async(std::launch::async, [&var]{ return Pars::MainParser::try_parse_value(var);});
-        auto obj = co_await std::async
-        (
-            std::launch::async,
-            [&var]()
-            {
-                auto opt_map = Res::verify_fields(std::move(var));
-                if (! opt_map.has_value())
-                    throw std::runtime_error{"Failed verify_fields\n"};
-                else
-                {
-                    Res obj{};
-                    obj.fields_from_map(std::move(opt_map.value()));
-                    return obj;
-                }
-            }
-        );
-        co_return obj;
+            Res obj{};
+            obj.fields_from_map(std::move(opt_map.value()));
+            co_return obj;
+        }
     }
 
     public:
 
     template<bool isForce = false, typename T>
     requires (std::is_same_v<std::remove_reference_t<T>, Pars::TG::getUpdates>)
-    void
+    [[nodiscard]]
+    boost::asio::awaitable<void>
     send_getUpdates(T&& upd)
     {
-
         upd.timeout = Timer::timeout.count();
         if (UpdateStorage_.update_stack.empty())
         {
@@ -550,7 +464,7 @@ class session : public std::enable_shared_from_this<session>
             {
                 req_.clear();
                 prepare_post_request(std::forward<T>(upd));
-                http::write(stream_, req_); 
+                co_await http::async_write(stream_, req_, boost::asio::use_awaitable);
                 req_.clear();
             }
         }
@@ -560,21 +474,21 @@ class session : public std::enable_shared_from_this<session>
     template<bool isForce = false, typename T>
     requires (std::is_same_v<std::remove_reference_t<T>, Pars::TG::getUpdates>)
     [[nodiscard]]
-    Pars::TG::TelegramResponse 
+    boost::asio::awaitable<Pars::TG::TelegramResponse>
     start_getUpdates(T&& upd)
     {
         using namespace Pars::TG;
-        send_getUpdates<isForce>(std::forward<T>(upd));
+        co_await send_getUpdates<isForce>(std::forward<T>(upd));
 
         try
         {    
-            TelegramResponse obj = start_request_response<TelegramResponse, true>().get();
-            return obj;
+            TelegramResponse obj = co_await start_request_response<TelegramResponse, true>();
+            co_return obj;
         }
         catch (const BadRequestException& e)
         {
             print(e.what());
-            return {};
+            co_return TelegramResponse{};
         }
         catch(const std::exception& e)
         {
@@ -619,26 +533,28 @@ class session : public std::enable_shared_from_this<session>
         bool multipart
     )
     {  
-        req_.clear();
-        req_.method(http::verb::post);
-        req_.set(http::field::host, host_);
+        http::request<http::string_body> req;
+        req.method(http::verb::post);
+        req.set(http::field::host, host_);
+        req_.set(http::field::keep_alive, "timeout=5, max=1000");
         if(multipart)
         {
             json::string file = PrepareMultiPart(data);
-            req_.body() = file;
+            req.body() = file;
             print("PreparedMultiRequest:\n\n");
             std::cout<<req_<<std::endl;
         }
         else
         {
-            req_.set(http::field::content_type, content_type);
-            req_.set(http::field::content_length, boost::lexical_cast<std::string>(data.size()));
-            req_.set(http::field::body, data);
-            req_.body() = data;
+            req.set(http::field::content_type, content_type);
+            req.set(http::field::content_length, boost::lexical_cast<std::string>(data.size()));
+            req.set(http::field::body, data);
+            req.body() = data;
         }
-        req_.set(http::field::user_agent, "Raven-Fairy");
-        req_.target(target);
-        req_.prepare_payload();
+        req.set(http::field::user_agent, "Raven-Fairy");
+        req.target(target);
+        req.prepare_payload();
+        req_ = std::move(req);
     }
 
 
@@ -651,139 +567,23 @@ class session : public std::enable_shared_from_this<session>
         req_.target(target);
     }
 
-    public:
+    protected:
 
     // Start the asynchronous operation
-    void
+    boost::asio::awaitable<void>
     run()
     {
         // Set SNI Hostname (many hosts need this to handshake successfully)
         if(! SSL_set_tlsext_host_name(stream_.native_handle(), host_.data()))
         {
-            beast::error_code ec{static_cast<int>(::ERR_get_error()), net::error::get_ssl_category()};
-            std::cerr << ec.message() << "\n";
-            return;
+                throw boost::system::system_error
+                (
+                    static_cast<int>(::ERR_get_error()),
+                    net::error::get_ssl_category()
+                );
         }
 
-        resolve();
-    }
-
-    protected:
-
-    void
-    on_resolve
-    (
-        beast::error_code ec,
-        tcp::resolver::results_type results
-    )
-    {
-        if(ec)
-            return fail(ec, "resolve");
-
-
-        print_result_type(results);
-        print("resolving...\n");
-
-        connect(results);
-    }
-
-
-    void
-    on_connect
-    (
-        beast::error_code ec,
-        tcp::resolver::results_type::endpoint_type ep
-    )
-    {
-        if(ec)
-            return fail(ec, "connect");
-
-        print("Connecting...\n\n", "connected endpoint:\n");
-        print_endpoint(ep);
-        print("\n\n");
-        
-        handshake();
-    }
-
-
-    void
-    on_handshake
-    (beast::error_code ec)
-    {
-        if(ec)
-            return fail(ec, "handshake");
-
-        print("Handshake...\n");
-        
-        try
-        {
-           Pars::TG::TelegramResponse resp = start_getUpdates<true>(Pars::TG::getUpdates{});
-           parse_result(std::move(resp));
-        }
-        catch(const std::exception& e)
-        {
-            std::cerr << e.what() << '\n';
-            shutdown();
-            return;
-        }
-        
-        start_waiting();
-    }
-
-
-    void
-    on_write
-    (
-        beast::error_code ec,
-        std::size_t bytes_transferred
-    )
-    {
-        boost::ignore_unused(bytes_transferred);
-
-        if(ec)
-            return fail(ec, "write");
-
-        print("writing...\n");
-
-
-        read();
-    }
-
-
-    void
-    on_read
-    (
-        beast::error_code ec,
-        std::size_t bytes_transferred
-    )
-    {
-        print("\nreading...\n","bytes_transferred:", bytes_transferred,"\n");
-
-        if(ec)
-            return fail(ec, "read");
-
-        print_response();
-
-        write();
-    }
-
-
-    void
-    on_shutdown
-    (beast::error_code ec)
-    {
-        print("Shutdown...\n",ec.what());
-
-        if(ec == net::error::eof)
-        {
-            // Rationale:
-            // http://stackoverflow.com/questions/25587403/boost-asio-ssl-async-shutdown-always-finishes-with-an-error
-            ec = {};
-        }
-        if(ec)
-            return fail(ec, "shutdown");
-
-        // If we get here then the connection is closed gracefully
+        co_await resolve();
     }
 
     public:
@@ -844,18 +644,7 @@ int main(int argc, char** argv)
 
         ctx.set_verify_mode(ssl::verify_peer);
 
-
-        std::make_shared<session>
-        (
-            host,
-            version,
-            port,
-            bot_token,
-            net::make_strand(ioc),
-            ctx
-
-        )->run();
-
+        boost::asio::co_spawn(ioc, session::create_and_run(host, version, port, bot_token, ctx), boost::asio::detached);
         ioc.run();
     }
     catch(const std::exception& e)

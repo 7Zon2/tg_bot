@@ -49,10 +49,12 @@ namespace Pars
 
                 json::string txt{FIELD_EQUAL(text)};
                 txt += Utils::forward_like<Self>(self.text.value());
+                txt = MainParser::prepare_url_text(std::move(txt));
 
                 json::string req{URL_REQUEST(sendMessage)};
                 URL_BIND(req, id);
                 URL_BIND(req, txt);
+                req.pop_back();
                 return req;
             } 
 
@@ -86,7 +88,7 @@ namespace Pars
             opt_fields_map
             optional_fields(T&& val)
             {
-                
+                return {};
             }
 
 

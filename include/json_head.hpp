@@ -54,7 +54,7 @@ namespace Pars
 
     #define FIELD_TO_LOWER(field) boost::algorithm::to_lower_copy(json::string{FIELD_NAME(field)})
 
-    #define FIELD_EQUAL(field) FIELD_NAME(field) "="
+    #define FIELD_EQUAL(field) FIELD_NAME(field)"="
 
     #define JS_POINTER(method, field) boost::algorithm::to_lower_copy(json::string{"/"#method"/"#field})
 
@@ -913,6 +913,37 @@ namespace Pars
             return obj;
         }
 
+
+        [[nodiscard]]
+        static json::string
+        prepare_url_text(json::string mes)
+        {
+            const static json::string end{"%0A"};
+            const static json::string space{"%20"};
+
+            for(int i = mes.size() -1; i >= 0; i--)
+            {
+                json::string temp;
+                char ch = mes[i];
+                if (ch == ' ')
+                {
+                    temp =  space;
+                }
+                else if(ch == '\n')
+                {
+                    temp = end;
+                }
+
+                if (temp.empty() == false)
+                {
+                    temp += json::string{mes.begin() + i + 1, mes.end()};
+                    mes.erase(i, mes.size() - i);
+                    mes+=std::move(temp);
+                }
+            }
+
+            return mes;
+        }
 
         public:
 

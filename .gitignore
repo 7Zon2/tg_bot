@@ -1,5 +1,7 @@
 build/
 .vscode/
+.qtcreator/
 tests/
 serv/
 res/
+CMakeLists.txt.user

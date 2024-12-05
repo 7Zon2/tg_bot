@@ -107,11 +107,8 @@ auto operator co_await (std::future<T> future) noexcept
         void
         await_suspend(std::coroutine_handle<> coro) const
         {
-            std::thread([this, coro]
-            {
                 this->wait();
                 coro();
-            }).detach();
         }
 
         T await_resume()
