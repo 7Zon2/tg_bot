@@ -1,11 +1,10 @@
 #pragma once 
 #include "print.hpp"
 #include "json_head.hpp"
-#include <functional>
 #include <boost/asio.hpp>
 #include <boost/asio/awaitable.hpp>
 #include <entities/entities.hpp>
-#include <variant>
+
 
 template<typename F>
 concept is_coro = std::is_same_v<std::decay_t<F>, boost::asio::awaitable<typename F::value_type>>;
@@ -14,17 +13,67 @@ namespace Commands
 {
     using namespace Pars;
 
+    enum class
+    CommandType
+    {
+        None,
+        Message,
+        File
+    };
+
+    template<typename T>
+    class NothingMessage;
+
+    template<typename T>
+    class Echo;
+
+    template<typename T>
     class CommandInterface
     {
+        public:
+
+        CommandType type_ = CommandType::None;
+
         protected:
 
         json::string data_{};
         size_t command_offset{};
+        T& session_;
 
         protected:
 
-        CommandInterface(json::string data):
-        data_(std::move(data)){}
+        CommandInterface(T& session, json::string data):
+        session_(session), data_(std::move(data)){}
+
+
+        public:
+
+        CommandInterface(T& session):
+                session_(session){}
+
+        virtual ~CommandInterface() = 0;
+
+
+        template<TG::is_message Obj>
+        [[nodiscard]]
+        boost::asio::awaitable<void>
+        static exec(T& session, Obj&& mes)
+        {
+            using namespace Pars;
+
+            if (Echo<T>::isCommand(mes))
+            {
+                Echo<T> com(session);
+                com.prepare(std::forward<Obj>(mes));
+                co_await com();
+                co_return;
+            }
+
+            NothingMessage<T> com(session);
+            com.prepare(std::forward<Obj>(mes));
+            co_await com();
+            co_return;
+        }
 
         public:
 
@@ -35,6 +84,7 @@ namespace Commands
             return Derived::isCommand(std::forward<Obj>(obj));
         }
 
+        protected:
 
         template<typename Self, typename Obj>
         auto prepare(this Self&& self, Obj&& obj)
@@ -43,56 +93,65 @@ namespace Commands
         }
     };
 
+    template<typename T>
+    CommandInterface<T>::~CommandInterface(){}
 
-    class NothingMessage : public CommandInterface
+
+    template<typename T>
+    class NothingMessage : public CommandInterface<T>
     {
         protected:
 
         TG::SendMessage mes_;
 
-        NothingMessage(json::string data):
-        CommandInterface(std::move(data)){}
+        NothingMessage(T& session, json::string data):
+        CommandInterface<T>(session, std::move(data)){}
+
 
         public:
 
-        NothingMessage():
-        CommandInterface("There is nothing. Where everything is gone?")
+        NothingMessage(T& session):
+        CommandInterface<T>(session, "There is nothing. Where everything is gone?")
         {
 
         }
 
+        ~NothingMessage(){}
 
         template<TG::is_message Obj>
         void prepare
         (Obj&& obj)
         {
-            mes_ = TG::SendMessage(obj.chat.id, data_);
+            mes_ = TG::SendMessage(obj.chat.id, this->data_);
+            this->type_ = CommandType::Message;
         }
 
 
-        template<typename F, typename...Args>
-        boost::asio::awaitable<void> operator()(F&& sender, Args&&...args)
+        boost::asio::awaitable<void> operator()()
         {
-            co_await std::invoke(std::forward<F>(sender), std::forward<Args>(args)..., std::move(mes_));
+            co_await this->session_.template send_response<false,true>(std::move(mes_));
         }
     };
 
 
-    class Echo : public NothingMessage
+    template<typename T>
+    class Echo : public NothingMessage<T>
     {
         public:
 
-        Echo()
+            Echo(T& session) :
+            NothingMessage<T>(session)
             {
-                command_offset = 5;
+                Echo::command_offset = 5;
             }
 
-        Echo(json::string data):
-            NothingMessage(std::move(data))
+            Echo(T& session, json::string data):
+            NothingMessage<T>(std::move(data))
             {
-                command_offset = 5;
+                Echo::command_offset = 5;
             }
 
+            ~Echo(){}
 
             template<TG::is_message Obj>
             [[nodiscard]]
@@ -113,41 +172,41 @@ namespace Commands
             }
 
 
-            template<typename F, typename...Args>
             boost::asio::awaitable<void>
-            operator()(F&& sender, Args&&...args)
+            operator()()
             {
                 size_t max_offset = 0;
-                size_t offset = command_offset;
+                size_t offset = Echo::command_offset;
                 const size_t limit = 2056;
+                json::string data = std::move(Echo::data_);
 
-                while(offset + limit < data_.size())
+                while(offset + limit < data.size())
                 {
-                    if (data_.size() - offset > limit)
+                    if (data.size() - offset > limit)
                     {
                         max_offset = limit;
                     }
                     else
                     {
-                        max_offset =  data_.size() - offset;
+                        max_offset =  data.size() - offset;
                     }
 
                     json::string substr
-                        {data_.begin() + offset,
-                         data_.begin() + offset + max_offset};
+                        {data.begin() + offset,
+                         data.begin() + offset + max_offset};
 
                     TG::SendMessage mes;
-                    mes.chat_id = mes_.chat_id;
+                    mes.chat_id = Echo::mes_.chat_id;
                     mes.text = std::move(substr);
-                    co_await std::invoke(std::forward<F>(sender), std::forward<Args>(args)..., std::move(mes));
+                    co_await Echo::session_.template send_response<false,true>(std::move(mes));
                     offset = offset + limit;
                 }
 
-                json::string substr{data_.begin() + offset, data_.end()};
+                json::string substr{data.begin() + offset, data.end()};
                 if (!substr.empty())
                 {
-                    mes_.text = std::move(substr);
-                    co_await std::invoke(std::forward<F>(sender), std::forward<Args>(args)..., std::move(mes_));
+                    Echo::mes_.text = std::move(substr);
+                    co_await Echo::session_.template send_response<false,true>(std::move(Echo::mes_));
                 }
             }
 
@@ -156,66 +215,36 @@ namespace Commands
         void prepare
         (Obj&& mes)
         {
-            mes_.chat_id = mes.chat.id;
-            data_ = Utils::forward_like<Obj>(mes.text.value());
-        }
-    };
-
-    class Gadget
-    {
-        using variant = std::variant<NothingMessage, Echo>;
-
-        variant var_;
-
-        public:
-
-        Gadget(variant var):
-                var_(std::move(var)){}
-
-        template<typename F, typename...Args>
-        boost::asio::awaitable<void>
-        get_await ( F&& sender, Args&&...args)
-        {
-            auto coro_lambda = [&]<typename Obj>
-            (Obj&& obj) -> boost::asio::awaitable<void>
+            if (mes.document.has_value())
             {
-                     co_await std::forward<Obj>(obj)(std::forward<F>(sender), std::forward<Args>(args)...);
-            };
+                Echo::type_ = CommandType::File;
+                return;
+            }
 
-            boost::asio::awaitable<void> aw;
-
-           std::visit([&]<typename T>(T&& obj)
-            {
-                using Ret_type = std::decay_t<decltype(std::forward<T>(obj)(std::forward<F>(sender), std::forward<Args>(args)...))>;
-
-                if constexpr(is_coro<Ret_type>)
-                {
-                    aw = coro_lambda(std::forward<T>(obj));
-                }
-            }, std::move(var_));
-
-            co_await std::move(aw);
+            Echo::mes_.chat_id = mes.chat.id;
+            Echo::data_ = Utils::forward_like<Obj>(mes.text.value());
+            Echo::type_ = CommandType::Message;
         }
     };
 
 
-    template<Pars::TG::is_message T>
-    inline Gadget
-    prepare_command( T&& mes)
+    template<typename S, Pars::TG::is_message T>
+    [[nodiscard]]
+    inline std::unique_ptr<CommandInterface<S>>
+    find_command(S& session, T&& mes)
     {
         using namespace Pars;
 
-        bool res = Echo::isCommand(mes);    
-        if (res == false)
+        if (Echo<S>::isCommand(mes))
         {
-            NothingMessage m{};
-            m.prepare(std::forward<T>(mes));
-            return  Gadget{std::move(m)};
+            auto ptr =  std::make_unique<Echo<S>>(session);
+            ptr->prepare(std::forward<T>(mes));
+            return ptr;
         }
 
-        Echo m{};
-        m.prepare(std::forward<T>(mes));
-        return Gadget{std::move(m)};
+        auto ptr = std::make_unique<NothingMessage<S>>(session);
+        ptr->prepare(std::forward<T>(mes));
+        return std::make_unique<NothingMessage<S>>(session);
     }
 
 } //namespace Command

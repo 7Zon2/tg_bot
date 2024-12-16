@@ -74,13 +74,7 @@ namespace Pars
             
 
             [[nodiscard]]
-            virtual 
-            json::string
-            get_entity_name()
-            {
-                return static_cast<Derived&>(*this).get_entity_name();
-            }
-
+            virtual json::string get_entity_name() = 0;
 
             [[nodiscard]]
             virtual
@@ -88,11 +82,7 @@ namespace Pars
             verify_fields
             (json::value& val, json::string_view name)
             {
-                if (name != get_entity_name())
-                {
-                    return {};
-                }
-                return verify_fields(val, name);
+                return {};
             }
 
 

@@ -23,6 +23,13 @@ namespace Pars
 
             public:
 
+            [[nodiscard]]
+            json::string
+            get_entity_name() override
+            {
+                return entity_name;
+            }
+
             TelegramResponse(){}
 
             TelegramResponse

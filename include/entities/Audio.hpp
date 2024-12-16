@@ -13,9 +13,18 @@ namespace Pars
             optstr performer;
             optstr title;
 
+            public:
 
+            static const inline json::string entity_name{"audio"};
             static const constexpr size_t req_fields = 3;
             static const constexpr size_t opt_fields = 6;
+
+            [[nodiscard]]
+            json::string
+            get_entity_name() override
+            {
+                return entity_name;
+            }
 
             public:
 
@@ -26,10 +35,10 @@ namespace Pars
                 double duration,
                 optstr performer = {},
                 optstr title = {},
-                std::optional<std::shared_ptr<PhotoSize>> thumbnail = {},
+                std::optional<PhotoSize> thumbnail = {},
                 optstr file_name =  {},
                 optstr mime_type =  {},
-                optdouble file_size = {} 
+                optuint file_size = {}
             )
             :
                 Animation
@@ -157,7 +166,7 @@ namespace Pars
                 optstr file_name = {},
                 optstr mime_type = {},
                 std::optional<TG::PhotoSize> thumbnail = {},
-                optdouble file_size = {}
+                optuint file_size = {}
             )
             {
                   

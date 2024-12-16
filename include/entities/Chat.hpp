@@ -24,6 +24,13 @@ namespace Pars
             optbool is_forum;
 
 
+            [[nodiscard]]
+            json::string
+            get_entity_name() override
+            {
+                return entity_name;
+            }
+
             public:
 
             Chat(){}

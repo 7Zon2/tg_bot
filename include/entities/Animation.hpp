@@ -1,5 +1,4 @@
 #pragma once
-#include "TelegramEntities.hpp"
 #include "PhotoSize.hpp"
 
 
@@ -11,14 +10,26 @@ namespace Pars
         {
 
             double duration;
-            std::optional<std::shared_ptr<PhotoSize>> thumbnail;
+            std::optional<PhotoSize>thumbnail;
             optstr file_name;
             optstr mime_type;
 
-            static const constexpr size_t req_fields = PhotoSize::req_fields + 1;
-            static const constexpr size_t opt_fields = PhotoSize::opt_fields + 3;
+            public:
+
+            static const inline json::string entity_name = "animation";
+            static const constexpr size_t req_fields = 5;
+            static const constexpr size_t opt_fields = 4;
+
+            [[nodiscard]]
+            json::string
+            get_entity_name() override
+            {
+                return entity_name;
+            }
 
             public:
+
+            Animation(){}
 
             Animation
             (
@@ -27,10 +38,10 @@ namespace Pars
                 double width,
                 double height,
                 double duration,
-                std::optional<std::shared_ptr<PhotoSize>> thumbnail = {},
+                std::optional<PhotoSize> thumbnail = {},
                 optstr file_name =  {},
                 optstr mime_type =  {},
-                optdouble file_size = {}
+                optuint file_size = {}
             )
             :
                 PhotoSize
@@ -49,12 +60,20 @@ namespace Pars
 
             }
 
+            template<is_all_json_entities T>
+            Animation(T&& obj)
+            {
+                create(std::forward<T>(obj));
+            }
+
+
             public:
 
+            template<as_json_value T>
             [[nodiscard]]
             static
             opt_fields_map
-            requested_fields(json::value val)
+            requested_fields(T&& val)
             {
                 auto photo_map =  PhotoSize::requested_fields(val, "animation");
                 if (!photo_map.has_value())
@@ -79,14 +98,15 @@ namespace Pars
             }
 
 
+            template<as_json_value T>
             [[nodiscard]]
             static
             fields_map
-            optional_fields(json::value val)
+            optional_fields(T&& val)
             {
                 return MainParser::mapped_pointers_validation
                 (
-                    std::move(val),
+                    std::forward<T>(val),
                     std::make_pair(JS_POINTER(animation, duration),  json::kind::double_),
                     std::make_pair(JS_POINTER(animation, thumbnail), json::kind::object),
                     std::make_pair(JS_POINTER(animation, file_name), json::kind::string),
@@ -122,14 +142,14 @@ namespace Pars
             {
                 return Animation::fields_to_value
                 (
-                    self.file_id,
-                    self.file_unique_id,
+                    Utils::forward_like<Self>(self.file_id),
+                    Utils::forward_like<Self>(self.file_unique_id),
                     self.width,
                     self.height,
                     self.duration,
-                    forward_like<Self>(self.thumbnail),
-                    forward_like<Self>(self.file_name),
-                    forward_like<Self>(self.mime_type),
+                    Utils::forward_like<Self>(self.thumbnail),
+                    Utils::forward_like<Self>(self.file_name),
+                    Utils::forward_like<Self>(self.mime_type),
                     self.file_size
                 );
             }
@@ -147,7 +167,7 @@ namespace Pars
                 std::optional<TG::PhotoSize> thumbnail = {},
                 optstr file_name =  {},
                 optstr mime_type =  {},
-                optdouble file_size = {}
+                optuint file_size = {}
             )
             {
                 json::object ob{MainParser::get_storage_ptr()};
@@ -171,7 +191,7 @@ namespace Pars
                 if (thumbnail.has_value())
                 {
                     json::object ob3(MainParser::get_storage_ptr());
-                    auto && ref_thumbnail = std::move(thumbnail.value());
+                    auto && ref_thumbnail = std::move(thumbnail).value();
                     ob3 = ref_thumbnail.fields_to_value().as_object();
 
                     MainParser::container_move(ob3, ob);

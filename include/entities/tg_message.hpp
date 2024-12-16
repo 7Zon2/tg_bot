@@ -2,6 +2,7 @@
 #include "TelegramEntities.hpp"
 #include "User.hpp"
 #include "Chat.hpp"
+#include "Document.hpp"
 #include "MessageOrigin.hpp"
 
 namespace Pars
@@ -18,6 +19,13 @@ namespace Pars
             static inline const json::string entity_name{"message"};
             static constexpr  size_t req_fields = 3;
             static constexpr  size_t opt_fields = 17;
+
+            [[nodiscard]]
+            json::string
+            get_entity_name() override
+            {
+                return entity_name;
+            }
 
             public:
 
@@ -38,6 +46,7 @@ namespace Pars
             ///fields
             ///
             ///....
+            std::optional<Document> document;
             optuser via_bot;
             optuint edit_date;
             optbool has_protected_content;
@@ -78,7 +87,8 @@ namespace Pars
                 optbool is_from_offline = {},
                 optstr media_group_id = {},
                 optstr author_signature = {},
-                optstr text = {}
+                optstr text = {},
+                std::optional<Document> document = {}
             )
             :
                 message_id(message_id),
@@ -94,6 +104,7 @@ namespace Pars
                 is_topic_message(is_topic_message),
                 is_automatic_forward(is_automatic_forward),
                 reply_to_message(std::move(reply_to_message)),
+                document(std::move(document)),
                 via_bot(std::move(via_bot)),
                 edit_date(edit_date),
                 has_protected_content(has_protected_content),
@@ -154,7 +165,8 @@ namespace Pars
                     std::make_pair(JS_POINTER(message, is_from_offline), json::kind::bool_),
                     std::make_pair(JS_POINTER(message, media_group_id), json::kind::string),
                     std::make_pair(JS_POINTER(message, author_signature), json::kind::string),
-                    std::make_pair(JS_POINTER(message, text), json::kind::string)
+                    std::make_pair(JS_POINTER(message, text), json::kind::string),
+                    std::make_pair(JS_POINTER(message, document), json::kind::object)
                 );
             };
 
@@ -228,6 +240,8 @@ namespace Pars
                MainParser::field_from_map
                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(text, text));
 
+               MainParser::field_from_map
+                <json::kind::object>(std::forward<T>(map), MAKE_PAIR(document, document));
             }
 
 
@@ -257,7 +271,8 @@ namespace Pars
                     self.is_from_offline,
                     Utils::forward_like<Self>(self.media_group_id),
                     Utils::forward_like<Self>(self.author_signature),
-                    Utils::forward_like<Self>(self.text)
+                    Utils::forward_like<Self>(self.text),
+                    Utils::forward_like<Self>(self.document)
                 );
             }
 
@@ -285,7 +300,8 @@ namespace Pars
                 optbool is_from_offline = {},
                 optstr media_group_id = {},
                 optstr author_signature = {},
-                optstr text = {}
+                optstr text = {},
+                std::optional<Document> document = {}
             )
             {
 
@@ -335,7 +351,8 @@ namespace Pars
                     std::move(sender_business_bot),
                     (is_exist) ? (is_move ? std::move(origin_) : origin_) : std::optional<std::reference_wrapper<MessageOrigin>>{},
                     std::move(mes_),
-                    std::move(via_bot)
+                    std::move(via_bot),
+                    std::move(document)
                 );
 
                 MainParser::container_move(std::move(req_ob), objects);

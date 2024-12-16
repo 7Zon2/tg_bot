@@ -1,30 +1,41 @@
 #pragma once
-#include "TelegramEntities.hpp"
+#include "File.hpp"
 
 
 namespace Pars
 {
     namespace TG
     {
-        struct PhotoSize : TelegramEntities<PhotoSize>
+        struct PhotoSize : protected File
         {
             public:
 
             using TelegramEntities::operator=;
 
-            json::string file_id;
-            json::string file_unique_id;
             double width;
             double height;
-            optdouble file_size;
-
 
             static const constexpr size_t req_fields = 4;
             static const constexpr size_t opt_fields = 1;
 
+            static const inline json::string entity_name{"photosize"};
+
+            [[nodiscard]]
+            json::string
+            get_entity_name() override
+            {
+                return entity_name;
+            }
+
             public:
 
             PhotoSize(){}
+
+            template<is_all_json_entities T>
+            PhotoSize(T&& obj)
+            {
+                create(std::forward<T>(obj));
+            }
 
             PhotoSize
             (
@@ -35,11 +46,14 @@ namespace Pars
                 optdouble file_size = {}
             )
             :
-                file_id(std::move(file_id)),
-                file_unique_id(std::move(file_unique_id)),
+                File
+                (
+                    std::move(file_id),
+                    std::move(file_unique_id),
+                    file_size
+                ),
                 width(width),
-                height(height),
-                file_size(file_size)
+                height(height)
             {
 
             }
@@ -48,14 +62,15 @@ namespace Pars
 
             public:
 
+            template<as_json_value T>
             [[nodiscard]]
             static
             opt_fields_map
-            requested_fields(json::value val, json::string inherited_name = "photosize")
+            requested_fields(T&& val, json::string inherited_name = "photosize")
             {
                 auto map = MainParser::mapped_pointers_validation
                 (
-                    std::move(val),
+                    std::forward<T>(val),
                     std::make_pair(MainParser::make_json_pointer(inherited_name, FIELD_NAME(file_id)), json::kind::string),
                     std::make_pair(MainParser::make_json_pointer(inherited_name, FIELD_NAME(file_unique_id)), json::kind::string),
                     std::make_pair(MainParser::make_json_pointer(inherited_name, FIELD_NAME(width)),  json::kind::double_),
@@ -88,20 +103,13 @@ namespace Pars
             void 
             fields_from_map(T && map)
             {
-                MainParser::field_from_map
-                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(file_id, file_id));
-
-                MainParser::field_from_map
-                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(file_unique_id, file_unique_id));
+                File::fields_from_map(std::forward<T>(map));
 
                 MainParser::field_from_map
                 <json::kind::double_>(std::forward<T>(map), MAKE_PAIR(width, width));
 
                 MainParser::field_from_map
                 <json::kind::double_>(std::forward<T>(map), MAKE_PAIR(height, height));
-
-                MainParser::field_from_map
-                <json::kind::double_>(std::forward<T>(map), MAKE_PAIR(file_size, file_size));
             }
 
 

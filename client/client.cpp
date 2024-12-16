@@ -34,10 +34,7 @@ class session : public std::enable_shared_from_this<session>
     boost::asio::any_io_executor ex_;
     tcp::resolver resolver_;
     boost::asio::ssl::stream<beast::tcp_stream> stream_;
-
-    beast::flat_buffer buffer_; // (Must persist between reads)
-    http::request<http::string_body> req_;
-    http::response<http::string_body> res_;
+    beast::flat_buffer buffer_;
 
     private:
 
@@ -195,7 +192,7 @@ class session : public std::enable_shared_from_this<session>
         try
         {
             Pars::TG::TelegramResponse resp = co_await start_getUpdates<true>(Pars::TG::getUpdates{});
-            parse_result(std::move(resp));
+            co_await parse_result(std::move(resp));
         }
         catch(const std::exception& e)
         {
@@ -216,26 +213,28 @@ class session : public std::enable_shared_from_this<session>
 
     protected:
 
-    void simple_requset()
+    void simple_requset( http::request<http::string_body> &req )
     {   
-        req_.version(version_);
-        req_.method(http::verb::get);
-        req_.set(http::field::host, host_);
-        req_.set(http::field::user_agent, "lalala");
-        req_.target("/");
+        req.version(version_);
+        req.method(http::verb::get);
+        req.set(http::field::host, host_);
+        req.set(http::field::user_agent, "lalala");
+        req.target("/");
     }
 
 
-    void GetWebhookRequest()
+    void GetWebhookRequest( http::request<http::string_body>& req)
     {
-        req_.version(version_);
-        req_.method(http::verb::get);
-        req_.set(http::field::host, host_);
-        req_.target(bot_url);
+        req.version(version_);
+        req.method(http::verb::get);
+        req.set(http::field::host, host_);
+        req.target(bot_url);
     }
 
 
-    void DeleteWebhookRequest(const bool del)
+    [[nodiscard]]
+     http::request<http::string_body>
+    DeleteWebhookRequest(const bool del)
     {
         json::value val = Pars::TG::deletewebhook::fields_to_value
         (
@@ -243,39 +242,43 @@ class session : public std::enable_shared_from_this<session>
         );
         json::string data = Pars::MainParser::serialize_to_string(val);
         json::string target = bot_url;
-        PostRequest(std::move(data), std::move(target),"application/json",false);
+        return PostRequest(std::move(data), std::move(target),"application/json",false);
     }
 
 
     template<Pars::TG::is_TelegramBased T>
-    void prepare_post_request(T&& obj, json::string_view content_type = "text/html")
+    [[nodiscard]]
+    http::request<http::string_body>
+    prepare_post_request(T&& obj, json::string_view content_type = "text/html")
     {
         json::string url = bot_url;
         url += std::forward<T>(obj).fields_to_url();
         print("\n\nsend_post_request\n\n",url,"\n\n");
-        PostRequest(" ", std::move(url), content_type, false);
+        return PostRequest(" ", std::move(url), content_type, false);
     }
 
 
-    void SetWebhookRequest()
+    [[nodiscard]]
+    http::request<http::string_body>
+    SetWebhookRequest()
     {
         json::string certif = CRTF::load_cert(certif_);
 
         json::string target = bot_url;
 
-        PostRequest("", target, "multipart/form-data",true);
+        return PostRequest("", target, "multipart/form-data",true);
     }
 
-    protected:
+    public:
 
-    template< Pars::TG::is_TelegramBased U, bool OnlyRead, bool OnlyWrite>
+    template<bool isRead, bool isWrite, Pars::TG::is_TelegramBased U>
     boost::asio::awaitable<bool>
     send_response
     (U&& obj)
     {
         using namespace Pars;
-        prepare_post_request(std::forward<U>(obj));
-        TG::TelegramResponse response = co_await start_request_response<TG::TelegramResponse, OnlyRead, OnlyWrite>();
+        auto req = prepare_post_request(std::forward<U>(obj));
+        TG::TelegramResponse response = co_await start_request_response<TG::TelegramResponse, isRead, isWrite>(std::move(req));
         if(response.update_id.has_value())
         {
             UpdateStorage_.update_stack.push(response.update_id.value() + 1);
@@ -291,10 +294,9 @@ class session : public std::enable_shared_from_this<session>
     (T&& mes)
     {
         using namespace Pars;
-        auto funcMessage = &session::send_response<TG::SendMessage, false, true>;
+        using namespace Commands;
 
-        auto command = Commands::prepare_command(std::forward<T>(mes));
-        co_await command.get_await(funcMessage, *this);
+        co_await CommandInterface<session>::exec(*this, std::forward<T>(mes));
     }
 
 
@@ -384,7 +386,7 @@ class session : public std::enable_shared_from_this<session>
         {
             while(true)
             {
-                TG::TelegramResponse resp = co_await start_getUpdates<true>(TG::getUpdates{});
+                TG::TelegramResponse resp = co_await start_getUpdates<false>(TG::getUpdates{});
                 co_await parse_result(std::move(resp));
             }
         }
@@ -396,10 +398,10 @@ class session : public std::enable_shared_from_this<session>
     }
 
 
-    template<Pars::TG::is_TelegramBased Res, bool OnlyRead = false, bool OnlyWrite = false>
+    template<Pars::TG::is_TelegramBased Res, bool isRead = true, bool isWrite = true>
     [[nodiscard]]
     boost::asio::awaitable<Res>
-    start_request_response()
+    start_request_response(std::optional<http::request<http::string_body>> opt_req = {})
     {
         bool isopen = beast::get_lowest_layer(stream_).socket().is_open();
         if (! isopen)
@@ -408,25 +410,42 @@ class session : public std::enable_shared_from_this<session>
         }
 
         size_t writable = 0;
-        if constexpr (OnlyRead == false)
+        if constexpr (isWrite)
         {
-            writable = co_await http::async_write(stream_ , req_, boost::asio::use_awaitable);
+            static std::mutex mut;
+
+            if (opt_req.has_value() == false)
+            {
+                throw std::runtime_error{"\n request is empty\n"};
+            }
+
+            auto& req = opt_req.value();
+            {
+                std::lock_guard<std::mutex> lk{mut};
+                writable = co_await http::async_write(stream_ , req, boost::asio::use_awaitable);
+            }
+            print("\n==============================================================================\n", req,"\n");
             print("\nwritable:", writable,"\n");
+            print("\n==============================================================================\n");
         }
-        if constexpr(OnlyWrite == true)
+        if constexpr(isRead == false)
         {
             co_return Res{};
         }
         else
         {
-            http::response<http::string_body> res;
-            size_t readable = co_await http::async_read(stream_, buffer_, res, boost::asio::use_awaitable);
-            buffer_.consume(-1);
-            res_ = std::move(res);
-            print("\nreadable:", readable,"\n");
-            print_response();
+            static std::mutex mut;
 
-            json::value var =  json::string{std::move(res_).body()};
+            http::response<http::string_body> res{};
+            size_t readable;
+            {
+                std::lock_guard<std::mutex> lk{mut};
+                readable = co_await http::async_read(stream_, buffer_, res, boost::asio::use_awaitable);
+            }
+            print("\nreadable:", readable,"\n");
+            print_response(res);
+
+            json::value var =  json::string{std::move(res).body()};
             var     =  Pars::MainParser::try_parse_value(var);
             auto opt_map = Res::verify_fields(std::move(var));
             if (! opt_map.has_value())
@@ -444,8 +463,8 @@ class session : public std::enable_shared_from_this<session>
     template<bool isForce = false, typename T>
     requires (std::is_same_v<std::remove_reference_t<T>, Pars::TG::getUpdates>)
     [[nodiscard]]
-    boost::asio::awaitable<void>
-    send_getUpdates(T&& upd)
+    boost::asio::awaitable<std::optional<http::request<http::string_body>>>
+    prepare_getUpdates(T&& upd)
     {
         upd.timeout = Timer::timeout.count();
         if (UpdateStorage_.update_stack.empty())
@@ -462,12 +481,11 @@ class session : public std::enable_shared_from_this<session>
         {
             if(Timer::update())
             {
-                req_.clear();
-                prepare_post_request(std::forward<T>(upd));
-                co_await http::async_write(stream_, req_, boost::asio::use_awaitable);
-                req_.clear();
+                co_return prepare_post_request(std::forward<T>(upd));
             }
         }
+
+        co_return std::optional<http::request<http::string_body>>{};
     }
 
 
@@ -478,11 +496,19 @@ class session : public std::enable_shared_from_this<session>
     start_getUpdates(T&& upd)
     {
         using namespace Pars::TG;
-        co_await send_getUpdates<isForce>(std::forward<T>(upd));
+        auto opt_req = co_await prepare_getUpdates<true>(std::forward<T>(upd));
 
         try
-        {    
-            TelegramResponse obj = co_await start_request_response<TelegramResponse, true>();
+        {
+            TelegramResponse obj;
+            if (opt_req.has_value())
+            {
+                obj = co_await start_request_response<TelegramResponse>(std::move(opt_req).value());
+            }
+            else
+            {
+                obj = co_await start_request_response<TelegramResponse, true, false>();
+            }
             co_return obj;
         }
         catch (const BadRequestException& e)
@@ -500,15 +526,14 @@ class session : public std::enable_shared_from_this<session>
 
     public:
 
-    [[nodiscard]]
-    json::string 
+    void
     PrepareMultiPart
-    (json::string_view data)
+    (http::request<http::string_body>& req,  json::string_view data)
     {
         #define MULTI_PART_BOUNDARY "Fairy"
         #define CRLF "\r\n"
 
-        req_.set(http::field::content_type,"multipart/form-data; boundary=" MULTI_PART_BOUNDARY);
+        req.set(http::field::content_type,"multipart/form-data; boundary=" MULTI_PART_BOUNDARY);
 
         json::string temp
         {
@@ -522,10 +547,12 @@ class session : public std::enable_shared_from_this<session>
 
         #undef MULTI_PART_BOUNDARY
         #undef CRLF
-        return temp;
+        req.body() = std::move(temp);
     }
 
-    void PostRequest
+    [[nodiscard]]
+    http::request<http::string_body>
+    PostRequest
     (
         json::string_view data, 
         json::string_view target,
@@ -536,13 +563,12 @@ class session : public std::enable_shared_from_this<session>
         http::request<http::string_body> req;
         req.method(http::verb::post);
         req.set(http::field::host, host_);
-        req_.set(http::field::keep_alive, "timeout=5, max=1000");
+        req.set(http::field::keep_alive, "timeout=5, max=1000");
         if(multipart)
         {
-            json::string file = PrepareMultiPart(data);
-            req.body() = file;
+            PrepareMultiPart(req, data);
             print("PreparedMultiRequest:\n\n");
-            std::cout<<req_<<std::endl;
+            std::cout<<req<<std::endl;
         }
         else
         {
@@ -554,17 +580,17 @@ class session : public std::enable_shared_from_this<session>
         req.set(http::field::user_agent, "Raven-Fairy");
         req.target(target);
         req.prepare_payload();
-        req_ = std::move(req);
+        return req;
     }
 
 
     void GetRequest
-    (std::string_view target)
+    ( http::request<http::string_body>& req, std::string_view target)
     {
-        req_.method(http::verb::get);
-        req_.set(http::field::host, host_);
-        req_.set(http::field::user_agent, "lalala");
-        req_.target(target);
+        req.method(http::verb::get);
+        req.set(http::field::host, host_);
+        req.set(http::field::user_agent, "lalala");
+        req.target(target);
     }
 
     protected:
@@ -588,10 +614,10 @@ class session : public std::enable_shared_from_this<session>
 
     public:
 
-    void print_response()
+    void print_response(auto&& res)
     {
         print("Response:\n\n====================================================================================\n");
-        for(auto&& i : res_)
+        for(auto&& i : res)
         {
             print
             (
@@ -599,7 +625,7 @@ class session : public std::enable_shared_from_this<session>
                 "field value: ", i.value(),"\n"
             );
         }
-        print(res_,"\n=========================================================================================\n");
+        print(res,"\n=========================================================================================\n");
     }
 };
 

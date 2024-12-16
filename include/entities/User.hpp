@@ -13,7 +13,14 @@ namespace Pars
 
             static constexpr const size_t req_fields  = 3;
             static constexpr const size_t opt_fields  = 9;
-            static const inline json::string entity_name {"user"}; 
+            static const inline json::string entity_name {"user"};
+
+            [[nodiscard]]
+            json::string
+            get_entity_name() override
+            {
+                return entity_name;
+            }
 
             public:
 
@@ -33,6 +40,7 @@ namespace Pars
             public:
 
             User(){}
+            ~User(){}
 
             template<is_all_json_entities T>
             User(T&& val)
