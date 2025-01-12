@@ -6,11 +6,12 @@ namespace Pars
 {
     namespace TG
     {
-        struct PhotoSize : protected File
+        struct PhotoSize : public File
         {
             public:
 
-            using TelegramEntities::operator=;
+            using File::operator=;
+            using File::File;
 
             double width;
             double height;
@@ -30,6 +31,9 @@ namespace Pars
             public:
 
             PhotoSize(){}
+
+            PhotoSize(File file):
+                File(std::move(file)){}
 
             template<is_all_json_entities T>
             PhotoSize(T&& obj)

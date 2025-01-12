@@ -24,6 +24,7 @@ namespace Pars
 
             public:
 
+            using selfType = TelegramEntities<Derived>;
             using type = Derived;
 
             static const inline  json::string entity_name = Derived::entity_name;

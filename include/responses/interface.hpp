@@ -1,6 +1,8 @@
-#pragma once 
+#pragma once
+#include "head.hpp"
 #include "print.hpp"
 #include "json_head.hpp"
+#include <entities/File.hpp>
 #include <boost/asio.hpp>
 #include <boost/asio/awaitable.hpp>
 #include <entities/entities.hpp>
@@ -34,17 +36,27 @@ namespace Commands
 
         CommandType type_ = CommandType::None;
 
+        template<typename Self>
+        void set_commandType(this Self&& self) noexcept
+        {
+                self.set_CommandType();
+        }
+
         protected:
 
-        json::string data_{};
         size_t command_offset{};
         T& session_;
 
+        template<typename Self>
+        void  set_offset(this Self&& self) noexcept
+        {
+            self.set_offset();
+        }
+
         protected:
 
-        CommandInterface(T& session, json::string data):
-        session_(session), data_(std::move(data)){}
-
+        CommandInterface(T& session, CommandType type):
+                session_(session), type_(type){}
 
         public:
 
@@ -63,14 +75,12 @@ namespace Commands
 
             if (Echo<T>::isCommand(mes))
             {
-                Echo<T> com(session);
-                com.prepare(std::forward<Obj>(mes));
+                Echo<T> com(session, std::forward<Obj>(mes));
                 co_await com();
                 co_return;
             }
 
-            NothingMessage<T> com(session);
-            com.prepare(std::forward<Obj>(mes));
+            NothingMessage<T> com(session, std::forward<Obj>(mes));
             co_await com();
             co_return;
         }
@@ -79,18 +89,11 @@ namespace Commands
 
         template<typename Derived, typename Obj>
         static bool
-        isCommand(Obj&& obj)
+        isCommand(Obj&& obj) noexcept
         {
             return Derived::isCommand(std::forward<Obj>(obj));
         }
 
-        protected:
-
-        template<typename Self, typename Obj>
-        auto prepare(this Self&& self, Obj&& obj)
-        {
-            return std::forward<Self>(self).prepare(std::forward<Obj>(obj));
-        }
     };
 
     template<typename T>
@@ -104,32 +107,40 @@ namespace Commands
 
         TG::SendMessage mes_;
 
-        NothingMessage(T& session, json::string data):
-        CommandInterface<T>(session, std::move(data)){}
-
+        void  set_offset() noexcept
+        {
+            NothingMessage::command_offset = 0;
+        }
 
         public:
 
-        NothingMessage(T& session):
-        CommandInterface<T>(session, "There is nothing. Where everything is gone?")
+        void set_commandType() noexcept
         {
-
-        }
-
-        ~NothingMessage(){}
-
-        template<TG::is_message Obj>
-        void prepare
-        (Obj&& obj)
-        {
-            mes_ = TG::SendMessage(obj.chat.id, this->data_);
             this->type_ = CommandType::Message;
         }
 
 
+        NothingMessage(T& session, TG::SendMessage mes):
+            CommandInterface<T>(session), mes_(std::move(mes))
+        {
+        }
+
+
+        NothingMessage(T& session):
+        CommandInterface<T>(session, CommandType::Message)
+        {
+        }
+
+        ~NothingMessage(){}
+
+        public:
+
         boost::asio::awaitable<void> operator()()
         {
-            co_await this->session_.template send_response<false,true>(std::move(mes_));
+            set_offset();
+            mes_.text  = "There is Nothing. Where everything is gone?";
+            co_await this->session_.send_response(std::move(mes_));
+            co_await this->session_.template read_response();
         }
     };
 
@@ -137,21 +148,79 @@ namespace Commands
     template<typename T>
     class Echo : public NothingMessage<T>
     {
+        protected:
+
+        boost::asio::awaitable<void>
+        onFile()
+        {
+            TG::Document& doc = Echo::mes_.document.value();
+            http::request<http::string_body> req = Echo::session_.GetFileRequest(doc.file_id);
+            co_await Echo::session_.send_response(std::move(req));
+
+            TG::TelegramResponse res;
+            TG::File file;
+            for(;;)
+            {
+                res = co_await
+                Echo::session_.template read_response();
+                if (res.ok && res.result.has_value())
+                {
+                    file = std::move(res.result).value();
+                    if (file.file_path.has_value())
+                    {
+                        break;
+                    }
+                }
+            }
+
+
+            req = Echo::session_.template prepare_request
+                  <false>(std::move(file.file_path).value(), "file");
+
+            co_await Echo::session_.send_response(std::move(req));
+            using type = http::response<http::string_body>;
+            type res_b = co_await Echo::session_.template
+                  read_response<type>();
+
+            Echo::mes_.text = std::move(res_b).body();
+        }
+
+        void set_offset() noexcept
+        {
+            Echo::command_offset = 5;
+        }
+
         public:
 
             Echo(T& session) :
             NothingMessage<T>(session)
             {
-                Echo::command_offset = 5;
             }
 
-            Echo(T& session, json::string data):
-            NothingMessage<T>(std::move(data))
+
+            Echo(T& session, TG::SendMessage mes):
+                NothingMessage<T>(session, std::move(mes))
             {
-                Echo::command_offset = 5;
             }
 
             ~Echo(){}
+
+
+            void set_commandType() noexcept
+            {
+                if (this->mes_.document.has_value())
+                {
+                    this->type_ = CommandType::File;
+                }
+                else if (this->mes_.text.has_value())
+                {
+                    this->type_ = CommandType::Message;
+                }
+                else
+                {
+                    this->type_ = CommandType::None;
+                }
+            }
 
             template<TG::is_message Obj>
             [[nodiscard]]
@@ -159,26 +228,40 @@ namespace Commands
             (Obj&& mes)
             {
                 const static json::string command{"/echo"};
-                json::string& ref = mes.text.value();
+                if (mes.document.has_value())
+                {
+                    return true;
+                }
 
+                json::string& ref = mes.text.value();
                 if(ref.empty())
+                {
                     return false;
+                }
 
                 json::string substr{ref.begin(), ref.begin()+command.size()};
-                if(substr != command)
-                    return false;
-                else
-                    return true;
+                return substr == command;
             }
 
 
             boost::asio::awaitable<void>
             operator()()
             {
+                set_commandType();
+                switch (Echo::type_)
+                {
+                    case CommandType::File : co_await onFile(); break;
+
+                    case CommandType::Message : set_offset(); break;
+
+                    default: co_return;
+                }
+
                 size_t max_offset = 0;
                 size_t offset = Echo::command_offset;
                 const size_t limit = 2056;
-                json::string data = std::move(Echo::data_);
+                json::string data = std::move(Echo::mes_).text.value();
+
 
                 while(offset + limit < data.size())
                 {
@@ -198,7 +281,8 @@ namespace Commands
                     TG::SendMessage mes;
                     mes.chat_id = Echo::mes_.chat_id;
                     mes.text = std::move(substr);
-                    co_await Echo::session_.template send_response<false,true>(std::move(mes));
+                    co_await Echo::session_.send_response(std::move(mes));
+                    co_await Echo::session_.template read_response();
                     offset = offset + limit;
                 }
 
@@ -206,45 +290,9 @@ namespace Commands
                 if (!substr.empty())
                 {
                     Echo::mes_.text = std::move(substr);
-                    co_await Echo::session_.template send_response<false,true>(std::move(Echo::mes_));
+                    co_await Echo::session_.send_response(std::move(Echo::mes_));
+                    co_await Echo::session_.template read_response();
                 }
             }
-
-
-        template<TG::is_message Obj>
-        void prepare
-        (Obj&& mes)
-        {
-            if (mes.document.has_value())
-            {
-                Echo::type_ = CommandType::File;
-                return;
-            }
-
-            Echo::mes_.chat_id = mes.chat.id;
-            Echo::data_ = Utils::forward_like<Obj>(mes.text.value());
-            Echo::type_ = CommandType::Message;
-        }
     };
-
-
-    template<typename S, Pars::TG::is_message T>
-    [[nodiscard]]
-    inline std::unique_ptr<CommandInterface<S>>
-    find_command(S& session, T&& mes)
-    {
-        using namespace Pars;
-
-        if (Echo<S>::isCommand(mes))
-        {
-            auto ptr =  std::make_unique<Echo<S>>(session);
-            ptr->prepare(std::forward<T>(mes));
-            return ptr;
-        }
-
-        auto ptr = std::make_unique<NothingMessage<S>>(session);
-        ptr->prepare(std::forward<T>(mes));
-        return std::make_unique<NothingMessage<S>>(session);
-    }
-
 } //namespace Command

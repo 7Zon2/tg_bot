@@ -75,12 +75,33 @@ namespace Pars
             fields_map
             optional_fields(T&& val)
             {
+                const static json::string resP{"/result"};
+                auto pair = std::make_pair(resP, json::kind::array);
+                std::error_code er;
+                auto* pv = val.find_pointer(resP, er);
+                if (pv)
+                {
+                    if ( pv->is_array())
+                    {
+                        pair = std::make_pair(resP, json::kind::array);
+                    }
+                    else if (pv->is_object())
+                    {
+                        pair = std::make_pair(resP, json::kind::object);
+                    }
+                    else
+                    {
+                        throw std::runtime_error{"\nresult pointer has unknown type\n"};
+                    }
+                }
+
+
                 auto map = MainParser::mapped_pointers_validation
                 (
                     std::forward<T>(val), 
                     std::make_pair("/error_code", json::kind::int64),
                     std::make_pair("/description", json::kind::string),
-                    std::make_pair("/result", json::kind::array)
+                    pair
                 );
                 return map;
             }
@@ -90,6 +111,16 @@ namespace Pars
             void fields_from_map
             (T&& map)
             {
+                auto findUpdate = [this]()
+                {
+                    boost::system::error_code er;
+                    json::value* v = result.value().find_pointer("/update_id", er);
+                    if (!er)
+                        update_id = v->as_int64();
+                    else
+                        throw std::runtime_error{"failed to find update id"};
+                };
+
                 MainParser::field_from_map
                 <json::kind::bool_>(std::forward<T>(map), std::make_pair("ok", std::ref(ok)));
 
@@ -99,34 +130,22 @@ namespace Pars
                 MainParser::field_from_map
                 <json::kind::string>(std::forward<T>(map), std::make_pair("description", std::ref(description)));
 
+
                 optarray arr{MainParser::get_storage_ptr()};
                 MainParser::field_from_map
                 <json::kind::array>(std::forward<T>(map), std::make_pair("result", std::ref(arr)));
 
-                if(!arr.has_value())
-                {
-                    return;
-                }
-
-                if(arr.value().empty())
-                {
-                    return;
-                }
-
-                
-                try
+                if (arr.has_value() && !arr.value().empty())
                 {
                     result = MainParser::parse_jsonArray_as_value(std::move(arr.value()));
-                    boost::system::error_code er;
-                    json::value* v = result.value().find_pointer("/update_id", er);
-                    if (!er)
-                    {
-                        update_id = v->as_int64();
-                    }
+                    findUpdate();
                 }
-                catch(const std::exception& e)
+                else
                 {
-                    std::cerr << e.what() << '\n';
+                    optobj obj{MainParser::get_storage_ptr()};
+                    MainParser::field_from_map
+                    <json::kind::object>(std::forward<T>(map), std::make_pair("result", std::ref(obj)));
+                    result = std::move(obj);
                 }
             }
 

@@ -1,6 +1,6 @@
 #pragma once
 #include <concepts>
-
+#include <boost/json/value.hpp>
 
 namespace Pars
 {
@@ -27,7 +27,21 @@ namespace Pars
         struct Voice;
 
         template<typename T>
-        concept is_TelegramBased = std::is_base_of_v<TelegramEntities<typename T::type>, typename T::type>;
+        concept is_HeaderResult = requires (T && t)
+        {
+            typename T::header_type;
+        };
+
+        template<typename T>
+        concept is_TelegramBased = requires(T&& t)
+        {
+            t.requested_fields(boost::json::value{});
+            t.optional_fields(boost::json::value{});
+            t.get_entity_name();
+            t.req_fields;
+            t.opt_fields;
+            t.entity_name;
+        };
 
         template<typename T>
         concept is_TelegramResponse = std::is_same_v<std::remove_reference_t<T>, TelegramResponse>;

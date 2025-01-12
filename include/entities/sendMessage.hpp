@@ -6,17 +6,14 @@ namespace Pars
 {
     namespace TG
     {
-        struct SendMessage : public message
+        struct  SendMessage : public message
         {
+            using message::message;
+            using message::operator =;
+
             static inline const json::string entity_name{"sendmessage"};
             static constexpr  size_t req_fields = 2; //chat_id, text
             static constexpr  size_t opt_fields = 17;
-
-            public:
-
-            size_t chat_id = {};
-
-            public:
 
             [[nodiscard]]
             json::string
@@ -24,6 +21,24 @@ namespace Pars
             {
                 return entity_name;
             }
+
+            public:
+
+            size_t chat_id = {};
+
+            public:
+
+            SendMessage(const message& mes):
+                message(mes)
+                {
+                    chat_id = mes.chat.id;
+                }
+
+            SendMessage(message&& mes):
+                message(std::move(mes))
+                {
+                    chat_id = mes.chat.id;
+                }
 
             SendMessage(){}
 
@@ -56,7 +71,6 @@ namespace Pars
 
                 json::string txt{FIELD_EQUAL(text)};
                 txt += Utils::forward_like<Self>(self.text.value());
-                txt = MainParser::prepare_url_text(std::move(txt));
 
                 json::string req{URL_REQUEST(sendMessage)};
                 URL_BIND(req, id);
@@ -131,17 +145,23 @@ namespace Pars
             fields_to_value
             (
                 size_t chat_id,
-                json::string text     
+                optstr text
             )
             {
 
                 json::object req_ob(MainParser::get_storage_ptr());
                 req_ob = MainParser::parse_ObjPairs_as_obj
                     (
-                        PAIR(chat_id, chat_id),
-                        PAIR(text, text)
+                        PAIR(chat_id, chat_id)
                     );
 
+                json::object opt_ob(MainParser::get_storage_ptr());
+                opt_ob = MainParser::parse_OptPairs_as_obj
+                    (
+                        MAKE_OP(text,std::move(text))
+                    );
+
+                Pars::MainParser::container_move(std::move(opt_ob), req_ob);
                 return req_ob;
             }
 

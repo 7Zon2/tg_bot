@@ -6,8 +6,10 @@ namespace Pars
 {
     namespace TG
     {
-        struct Animation : protected PhotoSize
+        struct Animation : public PhotoSize
         {
+            using PhotoSize::operator =;
+            using PhotoSize::PhotoSize;
 
             double duration;
             std::optional<PhotoSize>thumbnail;
@@ -28,6 +30,9 @@ namespace Pars
             }
 
             public:
+
+            Animation(PhotoSize photo)
+                    :PhotoSize(std::move(photo)){}
 
             Animation(){}
 

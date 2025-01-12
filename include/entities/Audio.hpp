@@ -9,6 +9,8 @@ namespace Pars
     {
         struct Audio : protected Animation
         {
+            using Animation::Animation;
+            using Animation::operator = ;
 
             optstr performer;
             optstr title;
@@ -27,6 +29,11 @@ namespace Pars
             }
 
             public:
+
+            Audio(){}
+
+            Audio(Animation anim)
+                :Animation(std::move(anim)){}
 
             Audio
             (

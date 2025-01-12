@@ -637,7 +637,7 @@ namespace Pars
         template<as_json_value VAL, as_json_view...Types>
         [[nodiscard]]
         static fields_map
-        mapped_pointers_validation(VAL && val, std::pair<Types, json::kind>&&...pointers)
+        mapped_pointers_validation(VAL && val, const std::pair<Types, json::kind>&...pointers)
         {
 
             fields_map map;
@@ -918,23 +918,47 @@ namespace Pars
         static json::string
         prepare_url_text(json::string mes)
         {
+            auto fix_slash = [](json::string& url)
+            {
+                if (url[0]!='/')
+                {
+                    json::string str{"/"};
+                    str += std::move(url);
+                    url = std::move(str);
+                }
+            };
+
+            print("\nurl before parsing: \n", mes, "\n");
+
+            fix_slash(mes);
+
             const static json::string end{"%0A"};
+            const static json::string hyphen{"%2D"};
             const static json::string space{"%20"};
+            const static json::string underscore{"%5F"};
+
+            //int offset = mes.find_first_of("=");
+            //json::string head{mes.begin(), mes.begin()+offset};
+            //print("\nhead:",head,"\n");
 
             for(int i = mes.size() -1; i >= 0; i--)
             {
                 json::string temp;
                 char ch = mes[i];
-                if (ch == ' ')
+                switch (ch)
                 {
-                    temp =  space;
-                }
-                else if(ch == '\n')
-                {
-                    temp = end;
+                    case ' ': temp = space; break;
+
+                    //case '-': temp = hyphen; break;
+
+                    //case '_': temp = underscore; break;
+
+                    case '\n': temp = end; break;
+
+                    default: break;
                 }
 
-                if (temp.empty() == false)
+                if (!temp.empty())
                 {
                     temp += json::string{mes.begin() + i + 1, mes.end()};
                     mes.erase(i, mes.size() - i);
@@ -942,6 +966,7 @@ namespace Pars
                 }
             }
 
+            //mes.replace(0, head.size(), head);
             return mes;
         }
 
