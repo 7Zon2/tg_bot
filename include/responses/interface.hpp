@@ -139,8 +139,7 @@ namespace Commands
         {
             set_offset();
             mes_.text  = "There is Nothing. Where everything is gone?";
-            co_await this->session_.send_response(std::move(mes_));
-            co_await this->session_.template read_response();
+            co_await this->session_.template start_transaction<>(std::move(mes_));
         }
     };
 
@@ -162,7 +161,7 @@ namespace Commands
             for(;;)
             {
                 res = co_await
-                Echo::session_.template read_response();
+                Echo::session_.template read_response<>();
                 if (res.ok && res.result.has_value())
                 {
                     file = std::move(res.result).value();
@@ -173,15 +172,12 @@ namespace Commands
                 }
             }
 
-
+            using type = http::response<http::string_body>;
             req = Echo::session_.template prepare_request
                   <false>(std::move(file.file_path).value(), "file");
 
-            co_await Echo::session_.send_response(std::move(req));
-            using type = http::response<http::string_body>;
-            type res_b = co_await Echo::session_.template
-                  read_response<type>();
-
+            type res_b = co_await Echo::session_.
+            template start_transaction<type>(std::move(req));
             Echo::mes_.text = std::move(res_b).body();
         }
 
@@ -281,8 +277,7 @@ namespace Commands
                     TG::SendMessage mes;
                     mes.chat_id = Echo::mes_.chat_id;
                     mes.text = std::move(substr);
-                    co_await Echo::session_.send_response(std::move(mes));
-                    co_await Echo::session_.template read_response();
+                    co_await Echo::session_.template start_transaction<>(std::move(mes));
                     offset = offset + limit;
                 }
 
@@ -290,8 +285,7 @@ namespace Commands
                 if (!substr.empty())
                 {
                     Echo::mes_.text = std::move(substr);
-                    co_await Echo::session_.send_response(std::move(Echo::mes_));
-                    co_await Echo::session_.template read_response();
+                    co_await Echo::session_.template start_transaction<>(std::move(Echo::mes_));
                 }
             }
     };

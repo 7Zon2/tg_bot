@@ -66,7 +66,7 @@ class session : public std::enable_shared_from_this<session>
         {
             using namespace std::chrono;
             current_time.store(duration_cast<seconds>(high_resolution_clock::now().time_since_epoch()), std::memory_order_release);
-            return current_time.load(std::memory_order_relaxed) - last_time.load(std::memory_order_relaxed);
+            return current_time.load(std::memory_order_release) - last_time.load(std::memory_order_release);
         }
 
 
@@ -76,8 +76,8 @@ class session : public std::enable_shared_from_this<session>
         {
             using namespace std::chrono;
             current_time.store(duration_cast<seconds>(high_resolution_clock::now().time_since_epoch()), std::memory_order_release);
-            auto past_time = last_time.load(std::memory_order_relaxed); 
-            return last_time.compare_exchange_strong(past_time, current_time, std::memory_order_relaxed, std::memory_order_relaxed);
+            auto past_time = last_time.load(std::memory_order_release);
+            return last_time.compare_exchange_strong(past_time, current_time, std::memory_order_acq_rel);
         }
     };
 
@@ -136,7 +136,7 @@ class session : public std::enable_shared_from_this<session>
         co_await ses_.run();
     }
 
-    public:
+    protected:
 
     void shutdown()
     {
@@ -182,6 +182,7 @@ class session : public std::enable_shared_from_this<session>
        co_await handshake();
     }
 
+
     boost::asio::awaitable<void>
     handshake()
     {
@@ -212,9 +213,9 @@ class session : public std::enable_shared_from_this<session>
         target_ = target;
     }
 
-    public:
 
-    void simple_requset( http::request<http::string_body> &req )
+    void simple_requset
+    ( http::request<http::string_body> &req )
     {   
         req.version(version_);
         req.method(http::verb::get);
@@ -224,7 +225,8 @@ class session : public std::enable_shared_from_this<session>
     }
 
 
-    void GetWebhookRequest( http::request<http::string_body>& req)
+    void GetWebhookRequest
+    ( http::request<http::string_body>& req)
     {
         req.version(version_);
         req.method(http::verb::get);
@@ -234,7 +236,7 @@ class session : public std::enable_shared_from_this<session>
 
 
     [[nodiscard]]
-     http::request<http::string_body>
+    http::request<http::string_body>
     DeleteWebhookRequest(const bool del)
     {
         json::value val = Pars::TG::deletewebhook::fields_to_value
@@ -255,8 +257,6 @@ class session : public std::enable_shared_from_this<session>
         url+=std::move(file_id);
         return prepare_request<false>(std::move(url));
     }
-
-
 
 
     template<bool isPost>
@@ -327,11 +327,22 @@ class session : public std::enable_shared_from_this<session>
 
     public:
 
+    [[nodiscard]]
     boost::asio::awaitable<void>
     send_response
     (http::request<http::string_body> req)
     {
         co_await start_request_response<void, false, true>(std::move(req));
+    }
+
+
+    template<Pars::TG::is_TelegramBased U>
+    boost::asio::awaitable<void>
+    send_response
+    (U&& obj)
+    {
+        http::request<http::string_body>   req = prepare_request<false>(std::forward<U>(obj));
+        co_await send_response(std::move(req));
     }
 
 
@@ -347,6 +358,29 @@ class session : public std::enable_shared_from_this<session>
             start_request_response<Res, true, false>({});
         co_return std::move(res);
     }
+
+    public:
+
+    template<typename Res = Pars::TG::TelegramResponse>
+    [[nodiscard]]
+    boost::asio::awaitable<Res>
+    start_transaction(http::request<http::string_body> req)
+    {
+        co_await send_response(std::move(req));
+        Res res = co_await read_response<Res>();
+        co_return std::move(res);
+    }
+
+
+    template<Pars::TG::is_TelegramBased U, typename Res = Pars::TG::TelegramResponse>
+    boost::asio::awaitable<Res>
+    start_transaction(U&& obj)
+    {
+        co_await send_response(std::forward<U>(obj));
+        Res res = co_await read_response<Res>();
+        co_return std::move(res);
+    }
+
 
     template<bool getUpdates>
     boost::asio::awaitable<Pars::TG::TelegramResponse>
@@ -376,16 +410,7 @@ class session : public std::enable_shared_from_this<session>
         co_return std::move(res);
     }
 
-
-    template<Pars::TG::is_TelegramBased U>
-    boost::asio::awaitable<void>
-    send_response
-    (U&& obj)
-    {
-        http::request<http::string_body>   req = prepare_request<false>(std::forward<U>(obj));
-        co_await send_response(std::move(req));
-    }
-
+    protected:
 
     boost::asio::awaitable<void>
     send_command
@@ -482,8 +507,15 @@ class session : public std::enable_shared_from_this<session>
             while(true)
             {
                 TG::TelegramResponse resp = co_await
-                    start_getUpdates<TG::TelegramResponse, false>();
-                co_await parse_result(std::move(resp));
+                start_getUpdates<TG::TelegramResponse, false>();
+                std::jthread th
+                {
+                    [&]() -> boost::asio::awaitable<void>
+                    {
+                        co_await parse_result(std::move(resp));
+                    }
+                };
+                th.detach();
             }
         }
         catch(const std::exception& e)
@@ -493,6 +525,7 @@ class session : public std::enable_shared_from_this<session>
         }
     }
 
+    protected:
 
     template<typename  Res, bool isRead = true, bool isWrite = true>
     [[nodiscard]]
@@ -560,7 +593,7 @@ class session : public std::enable_shared_from_this<session>
         }
     }
 
-    public:
+    protected:
 
     template<bool isForce = false, bool isLast = false>
     [[nodiscard]]
@@ -628,8 +661,7 @@ class session : public std::enable_shared_from_this<session>
         }
     }
 
-
-    public:
+    protected:
 
     void
     PrepareMultiPart
@@ -735,7 +767,6 @@ class session : public std::enable_shared_from_this<session>
         co_await resolve();
     }
 
-    public:
 
     void print_response(auto&& res)
     {

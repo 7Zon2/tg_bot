@@ -5,6 +5,8 @@ project(http)
 set(BOOST_ROOT /home/zon/my_libs/boost_1_86_0)
 set(CMAKE_BUILD_TYPE Debug)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 find_package(Boost REQUIRED)
 
 find_package(Boost REQUIRED COMPONENTS json)

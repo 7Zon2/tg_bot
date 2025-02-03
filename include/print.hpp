@@ -1,5 +1,8 @@
 #pragma once
 #include <concepts>
+#include <functional>
+#include <iostream>
+#include <algorithm>
 #include <ranges>
 #include <string_view>
 
@@ -21,6 +24,8 @@ concept is_wcout = requires(T&& t)
     std::wcout<<t;
 };
 
+template<typename R>
+concept is_range=std::ranges::viewable_range<R>;
 
 template<typename T>
 concept is_printable = requires(T&& t)
@@ -30,13 +35,11 @@ concept is_printable = requires(T&& t)
         is_cout<T>  ||
         is_wcout<T> ||
         as_string_view<T> ||
-        as_wstring_view<T> 
+        as_wstring_view<T> ||
+        is_range<T>
     );
 };
 
-
-template<typename R>
-concept is_range=std::ranges::viewable_range<R>;
 
 template<typename  R>
 concept is_string_container = 
@@ -85,6 +88,8 @@ inline void print(Types&&...args)
                 std::cout<<std::string_view{t};
             else if constexpr (as_wstring_view<T>)
                 std::wcout<<std::wstring_view{t};
+            else if constexpr(is_range<T>)
+                std::ranges::for_each(std::ranges::ref_view(t), [](auto&& obj){std::cout<<obj<<"\n";});
         },
 
         [](std::string_view vw,const size_t sz)

@@ -13,3 +13,4 @@ add_library(Headers INTERFACE
 )
 
 target_include_directories(Headers INTERFACE entities)
+target_include_directories(Headers INTERFACE LFS)
