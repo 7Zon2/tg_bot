@@ -32,5 +32,4 @@ target_include_directories(flags INTERFACE ${PROJECT_SOURCE_DIR}/include)
 
 target_link_libraries(flags INTERFACE  OpenSSL::SSL OpenSSL::Crypto  stdc++exp dl  ${Boost_LIBRARIES})
 
-add_subdirectory(serv)
 add_subdirectory(client)
