@@ -1,14 +1,19 @@
 #pragma once
+#include "LFS/share_resource.hpp"
 #include "LF_FreeList.hpp"
+#include "print.hpp"
+#include <atomic>
 #include <exception>
 #include <functional>
+#include <type_traits>
 #include <unordered_map>
 
-class Hazardous final : ShareResource 
+
+class Hazardous final  
 {
   struct HZP;
   using del_foo  = std::function<void(void*, size_t)>;
-  using hazard_node = typename FreeList<HZP>::node_type;
+  using hazard_node = typename FreeList<HZP>::Node;
 
   del_foo deleter_;
   size_t limit_;
@@ -51,6 +56,22 @@ class Hazardous final : ShareResource
       return  *this;
     }
 
+    
+    template<typename T>
+    HZP(T& data) noexcept
+    {
+      protect(data);
+    }
+    
+
+    template<typename T>
+    HZP& operator = (T& data) noexcept
+    {
+      protect(data);
+      return *this;
+    }
+
+    public:
 
     void protect(void * data, const size_t data_size = 0) noexcept
     {
@@ -62,10 +83,28 @@ class Hazardous final : ShareResource
     template<typename T>
     void protect(T& data) noexcept
     {
-      size_t data_size = sizeof(T);
-      protect(static_cast<void*>(&data), data_size);
+      size_t data_size = 0;
+      void * ptr{};
+      if constexpr (std::is_pointer_v<T>)
+      {
+        data_size = sizeof(std::remove_pointer_t<T>);
+        ptr = static_cast<void*>(&*data);
+      }
+      else
+      {
+        data_size = sizeof(T);
+        ptr = static_cast<void*>(&data);
+      }
+      protect(ptr, data_size);
     }
 
+    
+    void reset() noexcept 
+    {
+      clear();
+      isRetire.store(true, std::memory_order_relaxed);
+    }
+  
     
     void clear() noexcept
     {
@@ -81,6 +120,14 @@ class Hazardous final : ShareResource
       return data_size_.load(std::memory_order_acquire);
     }
 
+
+    [[nodiscard]]
+    void* 
+    get() noexcept 
+    {
+      return data_.load(std::memory_order_relaxed);
+    }
+
   };
 
 
@@ -88,9 +135,41 @@ class Hazardous final : ShareResource
 
   using HZP = HZP;
 
-  Hazardous(const size_t limit, del_foo deleter):
+  Hazardous(const size_t limit,const del_foo& deleter):
     deleter_(deleter), limit_(limit){}
 
+  Hazardous(const size_t limit, del_foo&& deleter) noexcept:
+    deleter_(std::move(deleter)), limit_(limit){}
+
+  Hazardous(const Hazardous&) = delete;
+  Hazardous& operator = (const Hazardous&) = delete;
+
+  Hazardous(Hazardous&& rhs) noexcept
+  {
+    limit_ = rhs.limit_;
+    deleter_ = std::move(rhs.deleter_);
+    bool busy = true; 
+    do
+    {
+      busy = rhs.isBusy.load(std::memory_order_relaxed);
+    }
+    while(busy || !rhs.isBusy.compare_exchange_strong(busy, true, std::memory_order_relaxed));
+
+    hlist_ = std::move(rhs.hlist_);
+    rhs.isBusy.store(false, std::memory_order_release);
+  }
+
+  Hazardous& operator=(Hazardous&& rhs) noexcept
+  {
+    if(this!=&rhs)
+    {
+      Hazardous temp{std::move(rhs)};
+      limit_ = temp.limit_;
+      deleter_ = std::move(temp.deleter_);
+      hlist_ = std::move(temp.hlist_);
+    }
+    return *this;
+  }
 
   ~Hazardous()
   {
@@ -98,6 +177,18 @@ class Hazardous final : ShareResource
   }
 
   public:
+
+  void clear()
+  {
+    for(auto* node = hlist_.pop(); node!=nullptr; node = hlist_.pop())
+    {
+      HZP& hzp = node->data_;
+      if(hzp.isRetire)
+        deleter_(hzp.data_, hzp.data_size_);
+    }
+    hlist_.clear();
+  }
+
 
   void retire(HZP * hzp)
   {
@@ -110,7 +201,7 @@ class Hazardous final : ShareResource
   {
     check_limit();
     HZP hzp;
-    return &hlist_.push(std::move(hzp))->get();
+    return &hlist_.push(std::move(hzp))->data_;
   }
 
 
@@ -118,7 +209,7 @@ class Hazardous final : ShareResource
   auto
   make_hazards(const size_t sz)
   {
-    std::pmr::vector<HZP*> vec(sz, &res_);
+    std::pmr::vector<HZP*> vec(sz, &ShareResource::res_);
     for(size_t i = 0; i< sz; i++)
     {
       HZP* p = make_hazard();
@@ -156,6 +247,7 @@ class Hazardous final : ShareResource
   void 
   delete_hazard(hazard_node* node) noexcept
   {
+    PRINT("deleted hazard node: ", node,"\n");
     ShareResource::res_.deallocate(node, sizeof(hazard_node));
   }
 
@@ -163,17 +255,17 @@ class Hazardous final : ShareResource
   void 
   scan()
   {
-    std::pmr::unordered_multimap <void*,hazard_node*> pmap{&res_};
-    std::pmr::unordered_multimap<void*, hazard_node*> rmap{&res_};
+    std::pmr::unordered_multimap <void*,hazard_node*> pmap{&ShareResource::res_};
+    std::pmr::unordered_multimap<void*, hazard_node*> rmap{&ShareResource::res_};
 
     FreeList<HZP> hlist{std::move(hlist_)};
     size_t size = hlist.size(); 
     pmap.reserve(size);
     rmap.reserve(size);
-
+    PRINT("SCAN\nSize of the hazard pointers: ", hlist.size(),"\n");
     for(auto* pn = hlist.pop(); pn!=nullptr; pn = hlist.pop())
     {
-      HZP& hzp = pn->get();
+      HZP& hzp = pn->data_;
       void * data = hzp.data_.load(std::memory_order_acquire);
       bool is_retire = hzp.isRetire.load(std::memory_order_acquire);
       if(!is_retire)
@@ -183,7 +275,8 @@ class Hazardous final : ShareResource
       }
       else
       {
-        rmap.emplace(data, pn);
+        if(data)
+          rmap.emplace(data, pn);
       }  
     }
 
@@ -192,15 +285,12 @@ class Hazardous final : ShareResource
     for(auto&& i : rmap)
     {
       void * data = i.first;
-      if(!data)
-      {
-        continue;
-      }
-
       if(!pmap.contains(data))
       {
-        size_t data_size = i.second->get().data_size_.load(std::memory_order_acquire);
+        HZP& hzp = i.second->data_;
+        size_t data_size = hzp.data_size_.load(std::memory_order_relaxed);
         deleter_(data, data_size);
+
         auto iters = rmap.equal_range(data);
         auto b = iters.first;
         auto e = iters.second;
@@ -210,6 +300,10 @@ class Hazardous final : ShareResource
           delete_hazard(node);
         }
       }
+
+      [[maybe_unused]]
+      size_t remove_number = rmap.erase(data);
+      PRINT("number of removed elements:", remove_number,"\n");
     }
   }
 };

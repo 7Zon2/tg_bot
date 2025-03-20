@@ -6,6 +6,18 @@
 #include <ranges>
 #include <string_view>
 
+template<typename...Types>
+void print(Types&&...args);
+
+//#define PRINT_ON
+
+#ifdef PRINT_ON
+#define PRINT(...) print(__VA_ARGS__)
+#else
+#define PRINT(...)
+#endif
+
+
 template<typename T>
 concept as_string_view = std::is_convertible_v<T, std::string_view>;
 
@@ -133,3 +145,5 @@ std::string all_to_string(Types&&...args)
     (parse(str,std::forward<Types>(args)),...);
     return str;
 }
+
+

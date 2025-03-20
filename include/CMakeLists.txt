@@ -12,5 +12,6 @@ add_library(Headers INTERFACE
     move_opt.hpp
 )
 
+target_include_directories(Headers INTERFACE TestUtils)
 target_include_directories(Headers INTERFACE entities)
 target_include_directories(Headers INTERFACE LFS)

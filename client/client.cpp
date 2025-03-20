@@ -13,6 +13,8 @@
 #include <boost/asio/detached.hpp>
 #include "tg_exceptions.hpp"
 #include "responses/interface.hpp"
+#include "LFS/LF_stack.hpp"
+
 
 template<typename T>
 concept is_getUpdates = std::is_same_v<std::remove_reference_t<T>, Pars::TG::getUpdates>;
