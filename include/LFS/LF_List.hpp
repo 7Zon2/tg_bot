@@ -493,6 +493,20 @@ class LF_OrderList : protected FreeList<std::pair<size_t,T>, true>
   }
 
 
+  template<typename U>
+  size_t erase(const U& key, Node* it ={})
+  {
+    bool res = true;
+    int count = 0;
+    while(res)
+    {
+      res = remove(key, it);
+      count+=res;
+    }
+    return count;
+  }
+
+
   [[nodiscard]]
   LF_OrderList 
   cut(Node* it) noexcept

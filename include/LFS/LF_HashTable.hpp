@@ -200,9 +200,9 @@ class LF_HashTable
 
       bool remove(List_t& list_, const Key& key)
       {
-        bool res = list_.remove(key, bucket_head_.load(std::memory_order_relaxed));
-        bucket_count_.fetch_sub(res, std::memory_order_release);
-        return res;
+        int count = list_.erase(key, bucket_head_.load(std::memory_order_relaxed));
+        bucket_count_.fetch_sub(count, std::memory_order_release);
+        return count;
       }
   };
 
@@ -633,27 +633,6 @@ class LF_HashTable
       const Key& key = node.data_.first;
       remove(key);
     }
-    
-
-    /*for(std::atomic<segment*>& ptr : seg_arr_ | std::views::reverse)
-    {
-      segment* seg = ptr.load(std::memory_order_relaxed);
-      if(!seg)
-      {
-        continue;
-      }
-
-      segment& table = *seg;
-      for(std::atomic<Bucket*>& anode : table | std::views::reverse)
-      {
-        Bucket* bucket = anode.load(std::memory_order_relaxed);
-        if(!bucket)
-        {
-          continue;
-        }
-        bucket->reset_count();
-      }
-    }*/
     counter_.store(0, std::memory_order_release);
   }
 
