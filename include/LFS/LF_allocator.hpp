@@ -119,6 +119,12 @@ class LF_allocator : public std::pmr::memory_resource
     }
 
 
+    void reclaim_hazard(Hazardous::hazard_pointer&& p)
+    {
+      hazardous_.reclaim(std::move(p));
+    }
+
+
     void 
     set_retire_limit
     (const size_t limit) noexcept

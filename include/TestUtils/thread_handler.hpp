@@ -1,7 +1,8 @@
 #pragma once
 #include "print.hpp"
+#include <functional>
 #include <chrono>
-
+#include <cassert>
 
 namespace ThreadHandler
 {
@@ -50,4 +51,57 @@ class Thread_Timer
   }
 };
 
-}//ThreadHandler
+
+
+class FuncHandler
+{
+  int limit_;
+
+  using func_type = std::function<void(void)>;
+
+  public:
+
+  enum class LOOP_TYPE
+  {
+    SIMPLE = 0,
+    INCREMENT = 1
+  };
+
+  FuncHandler(){}
+
+  FuncHandler(int limit):
+    limit_(limit)
+  {
+    assert(limit_>0);
+  }
+
+
+  template<LOOP_TYPE type, typename F, typename...Types>
+  void go(F&& fun, Types&&...args)
+  { 
+    size_t limit = limit_;
+
+    auto call = []<typename Fun, typename...TT>
+    (Fun f, TT&&...args)
+    {
+      std::invoke(std::forward<Fun>(f), std::forward<TT>(args)...);
+    };
+
+
+    if constexpr (type == LOOP_TYPE::SIMPLE)
+    {
+      for(size_t i = 0; i < limit; i++)
+        call(std::forward<F>(fun), std::forward<Types>(args)...);
+    }
+
+    if constexpr(type == LOOP_TYPE::INCREMENT)
+    {
+      for(size_t i = 0; i < limit; i++)
+        call(std::forward<F>(fun),i, std::forward<Types>(args)...);
+    }
+  }
+
+};
+
+} //namespace ThreadHandler
+

@@ -49,9 +49,9 @@ struct Node_Type<T,true>
   Node_Type(U&& data) noexcept (std::is_nothrow_constructible_v<T>):
         data_(std::forward<U>(data)){}
 
-  auto next() noexcept
+  auto next(std::memory_order m = std::memory_order_relaxed) noexcept
   {
-    return next_.load(std::memory_order_relaxed);
+    return next_.load(m);
   }
 };
 
