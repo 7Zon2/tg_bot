@@ -288,8 +288,8 @@ class LF_HashTable
   {
     struct LocalIndexes
     {
-      int parent_index = 0;
-      int segment_index = 0;
+      size_t parent_index = 0;
+      size_t segment_index = 0;
     };
 
     auto find_parent_bucket = [&](size_t parent_index, size_t segment_index)
@@ -305,10 +305,10 @@ class LF_HashTable
     auto& table = get_table(modulo, segment_index);
     size_t index = get_index(modulo, segment_index);
     Bucket* bucket = table[index].load(std::memory_order_relaxed);
-    
+
     vec.push_back(LocalIndexes(modulo, segment_index));
     
-    int parent_index = modulo;
+    size_t parent_index = modulo;
     while(!bucket) //search for the first initialized bucket
     {
       parent_index = get_table_index(parent_index, segment_index);
@@ -316,7 +316,6 @@ class LF_HashTable
       vec.push_back(LocalIndexes(parent_index, segment_index));
     }
 
-    assert(parent_index >= 0 && segment_index >=0); // the first bucket must be always initialized
 
     for(auto indexes : vec | std::views::reverse) // initializes all new parent buckets with their previous parent. 
                                                    // if previous parent equal the next parent then nothing happens
@@ -348,20 +347,25 @@ class LF_HashTable
     
     bool before = true; // we need to insert a new node before another one 
                         // that we will find (due to order list insertion) 
-    while(!insert_node)
+
+    Bucket* new_bucket{};
+    insert_node = list_.insert(HashNode_t{true, pair_t{parent_hash, Obj{}}}, parent->get(), before);
+    if(!insert_node)
     {
-      insert_node = list_.insert(HashNode_t{true, pair_t{parent_hash, Obj{}}}, parent->get(), before);
+      while(!new_bucket)
+      {
+        new_bucket = table[index].load(std::memory_order_acquire);
+      }
+      return new_bucket;
     }
 
-    Bucket * new_bucket = new Bucket(insert_node, parent_hash);
+    new_bucket = new Bucket(insert_node, parent_hash);
 
     //if two or more threads inserted the same node we need to remove redundant
     if(!table[index].compare_exchange_strong
         (old_bucket, new_bucket, std::memory_order_release, std::memory_order_relaxed))
     {
       delete new_bucket;
-      Bucket* pb = get_parent_bucket(parent_hash, segment_index - 1); 
-      list_.remove(parent_hash, pb->get());
     }
 
     return table[index].load(std::memory_order_relaxed);
@@ -390,7 +394,9 @@ class LF_HashTable
   get_table_index
   (const size_t hash, const size_t segment_index) const noexcept 
   {
-    return hash % get_table_size(segment_index);
+    size_t table_size = get_table_size(segment_index);
+    size_t res = hash % table_size;
+    return res;
   }
 
 
@@ -551,7 +557,6 @@ class LF_HashTable
     }
 
     size_t hash  = get_hash(key);
-
     inflate_table();
     Bucket* parent_bucket = get_parent_bucket(hash, current_segment_.load(std::memory_order_relaxed));
     
@@ -564,20 +569,42 @@ class LF_HashTable
   }
 
 
-  bool remove(const Key& key)
+  template<typename T>
+  bool remove(const T& key)
   {
     size_t hash = get_hash(key);
     size_t segment_index = current_segment_.load(std::memory_order_relaxed);
 
-    Bucket * bucket = get_parent_bucket(hash, segment_index);
-    if(!bucket)
-    {
-      return {};
-    }
+    Bucket * bucket = find_bucket(hash, segment_index);
 
-    bool res = bucket->remove(list_, key);
+    bool res = list_.erase(key, bucket->get());
     counter_.fetch_sub(res, std::memory_order_release);
     return res;
+  }
+
+
+  [[nodiscard]]
+  Bucket* 
+  get_bucket(size_t hash, size_t segment_index) noexcept
+  {
+    auto& table = get_table(hash, segment_index);
+    size_t index = get_index(hash, segment_index);
+    return table[index].load(std::memory_order_relaxed);
+  }
+  
+
+  [[nodiscard]]
+  Bucket* 
+  find_bucket(size_t hash, int segment_index) noexcept 
+  {
+    Bucket* bucket{};
+    while(!bucket && (segment_index>=0))
+    {
+      bucket = get_bucket(hash, segment_index);
+      --segment_index;
+    }
+
+    return bucket;
   }
 
 
@@ -587,12 +614,7 @@ class LF_HashTable
   {
     size_t hash = get_hash(key);
     size_t segment_index = current_segment_.load(std::memory_order_relaxed);
-    
-    Bucket* bucket = get_parent_bucket(hash, segment_index);
-    if(!bucket)
-    {
-      return {};
-    }
+    Bucket* bucket = find_bucket(hash, segment_index);
 
     std::optional<HashNode_t> opt = list_.contain(key, bucket->get());
     if(opt.has_value() && (opt.value().isDummy == false))
@@ -610,11 +632,7 @@ class LF_HashTable
     size_t hash = get_hash(key);
     size_t segment_index = current_segment_.load(std::memory_order_relaxed);
     
-    Bucket* bucket = get_parent_bucket(hash, segment_index);
-    if(!bucket)
-    {
-      return {};
-    }
+    Bucket* bucket = find_bucket(hash, segment_index);
 
     std::optional<HashNode<pair_t>> opt = list_.contain(hash, bucket->get());
     if(opt.has_value() && (opt.value().isDummy==false))

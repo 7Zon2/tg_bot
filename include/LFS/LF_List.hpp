@@ -8,6 +8,7 @@
 #include <memory>
 #include <type_traits>
 #include <utility>
+#include <thread>
 
 
 template<typename T, typename Compare = std::less_equal<T>>
@@ -108,9 +109,9 @@ class LF_OrderList : protected FreeList<std::pair<size_t,T>, true>
   using iterator = order_iterator;
 
   LF_OrderList(Compare comporator = Compare{}):
-    alloc_([this](void* data, size_t data_size){
-        if(data)
-          std::destroy_at(static_cast<type*>(data));
+    alloc_([this](void* data, size_t data_size)
+    {    
+      std::destroy_at(static_cast<type*>(data));
     }), 
     comporator_(comporator)
   {
@@ -130,7 +131,6 @@ class LF_OrderList : protected FreeList<std::pair<size_t,T>, true>
     tail_  = rhs.tail_.exchange(temp.tail_, std::memory_order_acq_rel);
     comporator_ = std::move(rhs.comporator_);
     alloc_ = std::move(rhs.alloc_);
-    temp.reset();
   }
 
 
@@ -164,39 +164,7 @@ class LF_OrderList : protected FreeList<std::pair<size_t,T>, true>
   protected:
 
   [[nodiscard]]
-  static Node* 
-  corrupt_node
-  (Node * ptr) noexcept
-  {
-    return reinterpret_cast<Node*>(reinterpret_cast<size_t>(ptr)|1);
-  }
-
-
-  [[nodiscard]]
-  static bool 
-  is_tagged 
-  (Node* ptr)  noexcept 
-  {
-    return reinterpret_cast<size_t>(ptr) & 1; 
-  }
-
-
-  [[nodiscard]]
-  static auto
-  clear_tag
-  (Node* ptr) noexcept
-  {
-    bool Tagged = is_tagged(ptr);
-    if(Tagged)
-      ptr = reinterpret_cast<Node*>(reinterpret_cast<size_t>(ptr) ^1);
-
-    return std::make_pair(Tagged, ptr);
-  }
-
-  protected:
-
-  [[nodiscard]]
-  std::pair<Node*, Hazardous::HZP*>
+  std::pair<Node*, Hazardous::hazard_pointer>
   search_node(size_t key, Node* it = {})
   {
     if(!it)
@@ -213,7 +181,6 @@ class LF_OrderList : protected FreeList<std::pair<size_t,T>, true>
       curr = prev->next();
       if(!curr)
       {
-        hzp_c->reset();
         return std::make_pair(prev, nullptr);
       }
 
@@ -243,7 +210,7 @@ class LF_OrderList : protected FreeList<std::pair<size_t,T>, true>
         bool success = prev->next_.compare_exchange_strong(curr, next, std::memory_order_relaxed);
         if(success)
         {
-          alloc_.deallocate_hazard(hzp_c);
+          hzp_c.reclaim();
           hzp_c = alloc_.get_hazard();
         }
         else
@@ -267,7 +234,6 @@ class LF_OrderList : protected FreeList<std::pair<size_t,T>, true>
         }
       }
 
-
       if(!curr)
       {
         continue;
@@ -279,7 +245,7 @@ class LF_OrderList : protected FreeList<std::pair<size_t,T>, true>
       size_t key_ = pair.first;
       if(comporator_(key, key_))
       {
-        return std::make_pair(prev, hzp_c);
+        return std::make_pair(prev, std::move(hzp_c));
       }
 
       prev = curr;
@@ -289,7 +255,7 @@ class LF_OrderList : protected FreeList<std::pair<size_t,T>, true>
 
   template<typename U>
   [[nodiscard]]
-  std::pair<Node*,Hazardous::HZP*> 
+  std::pair<Node*,Hazardous::hazard_pointer> 
   find_node(const U& key, Node* it = {})
   {
     if(!it)
@@ -304,12 +270,11 @@ class LF_OrderList : protected FreeList<std::pair<size_t,T>, true>
       return {};
     }
 
-    Node* ptr = static_cast<Node*>(hzp->get());
+    Node* ptr = static_cast<Node*>(hzp->data_.load(std::memory_order_acquire));
     if(ptr && (ptr->data_.first == key_))
     {
-      return std::make_pair(prev,hzp);
+      return std::make_pair(prev, std::move(hzp));
     }
-    hzp->reset();
     return {};
   }
   
@@ -371,15 +336,14 @@ class LF_OrderList : protected FreeList<std::pair<size_t,T>, true>
   std::optional<T>
   contain(const U& key, Node * it = {})
   {
-    Hazardous::HZP* hzp = find_node(key, it).second;
+    auto hzp = std::move(find_node(key, it).second);
     if(!hzp)
     {
       return {};
     }
 
-    Node* ptr = static_cast<Node*>(hzp->get());
+    Node* ptr = static_cast<Node*>(hzp->data_.load(std::memory_order_acquire));
     std::optional<T> opt = ptr->data_.second;
-    hzp->reset();
     return opt;
   }
 
@@ -389,13 +353,10 @@ class LF_OrderList : protected FreeList<std::pair<size_t,T>, true>
   bool 
   find(const U& key, Node* it = {})
   {
-    Hazardous::HZP* hzp = find_node(key, it).second;
-    if(!hzp)
-    {
-      return false;
-    }
+    auto[prev,hzp] = find_node(key, it);
+    bool res = hzp;
     hzp->reset();
-    return true;
+    return res;
   }
 
 
@@ -423,13 +384,7 @@ class LF_OrderList : protected FreeList<std::pair<size_t,T>, true>
     }
     else
     {
-      node = static_cast<Node*>(hzp->get());
-    }
-
-    if(hzp)
-    {
-      hzp->clear();
-      alloc_.deallocate_hazard(hzp);
+      node = static_cast<Node*>(hzp->data_.load(std::memory_order_acquire));
     }
     
     assert(node);
@@ -470,11 +425,8 @@ class LF_OrderList : protected FreeList<std::pair<size_t,T>, true>
     {
       return false;
     }
-    
+   
     Node * curr = prev;
-    hzp->clear();
-    alloc_.deallocate_hazard(hzp);
-
     if(!curr)
     {
       return false;
@@ -518,4 +470,3 @@ class LF_OrderList : protected FreeList<std::pair<size_t,T>, true>
   }
 
 };
-

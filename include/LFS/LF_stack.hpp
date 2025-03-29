@@ -38,7 +38,7 @@ class LF_stack : public FreeList<T>
     {
       Node * old_head = head_.load(std::memory_order_relaxed);
       Node * tail = tail_.load(std::memory_order_relaxed); 
-      auto * hzp =  alloc_.get_hazard();
+      auto  hzp =  alloc_.get_hazard();
       do
       {
         Node*  temp;
@@ -64,7 +64,7 @@ class LF_stack : public FreeList<T>
         hzp->clear();
       }
 
-      alloc_.deallocate_hazard(hzp);
+      alloc_.deallocate_hazard(std::move(hzp));
       return opt;
     }
 

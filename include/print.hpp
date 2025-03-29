@@ -5,6 +5,10 @@
 #include <algorithm>
 #include <ranges>
 #include <string_view>
+#include <chrono>
+
+
+using namespace std::chrono_literals;
 
 template<typename...Types>
 void print(Types&&...args);

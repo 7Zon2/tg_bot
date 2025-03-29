@@ -5,6 +5,7 @@
 #include <atomic>
 #include <cassert>
 #include <type_traits>
+#include <utility>
 #include "share_resource.hpp"
 
 template<typename T, bool AtomicNode = false>
@@ -16,10 +17,12 @@ struct Node_Type
 
   public:
 
-  Node_Type(){}
+  template<typename...Types>
+  Node_Type(Types&&...args) noexcept (std::is_nothrow_constructible_v<T>):
+    data_(std::forward<Types>(args)...){}
 
   template<typename U>
-  Node_Type(U&& data):
+  Node_Type(U&& data) noexcept (std::is_nothrow_constructible_v<T>):
         data_(std::forward<U>(data)){}
 
   auto next() noexcept
@@ -38,10 +41,12 @@ struct Node_Type<T,true>
 
   public:
 
-  Node_Type(){}
+  template<typename...Types>
+  Node_Type(Types&&...args) noexcept (std::is_nothrow_constructible_v<T>):
+    data_(std::forward<Types>(args)...){}
 
   template<typename U>
-  Node_Type(U&& data):
+  Node_Type(U&& data) noexcept (std::is_nothrow_constructible_v<T>):
         data_(std::forward<U>(data)){}
 
   auto next() noexcept
@@ -142,16 +147,14 @@ class FreeList
 
     void purge()
     {
-      void * p = allocate();
-      Node * new_head = ::new(p) Node();
-      auto * head = head_.exchange(new_head, std::memory_order_relaxed);
-      tail_.exchange(head_, std::memory_order_relaxed);
+      auto * head = head_.load(std::memory_order_relaxed);
       while(head)
       {
         auto * next = head->next();
         res_->deallocate(head, sizeof(Node));
         head = next;
       }
+      initialize();
       counter_.store(0, std::memory_order_release);
     }
 
@@ -172,7 +175,7 @@ class FreeList
       tail_(tail), 
       res_(res)
     {
-      size_t counter =0;
+      size_t counter = 0;
       for(;head!=tail;head = head->next(), ++counter)
       {}
       counter_.store(counter, std::memory_order_relaxed);
@@ -192,14 +195,12 @@ class FreeList
     virtual 
     ~FreeList()
     {
-      purge();
       auto * head = head_.exchange(nullptr, std::memory_order_relaxed);
-      [[maybe_unused]]
-      auto * tail = tail_.exchange(nullptr, std::memory_order_relaxed);
-      assert(head == tail);
-      if(head)
+      while(head)
       {
+        Node* next = head->next();
         res_->deallocate(head, sizeof(Node));
+        head = next;
       }
     }
 
@@ -245,6 +246,36 @@ class FreeList
     }
 
 
+    [[nodiscard]]
+    auto data(std::memory_order  mod = std::memory_order_acquire) const noexcept 
+    {
+      return head_.load(mod);
+    }
+
+
+    [[nodiscard]]
+    auto back(std::memory_order mod = std::memory_order_acquire) const noexcept 
+    {
+      return tail_.load(mod);
+    }
+
+
+    [[nodiscard]]
+    std::atomic<Node*>& 
+    head() noexcept
+    {
+      return head_;
+    }
+
+
+    [[nodiscard]]
+    std::atomic<Node*>& 
+    tail() noexcept
+    {
+      return tail_;
+    }
+
+
     void set_allocator(std::pmr::memory_resource* res = &ShareResource::res_)
     {
       res_ = res;
@@ -269,30 +300,78 @@ class FreeList
     { 
       Node * head = head_.load(std::memory_order_relaxed);
       Node * tail = tail_.load(std::memory_order_relaxed);
-      while(head!=tail && !head_.compare_exchange_strong(head, head->next_, std::memory_order_relaxed))
+      Node* next = head->next();
+
+      while
+      (
+        (next && !head_.compare_exchange_strong(head, next, std::memory_order_release))
+      )
       {
-        counter_.fetch_sub(1, std::memory_order_release);
+        next = head->next();
       }
 
-      Node* new_head = head_.load(std::memory_order_relaxed);
-      return !tail_.compare_exchange_strong(new_head, new_head, std::memory_order_relaxed) ? head : nullptr;  
+      assert(head && tail);
+
+      if(!next)
+      {
+        return nullptr;
+      }
+
+      counter_.fetch_sub(1, std::memory_order_release);
+      return head;  
+    }
+
+
+    template<typename...Types>
+    [[nodiscard]]
+    Node* create_node(Types&&...args) 
+    {
+      void * ptr = res_->allocate(sizeof(Node));
+      Node* node = new(ptr) Node{std::forward<Types>(args)...};
+      return node;
     }
 
 
     void push(Node* node) noexcept
     {
       node->next_ = head_.load(std::memory_order_relaxed);
-      while(!head_.compare_exchange_weak(node->next_, node, std::memory_order_relaxed));
+      Node * next = node->next();
+      while(!head_.compare_exchange_strong(next, node, std::memory_order_relaxed))
+      {
+        node->next_ = head_.load(std::memory_order_relaxed);
+        next = node->next();
+      }
+      counter_.fetch_add(1, std::memory_order_release);
+    }
+
+   
+    template<typename...Types>
+    Node* push(Types&&...args)
+    {
+
+      Node* node = create_node(std::forward<Types>(args)...);
+      push(node);
+      return node;
+    }
+
+
+    void push_back(Node* node) noexcept
+    {
+      Node* old_tail = tail_.load(std::memory_order_relaxed);
+      old_tail->next_ = node;
+      while(!tail_.compare_exchange_strong(old_tail, old_tail->next_, std::memory_order_relaxed))
+      {
+        old_tail->next_ = node;
+      }
       counter_.fetch_add(1, std::memory_order_release);
     }
 
 
-    template<typename U>
-    Node* push(U&& data)
+    template<typename...Types>
+    Node* push_back(Types&&...args)
     {
-      void * ptr = res_->allocate(sizeof(Node));
-      Node* node = new (ptr) Node{std::forward<U>(data)};
-      push(node);
+      Node* node = create_node(std::forward<Types>(args)...);
+      push_back(node);
       return node;
     }
 
@@ -301,6 +380,20 @@ class FreeList
     {
       head_.store(nullptr, std::memory_order_relaxed);
       tail_.store(nullptr, std::memory_order_relaxed);
+    }
+
+
+    void increment
+    (std::memory_order m = std::memory_order_release) noexcept
+    {
+      counter_.fetch_add(1, m);
+    }
+
+
+    void decrement
+    (std::memory_order m = std::memory_order_release) noexcept 
+    {
+      counter_.fetch_sub(1,m);
     }
 
 

@@ -28,17 +28,18 @@ class LF_allocator : public std::pmr::memory_resource
       (
         [del = deleter](void * data, size_t data_size)
         {
+          PRINT("\ndeleter:", data,"\n");
           if(data)
           {
             using type = std::remove_cvref_t<decltype(del)>;
             if constexpr(std::is_same_v<type, default_deleter>)
             {
               del(data, data_size);
-              ShareResource::res_.deallocate(data, data_size);
             }
             else
             {
               del(data, data_size);
+              ShareResource::res_.deallocate(data, data_size);
             }
           }
         }
@@ -111,19 +112,10 @@ class LF_allocator : public std::pmr::memory_resource
     }
 
 
-    void deallocate_hazard(Hazardous::HZP* hzp)
-    {
-      if(hzp)
-        hazardous_.retire(hzp);
-    }
-
-
     [[nodiscard]]
-    Hazardous::HZP* 
-    get_hazard()
+    auto get_hazard()
     {
-      auto * hzp = hazardous_.make_hazard();
-      return hzp;
+      return hazardous_.make_hazard();
     }
 
 

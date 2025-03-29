@@ -1,6 +1,7 @@
 build/
 Debug/
 Release/
+.cache/
 .vscode/
 .qtcreator/
 tests/
