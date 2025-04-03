@@ -319,7 +319,8 @@ class Hazardous final
       delete_hazard(node);
       node = next;
     }
-    
+
+    rlist_.clear();
     hlist_ = FreeList<HZP, true>{};
   }
 
@@ -339,9 +340,6 @@ class Hazardous final
       auto pa = clear_tag(next, 2);
       bool is_not_active = pa.first;
       auto cleared = clear_node_tag(next);
-
-      bool is_retired = clear_tag(next, 1).first;
-      assert(is_retired != is_not_active);
 
       if(is_not_active) // try to make node is active if it's not
       {
@@ -364,8 +362,11 @@ class Hazardous final
     next = find_free_node();
     if(next)
     {
+      PRINT_2("\nfree hazard\n");
       return hazard_pointer(next);   
     }
+
+    PRINT_2("\nallocated hazard\n");
 
     auto back = hlist_.back();
     auto& tail = hlist_.tail();
@@ -433,8 +434,6 @@ class Hazardous final
   void 
   static delete_hazard(hazard_node* node) noexcept
   {
-    PRINT("deleted hazard node: ", node,"\n");
-    PRINT("delete thread id:", std::this_thread::get_id(),"\n");
     ShareResource::res_.deallocate(node, sizeof(hazard_node));
   }
 
@@ -443,7 +442,7 @@ class Hazardous final
   scan()
   {
     std::pmr::unordered_multimap <void*,hazard_node*> pmap{&ShareResource::res_}; //all not retired nodes
-    std::pmr::unordered_multimap<void*, hazard_node*> rmap{&ShareResource::res_}; // retired nodes 
+    std::pmr::unordered_map<void*, hazard_node*> rmap{&ShareResource::res_}; // retired nodes 
 
     for(auto r_node = rlist_.pop(); r_node; r_node = rlist_.pop())
     {
@@ -455,7 +454,8 @@ class Hazardous final
 
       hazard_node* node = static_cast<hazard_node*>(ptr);
       void* data = node->data_.data_.load(std::memory_order_relaxed);
-      rmap.insert({data, node});
+      auto it = rmap.insert({data, node});
+      assert(it.second);
     }
  
 
@@ -481,7 +481,6 @@ class Hazardous final
     }
 
 
-    isBusy.store(false, std::memory_order_release); //another thread after that store may call the scan method
 
     PRINT("\n global hazard list size:",hlist_.size(),"\n");
     PRINT("\n pmap:", pmap.size(),"\n");
@@ -493,44 +492,30 @@ class Hazardous final
       void * data = i.first;
       assert(data);
 
-      size_t index = rmap.bucket(data);
-      size_t count = rmap.bucket_size(index);
-      //assert(count == 1);
-
-      auto iters = rmap.equal_range(data);
-      auto b = iters.first;
-      auto e = iters.second;
-
       if(!pmap.contains(data))
       {
         HZP& hzp = i.second->data_;
         size_t data_size = hzp.data_size_.load(std::memory_order_relaxed);
         deleter_(data, data_size);
 
-        for(;b!=e;b++)
-        {
-          hazard_node * node = b->second;
-          PRINT("\ndelete HZP:",node,"\n");
-          hazard_node* next = node->next(std::memory_order_acquire); 
+        hazard_node * node = i.second;
+        hazard_node* next = node->next(std::memory_order_acquire); 
 
-          bool is_retired = is_tagged(next, 1);
-          bool is_not_active = is_tagged(next, 2);
-          assert(is_retired && (is_not_active == false));
+        bool is_retired = is_tagged(next, 1);
+        bool is_not_active = is_tagged(next, 2);
+        assert(is_retired && (is_not_active == false));
 
-          next = clear_tag(next, 1).second;
-          next = corrupt_node(next, 2); // make node is not active
-          node->next_.store(next, std::memory_order_release);
-        }
+        next = clear_tag(next, 1).second;
+        next = corrupt_node(next, 2); // make node is not active
+        node->next_.store(next, std::memory_order_release);
       }
       else
       {
-        for(;b!=e;b++)
-        {
-          hazard_node* node = b->second;
-          rlist_.push(node);
-        }
+        hazard_node* node = i.second;
+        rlist_.push(node);
       }
-    }//for
+    }
 
+    isBusy.store(false, std::memory_order_release); //another thread after that store may call the scan method
   }
 };

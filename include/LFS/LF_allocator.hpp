@@ -28,7 +28,6 @@ class LF_allocator : public std::pmr::memory_resource
       (
         [del = deleter](void * data, size_t data_size)
         {
-          PRINT("\ndeleter:", data,"\n");
           if(data)
           {
             using type = std::remove_cvref_t<decltype(del)>;
