@@ -3,6 +3,7 @@
 #include "LF_FreeList.hpp"
 #include "print.hpp"
 #include <atomic>
+#include <cstddef>
 #include <exception>
 #include <functional>
 #include <type_traits>
@@ -57,7 +58,7 @@ auto clear_tag
   size_t bit_ = 1 << (bit-1);
   bool Tagged = is_tagged(ptr, bit);
   if(Tagged)
-    ptr = reinterpret_cast<T*>(reinterpret_cast<size_t>(ptr) ^ bit_);
+    ptr = reinterpret_cast<T*>(reinterpret_cast<size_t>(ptr) & (~bit_));
 
   return std::make_pair(Tagged, ptr);
 }
@@ -187,6 +188,15 @@ class Hazardous final
       return *this;
     }
 
+    hazard_pointer& operator = (std::nullptr_t) noexcept 
+    {
+      ptr_ = nullptr;
+      return *this;
+    }
+
+    hazard_pointer(std::nullptr_t) noexcept:
+      ptr_(nullptr){}
+
     hazard_pointer(hazard_node* ptr) noexcept:
       ptr_(ptr){}
 
@@ -198,9 +208,14 @@ class Hazardous final
     {
       assert(ptr_);
       auto next = ptr_->next();
+      assert(is_tagged(next,2) == false);
       next = corrupt_node(next, 1);
       ptr_->next_.store(next, std::memory_order_release);
-      ptr_ = nullptr;
+    }
+
+    hazard_node* get()
+    {
+      return ptr_;
     }
 
     public:
@@ -232,6 +247,7 @@ class Hazardous final
       if(ptr_)
       {
         auto next = ptr_->next();
+        assert(is_tagged(next,1) == false);
         next = corrupt_node(next, 2);
         ptr_->next_.store(next, std::memory_order_release);
         ptr_ = nullptr;
@@ -288,6 +304,7 @@ class Hazardous final
   {
     p.reclaim();
     rlist_.push(p.ptr_);
+    p = nullptr;
     check_limit();
   }
 
@@ -314,12 +331,18 @@ class Hazardous final
     auto h = hlist_.data();
     auto t = hlist_.back();
 
+    assert(h && t);
+
     while(h!=t)
     {
       auto next = h->next();
       auto pa = clear_tag(next, 2);
       bool is_not_active = pa.first;
       auto cleared = clear_node_tag(next);
+
+      bool is_retired = clear_tag(next, 1).first;
+      assert(is_retired != is_not_active);
+
       if(is_not_active) // try to make node is active if it's not
       {
         if(h->next_.compare_exchange_strong(next, cleared))
@@ -434,7 +457,7 @@ class Hazardous final
       void* data = node->data_.data_.load(std::memory_order_relaxed);
       rmap.insert({data, node});
     }
-  
+ 
 
     auto h = hlist_.data();
     auto t = hlist_.back();
@@ -445,7 +468,7 @@ class Hazardous final
       next = h->next();
       
       bool marked = is_tagged(next, 1);
-      marked = is_tagged(next, 2);
+      marked |= is_tagged(next, 2);
 
       if(!marked)
       {
@@ -472,7 +495,7 @@ class Hazardous final
 
       size_t index = rmap.bucket(data);
       size_t count = rmap.bucket_size(index);
-      assert(count == 1);
+      //assert(count == 1);
 
       auto iters = rmap.equal_range(data);
       auto b = iters.first;
@@ -488,9 +511,14 @@ class Hazardous final
         {
           hazard_node * node = b->second;
           PRINT("\ndelete HZP:",node,"\n");
-          hazard_node* next = node->next(std::memory_order_acquire);
-          next = clear_tag(node, 1).second;
-          next = corrupt_node(node, 2); // make node is not active
+          hazard_node* next = node->next(std::memory_order_acquire); 
+
+          bool is_retired = is_tagged(next, 1);
+          bool is_not_active = is_tagged(next, 2);
+          assert(is_retired && (is_not_active == false));
+
+          next = clear_tag(next, 1).second;
+          next = corrupt_node(next, 2); // make node is not active
           node->next_.store(next, std::memory_order_release);
         }
       }

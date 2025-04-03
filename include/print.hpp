@@ -13,13 +13,22 @@ using namespace std::chrono_literals;
 template<typename...Types>
 void print(Types&&...args);
 
-//#define PRINT_ON
+//#define PRINT_ON_1
+//#define PRINT_ON_2
 
-#ifdef PRINT_ON
+#ifdef PRINT_ON_1
 #define PRINT(...) print(__VA_ARGS__)
 #else
 #define PRINT(...)
 #endif
+
+
+#ifdef PRINT_ON_2
+#define PRINT_2(...) print(__VA_ARGS__)
+#else
+#define PRINT_2(...)
+#endif
+
 
 
 template<typename T>

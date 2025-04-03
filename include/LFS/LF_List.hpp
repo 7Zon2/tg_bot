@@ -163,9 +163,10 @@ class LF_OrderList : protected FreeList<std::pair<size_t,T>, true>
 
   protected:
 
+  template<typename Pred = Compare>
   [[nodiscard]]
   std::pair<Node*, Hazardous::hazard_pointer>
-  search_node(size_t key, Node* it = {})
+  search_node(size_t key, Node* it = {}, Pred&& pred = {})
   {
     if(!it)
     {
@@ -242,8 +243,19 @@ class LF_OrderList : protected FreeList<std::pair<size_t,T>, true>
       assert(curr==cleared);
 
       type& pair = curr->data_;
-      size_t key_ = pair.first;
-      if(comporator_(key, key_))
+      bool found = false;
+      if constexpr(std::is_same_v<Compare, Pred>)
+      {
+        size_t key_ = pair.first;
+        found = pred(key, key_);
+      }
+      else
+      {
+        auto& data = pair.second;
+        found = pred(data);
+      }
+
+      if(found)
       {
         return std::make_pair(prev, std::move(hzp_c));
       }
@@ -252,33 +264,65 @@ class LF_OrderList : protected FreeList<std::pair<size_t,T>, true>
     }
   }
 
+  public:
 
-  template<typename U = T>
+
   [[nodiscard]]
   std::pair<Node*,Hazardous::hazard_pointer> 
-  find_node(const U& key, Node* it = {})
+  find_node
+  (size_t hash, Node* it = {})
   {
-    if(!it)
-    {
-      it = head_.load(std::memory_order_relaxed);
-    }
-
-    size_t key_ = std::hash<U>{}(key);
-    auto [prev, hzp] = search_node(key_, it);
+    auto [prev, hzp] = search_node(hash, it);
     if(!hzp)
     {
       return {};
     }
 
-    Node* ptr = static_cast<Node*>(hzp->data_.load(std::memory_order_acquire));
-    if(ptr && (ptr->data_.first == key_))
+    Node* ptr = static_cast<Node*>(hzp->data_.load(std::memory_order_relaxed));
+    if(ptr && (ptr->data_.first == hash))
     {
       return std::make_pair(prev, std::move(hzp));
     }
     return {};
   }
+
+
+  template<typename U = T>
+  [[nodiscard]]
+  std::pair<Node*,Hazardous::hazard_pointer> 
+  find_node
+  (const U& key, Node* it = {})
+  {
+    size_t hash = std::hash<U>{}(key);
+    return find_node(hash, it);
+  }
+
+
+  template<typename U = T, typename F = Compare>
+  [[nodiscard]]
+  std::pair<Node*,Hazardous::hazard_pointer> 
+  find_node
+  (size_t hash, Node* it = {}, F&& pred = {})
+  {
+    auto [prev, hzp] = search_node(hash, it, std::forward<F>(pred));
+    if(!hzp)
+    {
+      return {};
+    }
+    return std::make_pair(prev, std::move(hzp));
+  }
   
-  public:
+
+  template<typename U = T, typename F = Compare>
+  [[nodiscard]]
+  std::pair<Node*,Hazardous::hazard_pointer> 
+  find_node
+  (const U& key, Node* it = {}, F&& pred = {})
+  {
+    size_t hash = std::hash<U>{}(key);
+    return find_node(hash, it, std::forward<F>(pred));
+  }
+
 
   [[nodiscard]]
   Node* data() noexcept
@@ -331,12 +375,12 @@ class LF_OrderList : protected FreeList<std::pair<size_t,T>, true>
   }
 
 
-  template<typename U = T>
+  template<typename F = Compare>
   [[nodiscard]]
   std::optional<T>
-  contain(const U& key, Node * it = {})
+  contain(size_t hash, Node * it = {}, F&& pred = {})
   {
-    auto hzp = std::move(find_node(key, it).second);
+    auto hzp = std::move(find_node(hash, it, std::forward<F>(pred)).second);
     if(!hzp)
     {
       return {};
@@ -348,30 +392,48 @@ class LF_OrderList : protected FreeList<std::pair<size_t,T>, true>
   }
 
 
-  template<typename U = T> 
+  template<typename U = T, typename F = Compare>
   [[nodiscard]]
-  bool 
-  find(const U& key, Node* it = {})
+  std::optional<T>
+  contain(const U& key, Node * it = {}, F&& pred = {})
   {
-    auto[prev,hzp] = find_node(key, it);
-    bool res = hzp;
-    hzp->reset();
-    return res;
+    size_t hash = std::hash<U>{}(key);
+    return contaim(hash, it, std::forward<F>(pred));
   }
 
 
-  template<typename U = T>
+  template<typename F = Compare> 
+  [[nodiscard]]
+  bool 
+  find(size_t hash, Node* it = {}, F&& pred = {})
+  {
+    auto[prev,hzp] = find_node(hash, it, std::forward<F>(pred));
+    return static_cast<bool>(hzp);
+  }
+
+
+  template<typename U = T, typename F = Compare> 
+  [[nodiscard]]
+  bool 
+  find(const U& key, Node* it = {}, F&& pred = {})
+  {
+    size_t hash = std::hash<U>{}(key);
+    return find(hash);
+  }
+
+
+  template<typename U = T, typename F = Compare>
   Node* 
-  insert(U&& data, Node* it = {}, bool before = false)
+  insert(U&& data, Node* it = {}, bool before = false, F&& pred = {})
   {
     if(!it)
     {
       it = head_.load(std::memory_order_relaxed);
     }
     
-    auto u = std::hash<std::remove_cvref_t<U>>{};
-    size_t key = u(std::forward<U>(data));  
-    auto [prev, hzp] = search_node(key, it);
+    auto hh = std::hash<std::remove_cvref_t<U>>{};
+    size_t hash = hh(std::forward<U>(data));
+    auto [prev, hzp] = search_node(hash, it, std::forward<F>(pred));
     if(!prev)
     {
       return {};
@@ -393,7 +455,7 @@ class LF_OrderList : protected FreeList<std::pair<size_t,T>, true>
     Node* next = node->next_.load(std::memory_order_relaxed);
 
     void* ptr =  alloc_.allocate(sizeof(Node));
-    Node* new_node = ::new(ptr) Node(type{key, std::forward<U>(data)});
+    Node* new_node = ::new(ptr) Node(type{hash, std::forward<U>(data)});
     new_node->next_.store(next, std::memory_order_relaxed);
 
     if(!node->next_.compare_exchange_strong(next, new_node, std::memory_order_acq_rel))
@@ -410,31 +472,12 @@ class LF_OrderList : protected FreeList<std::pair<size_t,T>, true>
     return new_node;
   }
 
-
-  template<typename U = T>
-  bool 
-  remove(const U& key, Node* it = {})
+  
+  bool remove(Node* prev)
   {
-    if(!it)
-    {
-      it = head_.load(std::memory_order_relaxed);
-    }
-
-    auto[prev,hzp] = find_node(key, it);
-    if(!hzp)
-    {
-      return false;
-    }
-   
-    Node * curr = prev;
-    if(!curr)
-    {
-      return false;
-    }
-
-    Node * next = curr->next_.load(std::memory_order_relaxed);
+    Node * next = prev->next_.load(std::memory_order_relaxed);
     Node * corrupted = corrupt_node(next);
-    if(!curr->next_.compare_exchange_strong(next, corrupted, std::memory_order_relaxed))
+    if(!prev->next_.compare_exchange_strong(next, corrupted, std::memory_order_relaxed))
     {
       return false;
     }
@@ -443,16 +486,41 @@ class LF_OrderList : protected FreeList<std::pair<size_t,T>, true>
     counter_.fetch_sub(1, std::memory_order_release);
     return true;
   }
+  
+
+  template<typename U = T, typename F = Compare>
+  bool remove(const U& key, Node* it = {}, F&& pred = {})
+  {
+    size_t hash = std::hash<U>{}(key);
+    return remove(hash, it, std::forward<F>(pred));
+  }
+
+  template<typename F = Compare>
+  bool remove(size_t hash, Node* it = {}, F&& pred = {})
+  {
+    auto[prev,hzp] = find_node(hash, it, std::forward<F>(pred));
+    if(!hzp)
+    {
+      return false;
+    }
+   
+    if(!prev)
+    {
+      return false;
+    }
+
+    return remove(prev);
+  }
 
 
-  template<typename U = T>
-  size_t erase(const U& key, Node* it ={})
+  template<typename U = T, typename F = Compare>
+  size_t erase(const U& key, Node* it ={}, F&& pred = {})
   {
     bool res = true;
     int count = 0;
     while(res)
     {
-      res = remove(key, it);
+      res = remove(key, it, std::forward<F>(pred));
       count+=res;
     }
     return count;
