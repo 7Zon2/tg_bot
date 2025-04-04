@@ -1,6 +1,5 @@
 #pragma once
 #include "LFS/LF_FreeList.hpp"
-#include "LFS/LF_hazardous.hpp"
 #include "LF_allocator.hpp"
 #include <atomic>
 #include <functional>
@@ -168,7 +167,7 @@ class LF_OrderList : protected FreeList<std::pair<size_t,T>, true>
   std::pair<Node*, Hazardous::hazard_pointer>
   search_node(size_t key, Node* it = {}, Pred&& pred = {})
   {
-    if(!it)
+    if(true)
     {
       it = head_.load(std::memory_order_relaxed);
     }

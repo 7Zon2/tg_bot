@@ -7,7 +7,8 @@
 #include <exception>
 #include <functional>
 #include <type_traits>
-#include <thread>
+
+
 
 [[nodiscard]]
 inline size_t 
@@ -454,6 +455,15 @@ class Hazardous final
 
       hazard_node* node = static_cast<hazard_node*>(ptr);
       void* data = node->data_.data_.load(std::memory_order_relaxed);
+      
+      if(!data)
+      {
+        auto next = node->next();
+        next = clear_node_tag(next);
+        node->next_.store(next, std::memory_order_release);
+        continue;
+      }
+
       auto it = rmap.insert({data, node});
       assert(it.second);
     }

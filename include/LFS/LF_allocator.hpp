@@ -112,9 +112,12 @@ class LF_allocator : public std::pmr::memory_resource
 
 
     [[nodiscard]]
-    auto get_hazard()
+    Hazardous::hazard_pointer
+    get_hazard()
     {
-      return hazardous_.make_hazard();
+      auto hzp = hazardous_.make_hazard();
+      assert(hzp.get()->data_.data_.load(std::memory_order_acquire) == nullptr);
+      return hzp;
     }
 
 

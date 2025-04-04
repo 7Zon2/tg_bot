@@ -13,7 +13,7 @@ using namespace std::chrono_literals;
 template<typename...Types>
 void print(Types&&...args);
 
-#define PRINT_ON_1
+//#define PRINT_ON_1
 //#define PRINT_ON_2
 
 #ifdef PRINT_ON_1

@@ -139,8 +139,6 @@ class LF_HashTable
 {
   public:
 
-
-
   using pair_t = std::pair<Key, Obj>;
   using HashNode_t = HashNode<pair_t>;
   using List_t = LF_OrderList<HashNode_t, bit_comporator>;
@@ -252,16 +250,13 @@ class LF_HashTable
   struct Bucket
   {
     std::atomic<Node*> bucket_head_;
-    size_t bucket_hash_;
 
     public:
       
       using iterator = List_t::iterator;
 
-      Bucket(Node* node, size_t hash) noexcept:
-        bucket_head_(node),
-        bucket_hash_(hash)
-        {}
+      Bucket(Node* node) noexcept:
+        bucket_head_(node){}
 
 
       [[nodiscard]]
@@ -270,15 +265,6 @@ class LF_HashTable
       {
         return bucket_head_.load(std::memory_order_relaxed);
       }
-
-
-      [[nodiscard]]
-      size_t 
-      hash() const noexcept
-      {
-        return bucket_hash_;
-      }
-
 
       bool insert(List_t& list_, HashNode_t hashNode)
       {
@@ -301,11 +287,6 @@ class LF_HashTable
         auto* parent = bucket_head_.load(std::memory_order_relaxed);
         assert(parent);
 
-        if(key == 63)
-        {
-          print();
-        }
-
         find_comporator comporator{hash};
         bool res = list_.remove(key, parent, comporator);
         return res;
@@ -316,7 +297,6 @@ class LF_HashTable
 
   List_t list_;
   size_t load_factor_;
-  std::atomic<int> counter_; 
 
   using segment = std::pmr::vector<std::atomic<Bucket*>>;
   std::array<std::atomic<segment*>, 64> seg_arr_;
@@ -505,34 +485,30 @@ class LF_HashTable
       return old_bucket;
     }
 
-    Node* insert_node{};
-    
-    bool before = true; // we need to insert a new node before another one 
-                        // that we will find (due to order list insertion) 
 
-    Bucket* new_bucket{};
-    HashNode_t hnode{true, pair_t {parent_hash, Obj{}}, parent_hash};
     Node* parent = parent_bucket->get();
-
-    insert_node = list_.insert(std::move(hnode), parent, before, insert_comporator(parent_hash));
-    if(!insert_node)
-    {
-      while(!new_bucket)
-      {
-        new_bucket = table[index].load(std::memory_order_acquire);
-      }
-      return new_bucket;
-    }
-
-    new_bucket = new Bucket(insert_node, parent_hash);
+    Bucket* new_bucket = new Bucket{parent}; // on time we will lie)
 
     //if two or more threads inserted the same node we need to remove redundant
     if(!table[index].compare_exchange_strong
         (old_bucket, new_bucket, std::memory_order_release, std::memory_order_relaxed))
     {
       delete new_bucket;
+      return parent_bucket;
     }
 
+
+    bool before = true; // we need to insert a new node before another one 
+                        // that we will find (due to the order list insertion) 
+    HashNode_t hnode{true, pair_t {parent_hash, Obj{}}, parent_hash};
+
+    Node* insert_node{};
+    while(!insert_node)
+    {
+      insert_node = list_.insert(std::move(hnode), parent, before, insert_comporator(parent_hash));
+    }
+
+    new_bucket->bucket_head_.store(insert_node, std::memory_order_relaxed);
     return table[index].load(std::memory_order_relaxed);
   }
 
@@ -626,7 +602,7 @@ class LF_HashTable
   bool
   check_load_factor(const size_t sz) const noexcept
   {
-    size_t counter = counter_.load(std::memory_order_relaxed) + 1;
+    size_t counter = list_.size();
     return (counter / sz) > load_factor_;
   }
 
@@ -640,6 +616,8 @@ class LF_HashTable
       return false;
     }
 
+    print("\nINFLATE_TABLE\n");
+    print("counter:", list_.size(),"\n");
 
     size_t new_index = old_index + 1;
     size_t table_size = get_table_size(0, new_index);
@@ -654,15 +632,10 @@ class LF_HashTable
     return true;
   }
 
-  public:
 
-  using iterator = HT_iterator;
-
-  LF_HashTable(const size_t load_factor = 2):
-    load_factor_(load_factor), current_segment_(0)
+  void allocate()
   {
-    segment  * table = seg_arr_[0].load(std::memory_order_acquire);
-    table = new segment(1, &ShareResource::res_);
+    segment * table = new segment(1, &ShareResource::res_);
 
     pair_t pa{Key{},Obj{}};
     HashNode_t hash_node{true, std::move(pa),0};
@@ -670,24 +643,29 @@ class LF_HashTable
     Node* node = list_.insert(hash_node);
     node->data_.first = 0;
 
-    Bucket* new_bucket = new Bucket(node, 0);
+    Bucket* new_bucket = new Bucket(node);
 
     segment& vec = *table;
     vec[0].store(new_bucket, std::memory_order_relaxed);
-
     seg_arr_[0].store(table, std::memory_order_release);
+  }
+
+  public:
+
+  using iterator = HT_iterator;
+
+  LF_HashTable(const size_t load_factor = 2):
+    load_factor_(load_factor), current_segment_(0)
+  {
+    allocate();
   }
 
 
   virtual 
   ~LF_HashTable()
   {
+    clear();
     segment* seg = seg_arr_[0].exchange(nullptr,std::memory_order_relaxed);
-    if(!seg)
-    {
-      return;
-    }
-   
     segment& table = *seg;
     for(size_t i = 0; i < table.size(); i++)
     {
@@ -697,27 +675,7 @@ class LF_HashTable
         delete bucket;
       }
     }
-
     delete seg;
-    size_t sz = seg_arr_.size();
-
-    for(size_t i = 1; i <sz; i++)
-    {
-      seg = seg_arr_[i].load(std::memory_order_relaxed);
-      if(seg)
-      {
-        segment& table = *seg;
-        for(size_t j = 0; j < table.size(); j++)
-        {
-          Bucket* bucket = table[j].load(std::memory_order_relaxed);
-          if(bucket)
-          {
-            delete bucket;
-          }
-        }
-        delete seg;
-      }
-    }
   }
 
   public:
@@ -725,7 +683,7 @@ class LF_HashTable
   [[nodiscard]]
   size_t size() const noexcept
   {
-    return counter_.load(std::memory_order_acquire);
+    return list_.size();
   }
 
 
@@ -747,11 +705,6 @@ class LF_HashTable
       return false;
     }
 
-    if(key == 63)
-    {
-      print();
-    }
-
     size_t hash  = get_hash(key);
     Bucket* parent_bucket = get_parent_bucket(hash, current_segment_.load(std::memory_order_relaxed));
     
@@ -759,7 +712,6 @@ class LF_HashTable
     HashNode_t hashNode{false, std::move(pa), hash};
 
     bool res = parent_bucket->insert(list_, std::move(hashNode));
-    counter_.fetch_add(res, std::memory_order_release);
     return res;
   }
 
@@ -770,16 +722,8 @@ class LF_HashTable
     size_t hash = get_hash(key);
     size_t segment_index = current_segment_.load(std::memory_order_relaxed);
 
-    if(key ==63)
-    {
-      print();
-    }
-
     Bucket * bucket = get_parent_bucket(hash, segment_index);
-    bool res = bucket->remove(list_, key);
-
-    counter_.fetch_sub(res, std::memory_order_release);
-    return res;
+    return bucket->remove(list_, key);
   }
 
 
@@ -815,11 +759,6 @@ class LF_HashTable
     size_t hash = get_hash(key);
     size_t segment_index = current_segment_.load(std::memory_order_relaxed);
 
-    if(key==63)
-    {
-      print();
-    }
-
     Bucket* bucket = get_parent_bucket(hash, segment_index);
     Node * parent = bucket->get();
 
@@ -840,11 +779,6 @@ class LF_HashTable
   {
     size_t hash = get_hash(key);
     size_t segment_index = current_segment_.load(std::memory_order_relaxed);
-   
-    if(key==63)
-    {
-      print();
-    }
 
     Bucket* bucket = get_parent_bucket(hash, segment_index);
     Node* parent = bucket->get();
@@ -863,12 +797,26 @@ class LF_HashTable
  
   void clear()
   {
-    for(auto& node: list_)
+    list_.clear();
+    for(size_t i = 0; i < seg_arr_.size(); i++)
     {
-      const Key& key = node.data_.first;
-      remove(key);
+      auto * seg = seg_arr_[i].exchange(nullptr, std::memory_order_relaxed);
+      if(seg)
+      {
+        segment& table = *seg;
+        for(size_t j = 0; j < table.size(); j++)
+        {
+          Bucket* bucket = table[j].load(std::memory_order_relaxed);
+          if(bucket)
+          {
+            delete bucket;
+          }
+        }
+        delete seg;
+      }
     }
-    counter_.store(0, std::memory_order_release);
+    current_segment_.store(0, std::memory_order_relaxed);
+    allocate();
   }
 
 
