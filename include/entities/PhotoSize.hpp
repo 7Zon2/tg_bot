@@ -11,7 +11,6 @@ namespace Pars
             public:
 
             using File::operator=;
-            using File::File;
 
             double width;
             double height;
@@ -23,16 +22,16 @@ namespace Pars
 
             [[nodiscard]]
             json::string
-            get_entity_name() override
+            get_entity_name() noexcept override
             {
                 return entity_name;
             }
 
             public:
 
-            PhotoSize(){}
+            PhotoSize() noexcept {}
 
-            PhotoSize(File file):
+            PhotoSize(File file) noexcept:
                 File(std::move(file)){}
 
             template<is_all_json_entities T>
@@ -48,7 +47,8 @@ namespace Pars
                 double width,
                 double height,
                 optdouble file_size = {}
-            )
+            ) 
+            noexcept 
             :
                 File
                 (
@@ -62,7 +62,7 @@ namespace Pars
 
             }
 
-            virtual ~PhotoSize(){}
+            ~PhotoSize(){}
 
             public:
 
@@ -90,16 +90,13 @@ namespace Pars
             }
 
 
+            template<as_json_value T>
             [[nodiscard]]
             static 
             fields_map
-            optional_fields(json::value val)
+            optional_fields(T&& val)
             {
-                return MainParser::mapped_pointers_validation
-                (
-                    std::move(val),
-                    std::make_pair(JS_POINTER(PhotoSize, file_size), json::kind::double_)
-                );
+                return File::optional_fields(std::forward<T>(val), FIELD_NAME(PhotoSize));
             }
 
 
@@ -165,7 +162,7 @@ namespace Pars
                 res["photosize"] = std::move(ob);
                 return res;
             }
-
         };
-    };
-};
+
+    }//namespace TG
+}//namespace Pars

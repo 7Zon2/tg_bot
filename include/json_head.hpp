@@ -204,7 +204,6 @@ namespace Pars
         static inline json::stream_parser pars_{ptr_};
         static inline json::serializer ser_{ptr_};
 
-
         protected:
 
         static void

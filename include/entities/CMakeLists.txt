@@ -7,6 +7,8 @@ set(
     TelegramResponse.hpp
     forwardMessage.hpp
     LinkPreviewOptions.hpp
+    File.hpp
+    Document.hpp
     PhotoSize.hpp
     getUpdates.hpp
     concept_entities.hpp
