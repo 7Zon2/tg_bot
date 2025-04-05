@@ -440,41 +440,6 @@ class LF_HashTable
   } 
 
 
-  void print_key_sequence(const Key& key)
-  {
-    TABLE_PRINT;
-
-    size_t segment_index = current_segment_.load();
-    size_t hash = get_hash(key);
-    size_t table_size = 0;
-    if(segment_index == 0)
-    {
-      table_size = 1;
-    }
-    else if(segment_index == 1)
-    {
-      table_size = 2;
-    }
-    else
-    {
-      table_size = get_table_size(segment_index - 1);
-    }
-    size_t table_index = hash % table_size;
-    size_t offset = std::fabs(table_size - table_index);
-    size_t bucket_index = table_size - offset -1;
-    auto& table = get_table(hash, segment_index);
-
-    assert(table.size() == table_size);
-
-    print("\nsegment_index: ", segment_index,"\n");
-    print("hash: ", hash,"\n");
-    print("table size :", table_size,"  (1 << segment_index) = ", "(1 << ",segment_index,")\n");
-    print("table_index: ", table_index,"  (hash % table_size) = ","(",hash, " % ",table_size,")\n");
-    print("offset: ", offset,"  (table_size - table_index) = ","(",table_size," - ", table_index,")\n");
-    print("bucket index: ", bucket_index,"(table_size - offset) = ","(",table_size," - ", offset,")\n");
-  }
-
-
   [[nodiscard]]
   Bucket* 
   get_parent_bucket
@@ -784,31 +749,6 @@ class LF_HashTable
 
 
   [[nodiscard]]
-  Bucket* 
-  get_bucket(size_t hash, size_t segment_index) noexcept
-  {
-    auto& table = get_table(hash, segment_index);
-    size_t index = get_index(hash, segment_index);
-    return table[index].load(std::memory_order_relaxed);
-  }
-  
-
-  [[nodiscard]]
-  Bucket* 
-  find_bucket(size_t hash, int segment_index) noexcept 
-  {
-    Bucket* bucket{};
-    while(!bucket && (segment_index>=0))
-    {
-      bucket = get_bucket(hash, segment_index);
-      --segment_index;
-    }
-
-    return bucket;
-  }
-
-
-  [[nodiscard]]
   bool 
   find(const Key& key)
   {
@@ -873,13 +813,6 @@ class LF_HashTable
     }
     current_segment_.store(0, std::memory_order_relaxed);
     allocate();
-  }
-
-
-  Bucket* get_bucket(const Key& key) 
-  {
-    size_t hash = get_hash(key);
-    return get_parent_bucket(hash, current_segment_.load(std::memory_order_relaxed));
   }
 
 
