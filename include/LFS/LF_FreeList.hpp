@@ -1,5 +1,7 @@
 #pragma once
+#include "print.hpp"
 #include <cstddef>
+#include <cstdint>
 #include <iterator>
 #include <memory_resource>
 #include <atomic>
@@ -141,7 +143,7 @@ class FreeList
     std::pmr::memory_resource* res_{};
     std::atomic<Node*> head_{};
     std::atomic<Node*> tail_{};
-    std::atomic<size_t> counter_{};
+    std::atomic<int64_t> counter_{};
     
     protected:
 
@@ -444,7 +446,14 @@ class FreeList
       {
         return 0;
       }
-      return counter_.load(std::memory_order_acquire);
+
+      int64_t counter  = counter_.load(std::memory_order_acquire);
+      if(counter <0)
+      {
+        PRINT("\n!!!!COUNTER LESS THAN ZERO!!!!\n");
+        return 0;
+      }
+      return counter;
     }
 };
 

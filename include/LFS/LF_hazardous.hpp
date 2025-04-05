@@ -442,6 +442,13 @@ class Hazardous final
   void 
   scan()
   {
+    auto clear_next = [this](hazard_node* node)
+    {
+      auto next = node->next();
+      next = clear_node_tag(next);
+      node->next_.store(next, std::memory_order_release);
+    };
+
     std::pmr::unordered_multimap <void*,hazard_node*> pmap{&ShareResource::res_}; //all not retired nodes
     std::pmr::unordered_map<void*, hazard_node*> rmap{&ShareResource::res_}; // retired nodes 
 
@@ -458,14 +465,12 @@ class Hazardous final
       
       if(!data)
       {
-        auto next = node->next();
-        next = clear_node_tag(next);
-        node->next_.store(next, std::memory_order_release);
+        clear_next(node);
         continue;
       }
 
       auto it = rmap.insert({data, node});
-      assert(it.second);
+      assert(it.second); // unfortunately this is true)
     }
  
 

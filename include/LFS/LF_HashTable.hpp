@@ -1,4 +1,5 @@
 #pragma once 
+#include "LFS/LF_hazardous.hpp"
 #include "LFS/share_resource.hpp"
 #include "LF_List.hpp"
 #include "TestUtils/thread_handler.hpp"
@@ -8,6 +9,7 @@
 #include <math.h>
 #include <cstring>
 #include <optional>
+#include <type_traits>
 
 constexpr size_t UPPER_BIT = 0x8000000000000000;  
 
@@ -82,10 +84,12 @@ set_upper_bit(size_t v) noexcept
 template<typename T>
 struct HashNode
 {
-  bool isDummy = true;
+  bool isDummy = true; //only read access after initialization
   T data_{};
   size_t hash_{};
   size_t rhash_{};
+
+  std::atomic<bool> is_removed = false; //after inflating some parent buckets may point to the same node
 
   HashNode(){}
 
@@ -98,7 +102,42 @@ struct HashNode
     }
     rhash_ = reverse_bit_order(hash_);
   }
+
+  HashNode(HashNode&& rhs) noexcept (std::is_nothrow_move_constructible_v<T>):
+    isDummy(rhs.isDummy),
+    data_(std::move(rhs.data_)),
+    hash_(rhs.hash_), 
+    rhash_(rhs.rhash_){}
+
+  HashNode& operator = (HashNode&& rhs) noexcept (std::is_nothrow_move_assignable_v<T>)
+  {
+    if(this!=&rhs)
+    {
+      isDummy = rhs.isDummy;
+      hash_ = rhs.hash_;
+      rhash_ = rhs.rhash_;
+      data_ = std::move(rhs.data_);
+    }
+    return *this;
+  }
+
+  HashNode(const HashNode& rhs) noexcept (std::is_nothrow_copy_constructible_v<T>):
+    isDummy(rhs.isDummy),
+    data_(rhs.data_),
+    hash_(rhs.hash_),
+    rhash_(rhs.rhash_){}
+
+  HashNode& operator = (const HashNode& rhs) noexcept (std::is_nothrow_copy_assignable_v<T>)
+  {
+    if(this!=&rhs)
+    {
+      HashNode temp{rhs};
+      *this  = std::move(temp);
+    }
+    return *this;
+  }
 };
+
 template<typename T>
 HashNode(bool isDummy, T&& data, size_t hash) -> HashNode<T>;
 
@@ -129,7 +168,7 @@ struct std::hash<HashNode<T>>
   constexpr 
   size_t operator()(const HashNode<T>& node) const noexcept 
   {
-    return std::hash<T>{data};
+    return std::hash<T>{node};
   }
 };
 
@@ -157,9 +196,10 @@ class LF_HashTable
 
     bool operator()(HashNode_t& node) noexcept 
     {
+
+      is_dummy_ = node.isDummy;
       if(rhash_ < node.rhash_) // a node must be between a parent bucket and next bucket 
       {
-        is_dummy_ = true;
         return true; //return true to stop searching in the list
       }
 
@@ -169,13 +209,13 @@ class LF_HashTable
 
   struct insert_comporator : find_comporator
   {
-    insert_comporator
-    (size_t hash) noexcept :
+    insert_comporator (size_t hash) noexcept :
     find_comporator(hash){}
 
     bool operator()(HashNode_t& node) noexcept
     {
       bool res = find_comporator::rhash_ < node.rhash_;
+      find_comporator::is_dummy_ = node.isDummy;
       return res;
     }
   };
@@ -288,7 +328,22 @@ class LF_HashTable
         assert(parent);
 
         find_comporator comporator{hash};
-        bool res = list_.remove(key, parent, comporator);
+        auto[prev, hzp] = list_.find_node(key, parent, comporator);
+        if(comporator.is_dummy_ || !hzp)
+        {
+          return false;
+        }
+
+        Hazardous::hazard_pointer& p = hzp;
+        Node * node = static_cast<Node*>(p->data_.load(std::memory_order_relaxed));
+        HashNode_t& hnode = node->data_.second;
+        bool remove = false;
+        if(!hnode.is_removed.compare_exchange_strong(remove,true,std::memory_order_relaxed))
+        {
+          return false;
+        }
+
+        bool res = list_.remove(prev);
         return res;
       }
   };
@@ -491,7 +546,7 @@ class LF_HashTable
 
     //if two or more threads inserted the same node we need to remove redundant
     if(!table[index].compare_exchange_strong
-        (old_bucket, new_bucket, std::memory_order_release, std::memory_order_relaxed))
+        (old_bucket, new_bucket, std::memory_order_release, std::memory_order_release))
     {
       delete new_bucket;
       return parent_bucket;
@@ -500,11 +555,11 @@ class LF_HashTable
 
     bool before = true; // we need to insert a new node before another one 
                         // that we will find (due to the order list insertion) 
-    HashNode_t hnode{true, pair_t {parent_hash, Obj{}}, parent_hash};
 
     Node* insert_node{};
     while(!insert_node)
     {
+      HashNode_t hnode{true, pair_t {parent_hash, Obj{}}, parent_hash};
       insert_node = list_.insert(std::move(hnode), parent, before, insert_comporator(parent_hash));
     }
 
@@ -610,14 +665,14 @@ class LF_HashTable
   bool 
   inflate_table()
   {
-    size_t old_index = current_segment_.load(std::memory_order_relaxed);
+    size_t old_index = current_segment_.load(std::memory_order_acquire);
     if(!check_load_factor())
     {
       return false;
     }
 
-    print("\nINFLATE_TABLE\n");
-    print("counter:", list_.size(),"\n");
+    PRINT_2("\nINFLATE_TABLE\n");
+    PRINT_2("counter:", list_.size(),"\n");
 
     size_t new_index = old_index + 1;
     size_t table_size = get_table_size(0, new_index);
@@ -628,6 +683,7 @@ class LF_HashTable
       delete new_table;
       return false;
     }
+
     current_segment_.store(new_index, std::memory_order_release);
     return true;
   }
@@ -640,7 +696,7 @@ class LF_HashTable
     pair_t pa{Key{},Obj{}};
     HashNode_t hash_node{true, std::move(pa),0};
 
-    Node* node = list_.insert(hash_node);
+    Node* node = list_.insert(std::move(hash_node));
     node->data_.first = 0;
 
     Bucket* new_bucket = new Bucket(node);

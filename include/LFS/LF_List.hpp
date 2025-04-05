@@ -167,7 +167,7 @@ class LF_OrderList : protected FreeList<std::pair<size_t,T>, true>
   std::pair<Node*, Hazardous::hazard_pointer>
   search_node(size_t key, Node* it = {}, Pred&& pred = {})
   {
-    if(true)
+    if(!it)
     {
       it = head_.load(std::memory_order_relaxed);
     }
