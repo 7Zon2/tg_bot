@@ -1,9 +1,11 @@
+#include "boost/beast/core/flat_buffer.hpp"
 #include "head.hpp"
 #include "entities/entities.hpp"
 #include "certif.hpp"
 #include "print.hpp"
 #include <boost/asio/use_future.hpp>
 #include "coro_future.hpp"
+#include <exception>
 #include <stacktrace>
 #include <boost/stacktrace/stacktrace.hpp>
 #include <boost/asio/awaitable.hpp>
@@ -35,7 +37,6 @@ class session : public std::enable_shared_from_this<session>
     boost::asio::any_io_executor ex_;
     tcp::resolver resolver_;
     boost::asio::ssl::stream<beast::tcp_stream> stream_;
-    beast::flat_buffer buffer_;
 
     private:
 
@@ -194,7 +195,7 @@ class session : public std::enable_shared_from_this<session>
         try
         {
             Pars::TG::TelegramResponse resp = co_await
-                start_getUpdates<Pars::TG::TelegramResponse,true>(Pars::TG::getUpdates{});
+            start_getUpdates<Pars::TG::TelegramResponse,true>(Pars::TG::getUpdates{});
             co_await parse_result(std::move(resp));
         }
         catch(const std::exception& e)
@@ -295,7 +296,6 @@ class session : public std::enable_shared_from_this<session>
         json::string obj_url = std::forward<T>(obj).fields_to_url();
         url += std::move(obj_url);
         url = MainParser::prepare_url_text(std::move(url));
-        print("\n\nsend_post_request\n\n",url,"\n\n");
         if constexpr (isPost)
         {
             return PostRequest(" ", std::move(url), content_type, false);
@@ -311,7 +311,9 @@ class session : public std::enable_shared_from_this<session>
     {
         if (res.update_id.has_value())
         {
-            UpdateStorage_.update_stack.push(res.update_id.value() + 1);
+            size_t new_id = res.update_id.value() + 1;
+            print("\nnew update id: ", new_id,"\n\n");
+            UpdateStorage_.update_stack.push(new_id);
         }
     }
 
@@ -342,7 +344,7 @@ class session : public std::enable_shared_from_this<session>
     send_response
     (U&& obj)
     {
-        http::request<http::string_body>   req = prepare_request<false>(std::forward<U>(obj));
+        http::request<http::string_body> req = prepare_request<false>(std::forward<U>(obj));
         co_await send_response(std::move(req));
     }
 
@@ -355,8 +357,7 @@ class session : public std::enable_shared_from_this<session>
         using namespace Pars;
 
         Res res{};
-        res = co_await
-            start_request_response<Res, true, false>({});
+        res = co_await start_request_response<Res, true, false>({});
         co_return std::move(res);
     }
 
@@ -451,7 +452,7 @@ class session : public std::enable_shared_from_this<session>
             }
 
             print("Message reply:\n");
-            MainParser::pretty_print(std::cout, mes.value().fields_to_value());
+            //MainParser::pretty_print(std::cout, mes.value().fields_to_value());
             co_await send_command(std::move(mes.value()));
         };
 
@@ -465,12 +466,14 @@ class session : public std::enable_shared_from_this<session>
             co_return;
         }
 
-        bool ok = false; UpdateStorage_.updated_set.insert(res.update_id.value());
+
+        update_id(res);
+        size_t id = UpdateStorage_.update_stack.top().value();
+        bool ok = UpdateStorage_.updated_set.insert(id);
         if(!ok)
         {
             co_return;
         }
-        update_id(res);
 
         try
         {
@@ -509,14 +512,15 @@ class session : public std::enable_shared_from_this<session>
             {
                 TG::TelegramResponse resp = co_await
                 start_getUpdates<TG::TelegramResponse, false>();
-                std::jthread th
+                co_await parse_result(std::move(resp));
+                /*std::jthread th
                 {
                     [&]() -> boost::asio::awaitable<void>
                     {
                         co_await parse_result(std::move(resp));
                     }
                 };
-                th.detach();
+                th.join();*/
             }
         }
         catch(const std::exception& e)
@@ -563,10 +567,23 @@ class session : public std::enable_shared_from_this<session>
         {
             http::response<http::string_body> res{};
             size_t readable{};
+
             {
                 std::lock_guard<std::mutex> lk{mut};
-                readable = co_await http::async_read(stream_, buffer_, res, boost::asio::use_awaitable);
+                try
+                {
+                  boost::beast::flat_buffer buffer{};
+                  readable = co_await http::async_read(stream_, buffer, res, boost::asio::use_awaitable);
+                }
+                catch(const std::exception& ex)
+                {
+                  print(ex.what());
+                  print_response(res);
+                  //throw ex;
+                  co_return;
+                }
             }
+
             print("\nreadable:", readable,"\n");
             print_response(res);
 
@@ -576,7 +593,6 @@ class session : public std::enable_shared_from_this<session>
                 var     =  Pars::MainParser::try_parse_value(var);
                 Res obj{};
                 obj= std::move(var);
-                update_id(obj);
                 co_return obj;
             }
             else if constexpr (TG::is_HeaderResult<Res>)
@@ -610,6 +626,7 @@ class session : public std::enable_shared_from_this<session>
         else
         {
             upd.offset = UpdateStorage_.update_stack.top();
+            print("\n\nupdate offset:", upd.offset.value(),"\n\n");
         }
 
         print("dif Time:", Timer::get_dif(),"\n");
@@ -759,11 +776,11 @@ class session : public std::enable_shared_from_this<session>
         // Set SNI Hostname (many hosts need this to handshake successfully)
         if(! SSL_set_tlsext_host_name(stream_.native_handle(), host_.data()))
         {
-                throw boost::system::system_error
-                (
-                    static_cast<int>(::ERR_get_error()),
-                    net::error::get_ssl_category()
-                );
+          throw boost::system::system_error
+          (
+            static_cast<int>(::ERR_get_error()),
+            net::error::get_ssl_category()
+          );
         }
 
         co_await resolve();

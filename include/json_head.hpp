@@ -1,11 +1,16 @@
 #pragma once
 #include <iostream>
 #include <boost/json.hpp>
+#include <boost/url.hpp>
+#include <boost/url/encoding_opts.hpp>
 #include <boost/algorithm/string.hpp>
 #include <optional>
 #include <concepts>
 #include <iterator>
 #include <ranges>
+#include "boost/url/encoding_opts.hpp"
+#include "boost/url/grammar/all_chars.hpp"
+#include "boost/url/grammar/lut_chars.hpp"
 #include "print.hpp"
 
 
@@ -917,6 +922,30 @@ namespace Pars
         static json::string
         prepare_url_text(json::string mes)
         {
+            struct local_charSet
+            {
+              constexpr 
+              bool operator()(char ch) const noexcept
+              {
+                switch(ch)
+                {
+                  case '%'  : return false;
+
+                  case ' '  : return false;
+
+                  case '\'' : return false;
+
+                  case '\"' : return false;
+
+                  case '-'  : return false;
+
+                  case '\n' : return false;
+
+                  default: return true;
+                };
+              }
+            };
+
             auto fix_slash = [](json::string& url)
             {
                 if (url[0]!='/')
@@ -927,45 +956,9 @@ namespace Pars
                 }
             };
 
-            print("\nurl before parsing: \n", mes, "\n");
-
             fix_slash(mes);
 
-            const static json::string end{"%0A"};
-            const static json::string hyphen{"%2D"};
-            const static json::string space{"%20"};
-            const static json::string underscore{"%5F"};
-
-            //int offset = mes.find_first_of("=");
-            //json::string head{mes.begin(), mes.begin()+offset};
-            //print("\nhead:",head,"\n");
-
-            for(int i = mes.size() -1; i >= 0; i--)
-            {
-                json::string temp;
-                char ch = mes[i];
-                switch (ch)
-                {
-                    case ' ': temp = space; break;
-
-                    //case '-': temp = hyphen; break;
-
-                    //case '_': temp = underscore; break;
-
-                    case '\n': temp = end; break;
-
-                    default: break;
-                }
-
-                if (!temp.empty())
-                {
-                    temp += json::string{mes.begin() + i + 1, mes.end()};
-                    mes.erase(i, mes.size() - i);
-                    mes+=std::move(temp);
-                }
-            }
-
-            //mes.replace(0, head.size(), head);
+            mes = boost::urls::encode(mes, local_charSet{});
             return mes;
         }
 

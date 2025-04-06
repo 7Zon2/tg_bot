@@ -98,9 +98,9 @@ struct HashNode
   {
     if(!isDummy)
     {
-      hash_ = set_upper_bit(hash_);
+      hash = set_upper_bit(hash_);
     }
-    rhash_ = reverse_bit_order(hash_);
+    rhash_ = reverse_bit_order(hash);
   }
 
   HashNode(HashNode&& rhs) noexcept (std::is_nothrow_move_constructible_v<T>):
@@ -200,6 +200,7 @@ class LF_HashTable
       is_dummy_ = node.isDummy;
       if(rhash_ < node.rhash_) // a node must be between a parent bucket and next bucket 
       {
+        is_dummy_ = true;
         return true; //return true to stop searching in the list
       }
 

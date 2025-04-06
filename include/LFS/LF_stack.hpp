@@ -1,6 +1,7 @@
 #pragma once
 #include <algorithm>
 #include <atomic>
+#include <optional>
 #include "LF_allocator.hpp"
 
 
@@ -34,14 +35,14 @@ class LF_stack : public FreeList<T>
     protected:
 
     [[nodiscard]]
-    std::optional<T> pop(bool isTop)
+    std::optional<T> pop()
     {
       Node * old_head = head_.load(std::memory_order_relaxed);
       Node * tail = tail_.load(std::memory_order_relaxed); 
       auto  hzp =  alloc_.get_hazard();
       do
       {
-        Node*  temp;
+        Node*  temp{};
         do
         {
           temp = old_head;
@@ -59,26 +60,34 @@ class LF_stack : public FreeList<T>
         counter_.fetch_sub(1, std::memory_order_release);
       }
       
-      if(!isTop)
-      {
-        alloc_.reclaim_hazard(std::move(hzp));
-      }
-
+      alloc_.reclaim_hazard(std::move(hzp));
       return opt;
     }
 
   public:
 
-  [[nodiscard]]
-  auto pop()
-  {
-    return pop(false);
-  }
 
   [[nodiscard]]
-  auto top()
+  std::optional<T> top()
   {
-    return pop(true);
+    Node * temp{};
+    Node * old_head = head_.load(std::memory_order_relaxed);
+    auto hzp = alloc_.get_hazard();
+    do
+    {
+      temp = old_head;
+      hzp->protect(old_head);
+      old_head = head_.load(std::memory_order_relaxed);
+    }
+    while(old_head!=temp);
+
+    std::optional<T> opt;
+    if(old_head != tail_.load(std::memory_order_relaxed))
+    {
+      opt = old_head->data_; 
+    }
+
+    return opt;
   }
 
 };
