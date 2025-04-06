@@ -1,4 +1,5 @@
 #include "LF_HashTable.hpp"
+#include <type_traits>
 
 
 template<typename T>
@@ -17,10 +18,20 @@ class LF_set : protected LF_HashTable<T,T>
 
     public:
 
-    Set_iterator(){}
+    Set_iterator() noexcept {}
 
-    Set_iterator(it_t it):
+
+    Set_iterator(it_t it) noexcept :
       it_t(it){}
+
+
+    friend bool operator == (const Set_iterator& lhs, const Set_iterator& rhs) noexcept = default;
+
+
+    operator bool() noexcept 
+    {
+      return it_t::operator bool();
+    }
 
     public:
 
@@ -40,7 +51,7 @@ class LF_set : protected LF_HashTable<T,T>
     }
 
 
-    Set_iterator& operator++(int) noexcept 
+    Set_iterator operator++(int) noexcept 
     {
       Set_iterator temp{*this};
       it_t::operator++();
@@ -80,7 +91,8 @@ class LF_set : protected LF_HashTable<T,T>
   template<typename U>
   bool insert(U&& key)
   {
-    return Table::insert(std::forward<U>(key), U{});
+    using type = std::remove_reference_t<U>;
+    return Table::insert(std::forward<U>(key), type{});
   }
 
   auto begin() noexcept 

@@ -1,12 +1,13 @@
 #pragma once
 #include "PhotoSize.hpp"
+#include "json_head.hpp"
 
 
 namespace Pars
 {
   namespace TG
   {
-    class Document : protected PhotoSize
+    struct Document : public PhotoSize
     {
       public:
 
@@ -28,7 +29,7 @@ namespace Pars
 
       std::optional<PhotoSize> thumbnail{};
       optstr file_name{};
-      json::stirng mime_type{};
+      optstr mime_type{};
 
       public:
 
@@ -86,7 +87,7 @@ namespace Pars
       [[nodiscard]]
       static 
       fields_map 
-      optional_fields(T&& val, json::string inherited_name = get_entity_name())
+      optional_fields(T&& val, json::string inherited_name = entity_name)
       {
         return MainParser::mapped_pointers_validation
         (
@@ -106,7 +107,7 @@ namespace Pars
         File::fields_from_map(std::forward<T>(map));
 
         MainParser::field_from_map
-        <json::kind::object>(std::forward<T>(map), MAKE_PAIR(thumbnail, thumbnail);
+        <json::kind::object>(std::forward<T>(map), MAKE_PAIR(thumbnail, thumbnail));
 
         MainParser::field_from_map
         <json::kind::string>(std::forward<T>(map), MAKE_PAIR(file_name, file_name));
@@ -138,7 +139,7 @@ namespace Pars
       fields_to_value
       (
         json::string file_id,
-        json::stirng file_unique_id,
+        json::string file_unique_id,
         std::optional<PhotoSize> thumbnail = {},
         optstr file_name = {},
         optstr mime_type = {},
@@ -152,19 +153,26 @@ namespace Pars
             PAIR(file_unique_id, std::move(file_unique_id))
           );
 
+      
+        json::object objects = parse_tg_entenies_to_obj
+        (
+          std::move(thumbnail)
+        );
+      
+        MainParser::container_move(std::move(objects), ob);
+
         json::object opt_ob{MainParser::get_storage_ptr()};
         opt_ob = MainParser::parse_OptPairs_as_obj
           (
-              PAIR(thumbnail, std::move(thumbnail)),
-              PAIR(file_name, std::move(file_name)),
-              PAIR(mime_type, std::move(mime_type)),
-              PAIR(file_size, file_size)
+              MAKE_OP(file_name, std::move(file_name)),
+              MAKE_OP(mime_type, std::move(mime_type)),
+              MAKE_OP(file_size, file_size)
           );
 
         Pars::MainParser::container_move(std::move(opt_ob), ob);
 
         json::object res(MainParser::get_storage_ptr());
-        res[get_entity_name()] = std::move(ob); 
+        res[entity_name] = std::move(ob); 
         return res;
       }
 

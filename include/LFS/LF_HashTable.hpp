@@ -232,17 +232,21 @@ class LF_HashTable
 
     public:
 
-    HT_iterator(){}
+    HT_iterator() noexcept {}
 
-    HT_iterator(it_t it):
+
+    HT_iterator(it_t it) noexcept:
       it_t(it){}
 
-    friend bool operator == (const HT_iterator& it, const Node* node) noexcept
-    {
-      return it.node_;
-    }
 
     friend bool operator == (const HT_iterator&, const HT_iterator&) noexcept = default;
+
+
+    operator bool() noexcept 
+    {
+      return it_t::operator bool();
+    }
+
 
     public:
 

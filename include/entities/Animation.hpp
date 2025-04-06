@@ -24,7 +24,7 @@ namespace Pars
 
             [[nodiscard]]
             json::string
-            get_entity_name() override
+            get_entity_name() noexcept override
             {
                 return entity_name;
             }

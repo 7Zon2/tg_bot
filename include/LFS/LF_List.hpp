@@ -41,18 +41,20 @@ class LF_OrderList : protected FreeList<std::pair<size_t,T>, true>
 
     public:
 
-    order_iterator(){}
+    order_iterator() noexcept {}
     
-    order_iterator(Node* node):
+
+    order_iterator(Node* node) noexcept:
       FreeList_t::iterator(node){}
 
-    
-    friend bool operator == (const order_iterator& it, const Node* node) noexcept
-    {
-      return it.node_ == node;
-    }
 
     friend bool operator ==(const order_iterator&, const order_iterator&) noexcept = default; 
+
+
+    operator bool() noexcept 
+    {
+      return it_t::operator bool();
+    }
 
     public:
 

@@ -20,6 +20,7 @@ namespace Pars
         struct PhotoSize;
         struct Animation;
         struct Audio;
+        struct File;
         struct Document;
         struct Story;
         struct Video;

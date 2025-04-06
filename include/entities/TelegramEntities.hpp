@@ -75,7 +75,7 @@ namespace Pars
             
 
             [[nodiscard]]
-            virtual json::string get_entity_name() = 0;
+            virtual json::string get_entity_name() noexcept = 0;
 
             [[nodiscard]]
             virtual

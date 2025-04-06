@@ -7,7 +7,7 @@ namespace Pars
 {
   namespace TG
   {
-    class File : public TelegramEntities<File>
+    struct File : public TelegramEntities<File>
     {
       public:
 
@@ -16,9 +16,10 @@ namespace Pars
         json::string file_id = {};
         json::string file_unique_id = {};
         optdouble file_size = {};
+        optstr file_path = {};
 
         static const constexpr size_t req_fields = 2;
-        static const constexpr size_t opt_fields = 1;
+        static const constexpr size_t opt_fields = 2;
 
         static const inline json::string entity_name{"file"};
 
@@ -37,13 +38,15 @@ namespace Pars
         (
          json::string file_id,
          json::string file_unique_id,
-         optdouble file_size  = {}
+         optdouble file_size  = {},
+         optstr file_path = {}
         )
         noexcept 
         :
             file_id(std::move(file_id)),
             file_unique_id(std::move(file_unique_id)),
-            file_size(file_size)
+            file_size(file_size),
+            file_path(std::move(file_path))
         {
 
         }
@@ -89,7 +92,8 @@ namespace Pars
         return MainParser::mapped_pointers_validation
         (
             std::forward<T>(val),
-            std::make_pair(MainParser::make_json_pointer(inherited_name, FIELD_NAME(file_size)), json::kind::double_)
+            std::make_pair(MainParser::make_json_pointer(inherited_name, FIELD_NAME(file_size)), json::kind::double_),
+            std::make_pair(MainParser::make_json_pointer(inherited_name, FIELD_NAME(file_path)), json::kind::string)
         );
       }
 
@@ -106,6 +110,9 @@ namespace Pars
 
         MainParser::field_from_map
         <json::kind::double_>(std::forward<T>(map), MAKE_PAIR(file_size, file_size));
+
+        MainParser::field_from_map
+        <json::kind::string>(std::forward<T>(map), MAKE_PAIR(file_path, file_path));
       }
 
 
@@ -118,7 +125,8 @@ namespace Pars
           (
             Utils::forward_like<Self>(self.file_id),
             Utils::forward_like<Self>(self.file_unique_id),
-            file_size
+            self.file_size,
+            Utils::forward_like<Self>(self.file_path)
           );
       }
 
@@ -129,7 +137,8 @@ namespace Pars
       (
         json::string file_id,
         json::string file_unique_id,
-        optdouble file_size = {}
+        optdouble file_size = {},
+        optstr file_path = {}
       )
       {
         json::object ob{MainParser::get_storage_ptr()};
@@ -142,7 +151,8 @@ namespace Pars
         json::object ob2{MainParser::get_storage_ptr()};
         ob2 = MainParser::parse_OptPairs_as_obj
           (
-            MAKE_OP(file_size, file_size)
+            MAKE_OP(file_size, file_size),
+            MAKE_OP(file_path, std::move(file_path))
           );
 
         Pars::MainParser::container_move(std::move(ob2), ob);

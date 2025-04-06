@@ -59,12 +59,11 @@ class LF_stack : public FreeList<T>
         counter_.fetch_sub(1, std::memory_order_release);
       }
       
-      if(isTop)
+      if(!isTop)
       {
-        hzp->clear();
+        alloc_.reclaim_hazard(std::move(hzp));
       }
 
-      alloc_.deallocate_hazard(std::move(hzp));
       return opt;
     }
 

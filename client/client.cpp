@@ -5,8 +5,6 @@
 #include <boost/asio/use_future.hpp>
 #include "coro_future.hpp"
 #include <stacktrace>
-#include <unordered_set>
-#include <stack>
 #include <boost/stacktrace/stacktrace.hpp>
 #include <boost/asio/awaitable.hpp>
 #include <boost/asio/co_spawn.hpp>
@@ -14,6 +12,7 @@
 #include "tg_exceptions.hpp"
 #include "responses/interface.hpp"
 #include "LFS/LF_stack.hpp"
+#include "LFS/LF_set.hpp"
 
 
 template<typename T>
@@ -42,8 +41,8 @@ class session : public std::enable_shared_from_this<session>
 
     struct UpdateStorage
     {
-        std::unordered_set<size_t> updated_set;
-        std::stack<size_t>  update_stack;
+        LF_set<size_t> updated_set;
+        LF_stack<size_t>  update_stack;
     };
 
     UpdateStorage UpdateStorage_;
@@ -145,7 +144,7 @@ class session : public std::enable_shared_from_this<session>
         std::cout<<"\nShutdown...\n"<<std::endl;
 
         boost::system::error_code er;
-        stream_.shutdown(er);
+        auto _ = stream_.shutdown(er);
         print(er.what());
 
         if(er == net::error::eof)
@@ -456,7 +455,7 @@ class session : public std::enable_shared_from_this<session>
             co_await send_command(std::move(mes.value()));
         };
 
-        if (! res.ok)
+        if (!res.ok)
         {
             co_return;
         }
@@ -466,8 +465,8 @@ class session : public std::enable_shared_from_this<session>
             co_return;
         }
 
-        auto it =  UpdateStorage_.updated_set.insert(res.update_id.value());
-        if (!it.second)
+        bool ok = false; UpdateStorage_.updated_set.insert(res.update_id.value());
+        if(!ok)
         {
             co_return;
         }
@@ -603,7 +602,8 @@ class session : public std::enable_shared_from_this<session>
     prepare_getUpdates(Pars::TG::getUpdates upd)
     {
         upd.timeout = Timer::timeout.count();
-        if (UpdateStorage_.update_stack.empty() || isLast)
+        auto opt = UpdateStorage_.update_stack.top();
+        if (!opt.has_value() || isLast)
         {
             upd.offset = -1;
         } 

@@ -22,16 +22,16 @@ namespace Pars
 
             [[nodiscard]]
             json::string
-            get_entity_name() override
+            get_entity_name() noexcept override
             {
                 return entity_name;
             }
 
             getUpdates
             (
-                optint offset = {},
-                optint limit  = {},
-                optint timeout= {},
+                optint offset  = {},
+                optint limit   = {},
+                optint timeout = {},
                 std::optional<std::vector<json::string>> allowed_updates = {}
             )
             :

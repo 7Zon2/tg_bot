@@ -76,15 +76,16 @@ class FreeList
 
       public:
       
-      FL_iterator(){}
-      FL_iterator(Node* node):
+      FL_iterator() noexcept {}
+
+      FL_iterator(Node* node) noexcept:
         node_(node){}
 
-      FL_iterator(const FL_iterator&) = default;
-      FL_iterator(FL_iterator&&) = default;
+      FL_iterator(const FL_iterator&) noexcept = default;
+      FL_iterator(FL_iterator&&) noexcept = default;
 
-      FL_iterator& operator = (const FL_iterator&) = default;
-      FL_iterator& operator = (FL_iterator&&) = default;
+      FL_iterator& operator = (const FL_iterator&) noexcept = default;
+      FL_iterator& operator = (FL_iterator&&) noexcept = default;
      
       using iterator_category = std::forward_iterator_tag;
       using value_type = std::remove_cvref_t<T>;
@@ -94,12 +95,14 @@ class FreeList
 
       public:
 
-      friend bool operator ==(const FL_iterator& it, const Node* node) noexcept
-      {
-        return it.node_ == node;
-      }
 
       friend bool operator ==(const FL_iterator&, const FL_iterator&) noexcept = default;
+
+
+      operator bool() noexcept
+      {
+        return node_;
+      }
 
 
       FL_iterator& 
