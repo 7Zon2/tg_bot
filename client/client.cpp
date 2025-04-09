@@ -1,4 +1,8 @@
+#include "boost/asio/ssl/stream.hpp"
 #include "boost/beast/core/flat_buffer.hpp"
+#include "boost/beast/core/tcp_stream.hpp"
+#include "boost/beast/ssl/ssl_stream.hpp"
+#include "entities/TelegramResponse.hpp"
 #include "head.hpp"
 #include "entities/entities.hpp"
 #include "certif.hpp"
@@ -11,6 +15,7 @@
 #include <boost/asio/awaitable.hpp>
 #include <boost/asio/co_spawn.hpp>
 #include <boost/asio/detached.hpp>
+#include <thread>
 #include "tg_exceptions.hpp"
 #include "responses/interface.hpp"
 #include "LFS/LF_stack.hpp"
@@ -21,7 +26,6 @@ template<typename T>
 concept is_getUpdates = std::is_same_v<std::remove_reference_t<T>, Pars::TG::getUpdates>;
 
 
-// Performs an HTTP GET and prints the response
 class session : public std::enable_shared_from_this<session>
 {
 
@@ -36,7 +40,10 @@ class session : public std::enable_shared_from_this<session>
     ssl::context ctx_;
     boost::asio::any_io_executor ex_;
     tcp::resolver resolver_;
-    boost::asio::ssl::stream<beast::tcp_stream> stream_;
+
+    using stream_type = boost::asio::ssl::stream<beast::tcp_stream>;
+    using stream_ptr = std::unique_ptr<stream_type>;
+    stream_ptr stream_;
 
     private:
 
@@ -54,7 +61,7 @@ class session : public std::enable_shared_from_this<session>
     {
         Timer() = delete;
 
-        static inline const std::chrono::seconds timeout{25};
+        static inline const std::chrono::seconds timeout{15};
         static inline std::atomic<std::chrono::seconds> last_time
         {std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now().time_since_epoch())};
 
@@ -104,7 +111,7 @@ class session : public std::enable_shared_from_this<session>
      ,ctx_(std::move(ctx))
      , ex_(ex)
     , resolver_(ex_)
-    ,stream_(ex_,ctx_)
+    ,stream_(new stream_type(ex_,ctx_))
     {
         bot_url.append("/bot");
         bot_url.append(token_);
@@ -133,7 +140,7 @@ class session : public std::enable_shared_from_this<session>
         ssl::context& ctx
     )
     {
-        auto executor = co_await boost::asio::this_coro::executor;
+        auto executor =  co_await boost::asio::this_coro::executor;
         session ses_(host, version, port, token, executor, ctx);
         co_await ses_.run();
     }
@@ -145,7 +152,7 @@ class session : public std::enable_shared_from_this<session>
         std::cout<<"\nShutdown...\n"<<std::endl;
 
         boost::system::error_code er;
-        auto _ = stream_.shutdown(er);
+        auto _ = stream_->shutdown(er);
         print(er.what());
 
         if(er == net::error::eof)
@@ -163,34 +170,34 @@ class session : public std::enable_shared_from_this<session>
 
 
     boost::asio::awaitable<void>
-    resolve()
+    resolve(bool isWait)
     {
         // Look up the domain name
         auto res = co_await resolver_.async_resolve(host_, port_);
-        co_await connect(res);
+        co_await connect(res, isWait);
     }
 
 
     boost::asio::awaitable<void>
-    connect(const tcp::resolver::results_type& results)
+    connect(const tcp::resolver::results_type& results, bool isWait)
     {
         // Make the connection on the IP address we get from a lookup
-        auto ep = co_await beast::get_lowest_layer(stream_).async_connect(results);
+        auto ep = co_await beast::get_lowest_layer(*stream_).async_connect(results);
 
         print("Connecting...\n\n", "connected endpoint:\n");
         print_endpoint(ep);
         print("\n\n");
 
-       co_await handshake();
+       co_await handshake(isWait);
     }
 
 
     boost::asio::awaitable<void>
-    handshake()
+    handshake(bool isWait)
     {
         print("Handshake...\n");
         // Perform the SSL handshake
-        co_await stream_.async_handshake(ssl::stream_base::client);
+        co_await stream_->async_handshake(ssl::stream_base::client);
 
         try
         {
@@ -204,7 +211,10 @@ class session : public std::enable_shared_from_this<session>
             shutdown();
         }
 
-        co_await start_waiting();
+        if(isWait)
+          co_await start_waiting();
+        else
+          co_return;
     }
 
     public:
@@ -452,7 +462,6 @@ class session : public std::enable_shared_from_this<session>
             }
 
             print("Message reply:\n");
-            //MainParser::pretty_print(std::cout, mes.value().fields_to_value());
             co_await send_command(std::move(mes.value()));
         };
 
@@ -506,28 +515,39 @@ class session : public std::enable_shared_from_this<session>
     {   
         using namespace Pars;
 
-        try
+        bool reconnect = false;
+
+        while(true)
         {
-            while(true)
+          if(reconnect)
+          {
+            reconnect = false;
+            co_await run(false);
+          }
+
+          try
+          {
+            TG::TelegramResponse resp{};
+            resp = co_await
+            start_getUpdates<TG::TelegramResponse, false>();
+            co_await parse_result(std::move(resp));
+            /*std::jthread th
             {
-                TG::TelegramResponse resp = co_await
-                start_getUpdates<TG::TelegramResponse, false>();
-                co_await parse_result(std::move(resp));
-                /*std::jthread th
+                [&]() -> boost::asio::awaitable<void>
                 {
-                    [&]() -> boost::asio::awaitable<void>
-                    {
-                        co_await parse_result(std::move(resp));
-                    }
-                };
-                th.join();*/
-            }
-        }
-        catch(const std::exception& e)
-        {
-            print(e.what());
+                  co_await parse_result(std::move(resp));
+                }
+            };
+            th.join();*/
+          }
+          catch(const std::exception& ex)
+          {
+            print(ex.what());
             shutdown();
-        }
+            stream_ = std::make_unique<stream_type>(ex_, ctx_);
+            reconnect = true;
+          }
+      }
     }
 
     protected:
@@ -541,7 +561,7 @@ class session : public std::enable_shared_from_this<session>
 
         static std::mutex mut;
 
-        bool isopen = beast::get_lowest_layer(stream_).socket().is_open();
+        bool isopen = beast::get_lowest_layer(*stream_).socket().is_open();
         if (! isopen)
         {
             throw std::runtime_error{"\nSocket is not open'\n"};
@@ -557,7 +577,8 @@ class session : public std::enable_shared_from_this<session>
             auto& req = opt_req.value();
             {
                 std::lock_guard<std::mutex> lk{mut};
-                writable = co_await http::async_write(stream_ , req, boost::asio::use_awaitable);
+                std::this_thread::sleep_for(1200ms);
+                writable = co_await http::async_write(*stream_ , req, boost::asio::use_awaitable);
             }
             print("\n==============================================================================\n", req,"\n");
             print("\nwritable:", writable,"\n");
@@ -573,14 +594,13 @@ class session : public std::enable_shared_from_this<session>
                 try
                 {
                   boost::beast::flat_buffer buffer{};
-                  readable = co_await http::async_read(stream_, buffer, res, boost::asio::use_awaitable);
+                  readable = co_await http::async_read(*stream_, buffer, res, boost::asio::use_awaitable);
                 }
                 catch(const std::exception& ex)
                 {
                   print(ex.what());
                   print_response(res);
-                  //throw ex;
-                  co_return;
+                  throw ex;
                 }
             }
 
@@ -717,7 +737,6 @@ class session : public std::enable_shared_from_this<session>
         http::request<http::string_body> req;
         req.method(http::verb::get);
         req.set(http::field::host, host_);
-        req.set(http::field::keep_alive, "timeout=5, max=1000");
         req.set(http::field::user_agent, "Raven-Fairy");
         req.target(target);
         return req;
@@ -771,10 +790,10 @@ class session : public std::enable_shared_from_this<session>
 
     // Start the asynchronous operation
     boost::asio::awaitable<void>
-    run()
+    run(bool isWait = true)
     {
         // Set SNI Hostname (many hosts need this to handshake successfully)
-        if(! SSL_set_tlsext_host_name(stream_.native_handle(), host_.data()))
+        if(! SSL_set_tlsext_host_name(stream_->native_handle(), host_.data()))
         {
           throw boost::system::system_error
           (
@@ -783,7 +802,7 @@ class session : public std::enable_shared_from_this<session>
           );
         }
 
-        co_await resolve();
+        co_await resolve(isWait);
     }
 
 
