@@ -8,3 +8,4 @@ tests/
 serv/
 res/
 CMakeLists.txt.user
+start.sh

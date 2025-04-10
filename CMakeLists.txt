@@ -10,6 +10,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 find_package(Boost REQUIRED)
 find_package(Boost REQUIRED COMPONENTS json)
 find_package(Boost REQUIRED COMPONENTS url)
+find_package(Boost REQUIRED COMPONENTS iostreams)
 
 find_package(OpenSSL REQUIRED)
 
@@ -30,7 +31,7 @@ endif()
 
 target_include_directories(flags INTERFACE ${PROJECT_SOURCE_DIR}/include)
 
-target_link_libraries(flags INTERFACE  OpenSSL::SSL OpenSSL::Crypto  stdc++exp dl  ${Boost_LIBRARIES} Boost::json Boost::url)
+target_link_libraries(flags INTERFACE  OpenSSL::SSL OpenSSL::Crypto  stdc++exp dl  ${Boost_LIBRARIES} Boost::json Boost::url Boost::iostreams)
 
 add_subdirectory(client)
 add_subdirectory(search)
