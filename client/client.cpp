@@ -327,16 +327,6 @@ class session : public std::enable_shared_from_this<session>
         }
     }
 
-    [[nodiscard]]
-    http::request<http::string_body>
-    SetWebhookRequest()
-    {
-        json::string certif = CRTF::load_cert(certif_);
-
-        json::string target = bot_url;
-
-        return PostRequest("", target, "multipart/form-data",true);
-    }
 
     public:
 

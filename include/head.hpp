@@ -24,7 +24,24 @@
  using tcp = boost::asio::ip::tcp;       // from <boost/asio/ip/tcp.hpp>
 
 
-void print_endpoint(const tcp::endpoint& ep)
+
+inline void 
+print_response(auto&& res, bool only_headers = false)
+{
+  print("Response:\n\n====================================================================================\n");
+  for(auto&& i : res)
+  {
+    print
+    (
+      "field name: ",  i.name_string(),"\t",
+      "field value: ", i.value(),"\n"
+    );
+  }
+  print(res,"\n=========================================================================================\n");
+}
+
+
+inline void print_endpoint(const tcp::endpoint& ep)
 {
     print("address:", ep.address().to_string(),"\n");
     print("port:", ep.port(),"\n");
@@ -34,7 +51,7 @@ void print_endpoint(const tcp::endpoint& ep)
 }
 
 
-void print_result_type(const tcp::resolver::results_type& res)
+inline void print_result_type(const tcp::resolver::results_type& res)
 {
     print("\nserver endpoints:\n");
     print("number of endpoints:", res.size(),"\n");
@@ -50,7 +67,7 @@ void print_result_type(const tcp::resolver::results_type& res)
 
 // Return a reasonable mime type based on the extension of a file.
 beast::string_view
-mime_type(beast::string_view path)
+inline mime_type(beast::string_view path)
 {
     using beast::iequals;
     auto const ext = [&path]
@@ -87,7 +104,7 @@ mime_type(beast::string_view path)
 // Append an HTTP rel-path to a local filesystem path.
 // The returned path is normalized for the platform.
 std::string
-path_cat
+inline path_cat
 (
     beast::string_view base,
     beast::string_view path
@@ -125,7 +142,7 @@ enum class RequestErrors : char
 
 template<class Body, class Allocator>
 RequestErrors
-handle_head
+inline handle_head
 (
     beast::string_view path,
     http::request<Body, http::basic_fields<Allocator>>&& req,
@@ -164,7 +181,7 @@ handle_head
 
 template<class Body, class Allocator>
 RequestErrors
-handle_get
+inline handle_get
 (
     beast::string_view path,
     http::request<Body, http::basic_fields<Allocator>>&& req,
@@ -208,7 +225,7 @@ handle_get
 
 template<class Body, class Allocator>
 RequestErrors
-handle_post
+inline handle_post
 (
     beast::string_view path,
     http::request<Body, http::basic_fields<Allocator>>&& req,
@@ -263,7 +280,7 @@ handle_post
 
 template<typename Body>
 http::message_generator
-prepare_response
+inline prepare_response
 (
     http::response<Body>&& res_,
     RequestErrors status
@@ -335,7 +352,7 @@ prepare_response
 // request), is type-erased in message_generator.
 template <class Body, class Allocator>
 http::message_generator
-handle_request
+inline handle_request
 (
     beast::string_view doc_root,
     http::request<Body, http::basic_fields<Allocator>>&& req
@@ -401,7 +418,7 @@ handle_request
 
 // Report a failure
 void
-fail(beast::error_code ec, char const* what)
+inline fail(beast::error_code ec, char const* what)
 {
     if(ec == net::ssl::error::stream_truncated)
         return;

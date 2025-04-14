@@ -3,11 +3,12 @@
 
 namespace CRTF
 {
-    json::string 
+    [[nodiscard]]
+    inline std::string 
     load_cert(std::string_view filename)
     {
         static unsigned char buf[4096]{};
-        json::string str;
+        std::string str;
 
         std::FILE* f = std::fopen(filename.data(), "r");
         if(!f)
@@ -23,10 +24,11 @@ namespace CRTF
         return str;
     }
 
-    void load_cert(ssl::context& ctx,const std::string& file)
+    inline void 
+    load_cert(ssl::context& ctx,const std::string& file)
     {
         boost::system::error_code er;
-        ctx.load_verify_file(file,er);
+        (void) ctx.load_verify_file(file,er);
         if(er)
         {
             fail(er,"load_verify_file failed");
@@ -34,7 +36,8 @@ namespace CRTF
         }
     }
 
-    void set_cert
+    inline void 
+    set_cert
     (
         ssl::context& ctx, 
         std::string key,

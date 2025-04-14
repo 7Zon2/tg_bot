@@ -1,5 +1,7 @@
 #pragma once
 #include <iostream>
+#include <fstream>
+#include <ostream>
 #include <boost/json.hpp>
 #include <boost/url.hpp>
 #include <boost/url/encoding_opts.hpp>
@@ -937,7 +939,23 @@ namespace Pars
 
                   case '\"' : return false;
 
-                  case '-'  : return false;
+                  //case '-'  : return false;
+
+                  case '{'  : return false;
+
+                  case '}'  : return false;
+
+                  case '('  : return false;
+
+                  case ')'  : return false;
+
+                  case '['  : return false;
+
+                  case ']'  : return false;
+
+                  case ':'  : return false;
+
+                  case ';'  : return false;
 
                   case '\n' : return false;
 
@@ -946,18 +964,7 @@ namespace Pars
               }
             };
 
-            auto fix_slash = [](json::string& url)
-            {
-                if (url[0]!='/')
-                {
-                    json::string str{"/"};
-                    str += std::move(url);
-                    url = std::move(str);
-                }
-            };
-
-            fix_slash(mes);
-
+          
             mes = boost::urls::encode(mes, local_charSet{});
             return mes;
         }
@@ -1058,5 +1065,13 @@ namespace Pars
         }
 
     };
+
+
+  void dump_data(std::string filename, auto&& req)
+  {
+    std::ofstream ofile{filename, std::ios::binary};
+    ofile<<req;
+    ofile.close();
+  }
 
 };// namespace Pars
