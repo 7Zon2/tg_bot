@@ -600,7 +600,7 @@ class session : public std::enable_shared_from_this<session>
             if constexpr (TG::is_TelegramBased<Res>)
             {
                 json::value var =  json::string{std::move(res).body()};
-                var     =  Pars::MainParser::try_parse_value(var);
+                var     =  Pars::MainParser::try_parse_value(std::move(var));
                 Res obj{};
                 obj= std::move(var);
                 co_return obj;

@@ -1,29 +1,38 @@
+#include "boost/beast/http/message.hpp"
+#include "boost/beast/http/status.hpp"
+#include "boost/beast/http/string_body.hpp"
+#include "boost/beast/http/verb.hpp"
+#include "boost/iostreams/filter/gzip.hpp"
+#include "boost/iostreams/device/array.hpp"
+#include "boost/iostreams/filtering_stream.hpp"
+#include "boost/iostreams/copy.hpp"
+#include "boost/iostreams/device/back_inserter.hpp"
+#include "boost/system/detail/error_code.hpp"
+#include "head.hpp"
 #include "session_interface.hpp"
+#include <stdexcept>
 
 
-class Searcher : public session_interface
+class Searcher : public session_interface<false>
 {
   public:
 
   Searcher
   (
+   int version,
    json::string host,
    json::string port, 
-   int version,
-   ssl::context ctx,
    net::any_io_executor executor
   )
   noexcept :
   session_interface
   (
+    version,
     host,
     port,
-    version,
-    std::move(ctx),
     executor
   )
-  {
-  }
+  {}
 
   
   net::awaitable<void>
@@ -50,8 +59,8 @@ class Searcher : public session_interface
     auto req = make_header
       (
         http::verb::post,
-        "https://yandex.ru/images/search",
-        R"(/?rpt=imageview&format=json&request={"blocks":[{"block":"b-page_type_search-by-image__link"}]})"
+        "yandex.ru",
+        R"(/images/search/?rpt=imageview&format=json&request={"blocks":[{"block":"b-page_type_search-by-image__link"}]})"
       );
 
 
@@ -65,73 +74,111 @@ class Searcher : public session_interface
       R"(gzip, deflate, br)"
     );
 
-    auto res = co_await req_res(std::move(req));
+
+    print("\n",req.target(),"\n");
+    auto res = co_await req_res(*stream_, req);
     http::status status = res.result();
     if
     (
       (status != http::status::found) && 
       (status != http::status::see_other) &&
-      (status != http::status::accepted)
+      (status != http::status::accepted) &&
+      (status != http::status::temporary_redirect)
     )
     {
       throw std::runtime_error{"not found"};
     }
 
-    //json::string target = get_image_url(res);
-    res = co_await make_simple_get("");
-    co_return;
+    if(status == http::status::temporary_redirect)
+    {
+      co_await start_redirection(std::move(req), std::move(res));
+    }
   }
 
-  
-  json::string
-  get_image_url(http::response<http::string_body>& res)
+
+  net::awaitable<http::response<http::string_body>>
+  redirect(auto& req, json::string relative_url, auto...statuses)
   {
-
-    auto find_decode_url = [this](const auto &url, size_t pos)
+    http::response<http::string_body> res;
+    auto status = http::status::temporary_redirect;
+    while
+    (
+      (status == http::status::temporary_redirect)||
+      ((status == statuses) && ...)
+    )
     {
-      json::string dest{url.begin()+pos, url.end()};
-      return encode_base64(dest);
-    };
+      res = co_await req_res(*stream_, req);
+      status = res.result();
+      auto it = res.find(http::field::location);
+      if (it == res.end())
+        break;
 
-    auto find_url = [](const auto& url)
-    {
-      size_t beg = url.find("\"");
-      size_t end = url.find_last_of("\"");
-      if(beg == json::string::npos || end == json::string::npos)
-      {
-        throw std::runtime_error{"image url not found\n"};
-      }
-      beg+=1;
-      return json::string(url.begin()+beg, url.begin()+end);
-    };
-
-    auto find_ref_tag = [&find_url](const auto& url)
-    {  
-      size_t beg = url.find("<A");
-      size_t end = url.find_last_of("A>");
-      if(beg == json::string::npos || end == json::string::npos)
-      {
-        throw std::runtime_error{"image url not found\n"};
-      }
-      auto url_ =  json::string{url.begin()+beg, url.begin() + end};
-      return find_url(url_);
-    };
-
-    auto& body = res.body();
-    json::string url = find_ref_tag(body);
-    
-    size_t pos = url.find(":", 7);
-    if(pos == json::string::npos)
-    {
-      throw std::runtime_error{"image url not found\n"};
+      json::string url = it->value();
+      url = make_relative_url(std::move(url), relative_url);
+      req.target(std::move(url));
     }
-    pos+=7;
 
-    json::string encoded = find_decode_url(url, pos);
-    url.erase(pos);
-    url+=std::move(encoded);
-    print("\nImage URL:", url,"\n");
-    return url;
+    co_return std::move(res);
+  }
+
+
+  net::awaitable<void> 
+  start_redirection
+  (
+   http::request<http::string_body> req,
+   http::response<http::string_body> res
+  )
+  {
+    print("\nstart redirection...\n");
+    res = co_await redirect(req, "/images");
+    auto status = res.result();
+    if(status != http::status::ok)
+    {
+      throw std::runtime_error{"\nurl image wasn't found\n"};
+    }
+    
+    json::string url = "/images/search?";
+    url += parse_answer(std::move(res));
+
+    req = make_header(http::verb::get, host_, url);
+    res = co_await redirect(req, "/images", http::status::found);
+    status = res.result();
+    if(status != http::status::ok)
+    {
+      throw std::runtime_error{"\nhtml answer wasn't found\n"};
+    }
+
+    auto doc = parse_html(res.body());
+  }
+
+
+  [[nodiscard]]
+  json::string parse_answer(http::response<http::string_body> res)
+  {
+    boost::iostreams::array_source src{res.body().data(), res.body().size()};
+    boost::iostreams::filtering_istream is;
+    boost::iostreams::gzip_decompressor gz{};
+
+    is.push(gz);
+    is.push(src);
+
+    std::string encode_js{};
+    encode_js.reserve(res.body().size());
+
+    boost::iostreams::back_insert_device ins {encode_js};
+    boost::iostreams::copy(is, ins);
+
+    json::value var = json::string{std::move(encode_js)};
+    var = Pars::MainParser::try_parse_value(std::move(var));
+    Pars::MainParser::pretty_print(std::cout, var);
+
+    boost::system::error_code er;
+    auto * it = var.find_pointer("/blocks/0/params/url", er);
+    if(er)
+      throw std::runtime_error{"\npointer wasn't found/n"};
+
+    json::string url = it->as_string();
+    return url; 
   }
 
   public:
@@ -146,7 +193,7 @@ int main()
   try
   {
     net::io_context ioc;
-    net::co_spawn(ioc, session_interface::make_session<Searcher>(Searcher::host_, "443",11), net::detached); 
+    net::co_spawn(ioc, session_interface<false>::make_session<Searcher>(11, Searcher::host_, "80"), net::detached); 
     ioc.run();
   }
   catch(const std::exception& ex)

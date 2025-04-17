@@ -1,4 +1,5 @@
 #pragma once
+#include "boost/beast/core/tcp_stream.hpp"
 #include "json_head.hpp"
 #include "print.hpp"
 #include "head.hpp"
@@ -26,93 +27,68 @@
 #include "boost/beast/http/string_body.hpp"
 #include "boost/beast/http/verb.hpp"
 
-
-
-class session_interface
+class session_base
 {
-  protected: 
-
-  json::string host_;
-  json::string port_;
-  json::string certif_;
-  int version_;
-
-  ssl::context ctx_;
-  boost::asio::any_io_executor ex_;
-  tcp::resolver resolver_;
-
-  using stream_type = boost::asio::ssl::stream<beast::tcp_stream>;
-  using stream_ptr = std::shared_ptr<stream_type>;
-  stream_ptr stream_;
-
-  protected:
-
-  net::awaitable<void>
-  virtual resolve()
-  {
-    print("Resolution...\n\n");
-    tcp::resolver::results_type res = co_await resolver_.async_resolve(host_, port_);
-    print_result_type(res);
-    co_await connect(res);
-  }
-
-  
-  net::awaitable<void>
-  virtual connect
-  (const tcp::resolver::results_type& res)
-  {
-    // Make the connection on the IP address we get from a lookup
-    auto ep = co_await beast::get_lowest_layer(*stream_).async_connect(res);
-  
-    print("Connecting...\n\n", "connected endpoint:\n");
-    print_endpoint(ep);
-    print("\n\n");
-
-    co_await handshake();
-  }
-
-
-  net::awaitable<void>
-  virtual handshake()
-  {
-    print("Handshake...\n");
-   
-    boost::asio::mutable_buffer buf;
-    json::string str;
-    co_await stream_->async_handshake(ssl::stream_base::client, buf, net::use_awaitable);
-    
-    for(size_t i = 0; i < buf.size(); i++)
-    {
-      char* ch = static_cast<char*>(buf.data()) + i;
-      str.push_back(*ch);
-    }
-    print(str);
-  }
-
-  net::awaitable<void> 
-  virtual shutdown()
-  {
-    std::cout<<"\nShutdown...\n"<<std::endl;
-
-    boost::system::error_code er;
-    auto _ = stream_->shutdown(er);
-    print(er.what());
-
-    if(er == net::error::eof)
-    {
-      // Rationale:
-      // http://stackoverflow.com/questions/25587403/boost-asio-ssl-async-shutdown-always-finishes-with-an-error
-      print("\nconnection was closed with the eof error\n");
-      er = {};
-    }
-    else
-    {
-        print("\nconnection was closed gracefully\n");
-    }
-    co_return;
-  }
 
   public:
+
+  session_base
+  (
+    int version,
+    json::string host,
+    json::string port,
+    boost::asio::any_io_executor ex
+  )
+  noexcept :
+  version_(version),
+  host_(host),
+  port_(port),
+  ex_(ex),
+  resolver_(ex_)
+  {}
+
+  virtual ~session_base(){}
+
+
+  net::awaitable<void>
+  virtual run () = 0;
+
+
+  net::awaitable<void>
+  virtual shutdown() = 0;
+
+  public:
+
+  net::awaitable<void> 
+  static write_request
+  (auto& stream, http::request<http::string_body>& req)
+  {
+    size_t write_data = co_await http::async_write(stream, std::move(req));
+    print("\nwrite data:", write_data, "\n");
+  }
+
+ 
+  net::awaitable<http::response<http::string_body>> 
+  static read_response(auto & stream)
+  {
+    boost::beast::flat_buffer buffer{};
+    http::response<http::string_body> resp;
+    size_t read_data = co_await http::async_read(stream, buffer, resp);
+    print("\nread data:", read_data, "\n");
+    print_response(resp);
+    co_return resp;
+  }
+
+
+  net::awaitable<http::response<http::string_body>>
+  static req_res
+  (auto & stream, http::request<http::string_body>& req)
+  {
+    co_await write_request(stream, req);
+    auto res = co_await read_response(stream);
+    co_return res;
+  }
+
 
   [[nodiscard]]
   static json::string 
@@ -135,22 +111,11 @@ class session_interface
 
 
   [[nodiscard]]
-  static ssl::context
-  make_default_context()
-  {
-    ssl::context ctx{ssl::context::tlsv13_client};
-    ctx.set_default_verify_paths();
-    ctx.set_verify_mode(ssl::verify_peer);
-    return ctx;
-  }
-
-  
-  [[nodiscard]]
   net::awaitable<http::response<http::string_body>>
-  make_simple_get(json::string target, bool is_encode = true)
+  make_simple_get(auto& stream, json::string target, bool is_encode = true)
   {
     auto req = make_header(http::verb::get, host_, target, is_encode);
-    auto res = co_await req_res(std::move(req));
+    auto res = co_await req_res(stream, std::move(req));
     co_return res;
   }
 
@@ -164,7 +129,7 @@ class session_interface
     json::string host,
     json::string target,
     bool is_encode = true,
-    json::string user_agent = "python-requests/2.32.3"
+    json::string user_agent = "RavenFairy"
   )
   {
     http::request<http::string_body> req;
@@ -181,7 +146,7 @@ class session_interface
     req.target(target);
     return req;
   }
-
+ 
 
   static void 
   prepare_multipart
@@ -233,6 +198,112 @@ class session_interface
 
   protected:
 
+  net::awaitable<void>
+  virtual resolve()
+  {
+    print("Resolution...\n\n");
+    tcp::resolver::results_type res = co_await resolver_.async_resolve(host_, port_);
+    print_result_type(res);
+    co_await connect(res);
+  }
+
+  
+  net::awaitable<void>
+  virtual connect
+  (const tcp::resolver::results_type&) = 0;
+
+
+  net::awaitable<void>
+  virtual handshake () = 0;
+
+  protected:
+
+  int version_;
+  json::string host_;
+  json::string port_;
+  boost::asio::any_io_executor ex_;
+  tcp::resolver resolver_;
+};
+
+
+
+template<bool HTTPS>
+class session_interface;
+
+
+template<>
+class session_interface<true> : public session_base
+{
+  protected: 
+
+  json::string certif_;
+  ssl::context ctx_;
+  using stream_type = boost::asio::ssl::stream<beast::tcp_stream>;
+  using stream_ptr = std::shared_ptr<stream_type>;
+  stream_ptr stream_;
+
+  protected:
+
+  net::awaitable<void>
+  virtual connect
+  (const tcp::resolver::results_type& res) override
+  {
+    // Make the connection on the IP address we get from a lookup
+    auto ep = co_await beast::get_lowest_layer(*stream_).async_connect(res);
+  
+    print("Connecting...\n\n", "connected endpoint:\n");
+    print_endpoint(ep);
+    print("\n\n");
+
+    co_await handshake();
+  }
+
+
+  net::awaitable<void>
+  virtual handshake() override
+  {
+    print("Handshake...\n"); 
+    co_await stream_->async_handshake(ssl::stream_base::client);
+  }
+
+
+  net::awaitable<void> 
+  virtual shutdown() override
+  {
+    std::cout<<"\nShutdown...\n"<<std::endl;
+
+    boost::system::error_code er;
+    auto _ = stream_->shutdown(er);
+    print(er.what());
+
+    if(er == net::error::eof)
+    {
+      // Rationale:
+      // http://stackoverflow.com/questions/25587403/boost-asio-ssl-async-shutdown-always-finishes-with-an-error
+      print("\nconnection was closed with the eof error\n");
+      er = {};
+    }
+    else
+    {
+        print("\nconnection was closed gracefully\n");
+    }
+    co_return;
+  }
+
+  public:
+
+  [[nodiscard]]
+  static ssl::context
+  make_default_context()
+  {
+    ssl::context ctx{ssl::context::tlsv13_client};
+    ctx.set_default_verify_paths();
+    ctx.set_verify_mode(ssl::verify_peer);
+    return ctx;
+  }
+
+  protected:
+
   session_interface
   (
    json::string host,
@@ -242,12 +313,14 @@ class session_interface
    net::any_io_executor executor
   )
   noexcept :
-  host_(host),
-  port_(port),
-  version_(version),
+  session_base
+  (
+    version,
+    host,
+    port,
+    executor
+  ),
   ctx_(std::move(ctx)),
-  ex_(executor),
-  resolver_(ex_),
   stream_(std::make_shared<stream_type>(ex_, ctx_))
   {}
 
@@ -258,9 +331,9 @@ class session_interface
   net::awaitable<std::shared_ptr<Derived>> 
   make_session
   (
+    int version,
     json::string host,
     json::string port,
-    int version,
     bool run = true,
     std::optional<ssl::context> ctx = {},
     Args&&...args
@@ -272,8 +345,8 @@ class session_interface
     }
 
     auto ex = co_await net::this_coro::executor;
-    std::shared_ptr<Derived> session = make_shared<Derived>
-    (host, port, version, std::move(ctx).value(), ex, std::forward<Args>(args)...);
+    std::shared_ptr<Derived> session = std::make_shared<Derived>
+    (version, host, port, std::move(ctx).value(), ex, std::forward<Args>(args)...);
     
     if(run)
       co_await session->run();
@@ -283,7 +356,7 @@ class session_interface
 
 
   net::awaitable<void>
-  virtual run()
+  virtual run() override
   {
     // Set SNI Hostname (many hosts need this to handshake successfully)
     if(! SSL_set_tlsext_host_name(stream_->native_handle(), host_.data()))
@@ -299,42 +372,100 @@ class session_interface
   }
 
 
-  net::awaitable<void>
-  virtual 
-  write_request
-  (http::request<http::string_body> req)
-  {
-    size_t write_data = co_await http::async_write(*stream_, std::move(req));
-    print("\nwrite data:", write_data, "\n");
-  }
- 
-
-  net::awaitable<http::response<http::string_body>> 
-  virtual 
-  read_response()
-  {
-    boost::beast::flat_buffer buffer{};
-    http::response<http::string_body> resp;
-    size_t read_data = co_await http::async_read(*stream_, buffer, resp);
-    print("\nread data:", read_data, "\n");
-    print_response(resp);
-    co_return resp;
-  }
-  
-
-  net::awaitable<http::response<http::string_body>>
-  virtual 
-  req_res(http::request<http::string_body> req)
-  {
-    co_await write_request(std::move(req));
-    auto res = co_await read_response();
-    co_return res;
-  }
-
-
   virtual ~session_interface()
   {
     (void) shutdown();
+  }
+
+};
+
+
+
+template<>
+class session_interface<false> : public session_base
+{
+  protected:
+
+  using stream_type = boost::beast::tcp_stream;
+  using stream_ptr  = std::shared_ptr<stream_type>;
+  stream_ptr stream_;
+
+  session_interface
+  (
+    int version,
+    json::string host,
+    json::string port,
+    net::any_io_executor ex
+  )
+  noexcept :
+  session_base
+  (
+    version,
+    host,
+    port,
+    ex
+  ),
+  stream_(std::make_shared<stream_type>(ex_))
+  {}
+
+  public:
+
+  template<typename Derived, typename...Args>
+  static 
+  net::awaitable<std::shared_ptr<Derived>> 
+  make_session
+  (
+    int version,
+    json::string host,
+    json::string port,
+    bool run = true,
+    Args&&...args
+  )
+  {
+    auto ex = co_await net::this_coro::executor;
+    std::shared_ptr<Derived> session = std::make_shared<Derived>
+    (version, host, port, ex, std::forward<Args>(args)...);
+    
+    if(run)
+      co_await session->run();
+
+    co_return session;
+  }
+
+  
+  net::awaitable<void>
+  run() override
+  {
+    co_await resolve();
+  }
+
+  protected:
+
+  net::awaitable<void>
+  virtual connect
+  (const tcp::resolver::results_type& res) override
+  {
+    auto ep = co_await stream_->async_connect(res);
+
+    print("Connecting...\n\n", "connected endpoint:\n");
+    print_endpoint(ep);
+    print("\n\n");
+  }
+
+  
+  net::awaitable<void>
+  virtual handshake() override
+  {
+    co_return;
+  }
+
+
+  net::awaitable<void> 
+  virtual shutdown() override
+  {
+    std::cout<<"\nShutdown...\n"<<std::endl;
+    stream_->close();
+    co_return;
   }
 
 };
