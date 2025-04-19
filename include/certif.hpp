@@ -1,8 +1,26 @@
 #pragma once
-#include "head.hpp"
+#include "boost/asio/ssl/context.hpp"
+#include "boost/asio/ssl/verify_mode.hpp"
+#include <boost/asio/ssl.hpp>
+#include <stdexcept>
+
+namespace ssl = boost::asio::ssl;
 
 namespace CRTF
 {
+  
+    [[nodiscard]]
+    inline ssl::context
+    load_default_client_ctx
+    (ssl::context::method method = ssl::context::tlsv12_client)
+    {
+      ssl::context ctx{method};
+      ctx.set_default_verify_paths();
+      ctx.set_verify_mode(ssl::verify_peer);
+      return ctx;
+    }
+
+
     [[nodiscard]]
     inline std::string 
     load_cert(std::string_view filename)
@@ -31,8 +49,7 @@ namespace CRTF
         (void) ctx.load_verify_file(file,er);
         if(er)
         {
-            fail(er,"load_verify_file failed");
-                throw boost::system::system_error{er};
+          throw std::runtime_error{er.what()};
         }
     }
 

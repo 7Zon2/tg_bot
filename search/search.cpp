@@ -1,20 +1,15 @@
-#include "boost/beast/http/message.hpp"
-#include "boost/beast/http/status.hpp"
-#include "boost/beast/http/string_body.hpp"
-#include "boost/beast/http/verb.hpp"
-#include "boost/iostreams/filter/gzip.hpp"
-#include "boost/iostreams/device/array.hpp"
-#include "boost/iostreams/filtering_stream.hpp"
-#include "boost/iostreams/copy.hpp"
-#include "boost/iostreams/device/back_inserter.hpp"
-#include "boost/system/detail/error_code.hpp"
 #include "head.hpp"
 #include "session_interface.hpp"
-#include <stdexcept>
 
 
 class Searcher : public session_interface<false>
 {
+  protected:
+
+  using session_interface<false>::req_res;
+  using session_interface<false>::write_request;
+  using session_interface<false>::read_response;
+
   public:
 
   Searcher
@@ -47,14 +42,7 @@ class Searcher : public session_interface<false>
   request_upload_image
   (boost::interprocess::file_mapping map, json::string filename)
   {
-    map = boost::interprocess::file_mapping(filename.data(), boost::interprocess::read_only);
-    boost::interprocess::mapped_region region(map, boost::interprocess::read_only);
-
-    char * addr = static_cast<char*>(region.get_address());
-    size_t size = region.get_size();
-
-    json::string data{size,' '};
-    std::copy(addr, addr+size, data.data());
+    json::string data = load_file(filename);
 
     auto req = make_header
       (
@@ -71,12 +59,12 @@ class Searcher : public session_interface<false>
       R"("encoded_image")",
       R"("Kiki")",
       std::move(data),
-      R"(gzip, deflate, br)"
+      default_encoding_
     );
 
 
     print("\n",req.target(),"\n");
-    auto res = co_await req_res(*stream_, req);
+    auto res = co_await session_base::req_res(*stream_, req);
     http::status status = res.result();
     if
     (
@@ -96,30 +84,26 @@ class Searcher : public session_interface<false>
   }
 
 
+  [[nodiscard]]
   net::awaitable<http::response<http::string_body>>
-  redirect(auto& req, json::string relative_url, auto...statuses)
+  make_oneshot_session(json::string_view url)
   {
-    http::response<http::string_body> res;
-    auto status = http::status::temporary_redirect;
-    while
-    (
-      (status == http::status::temporary_redirect)||
-      ((status == statuses) && ...)
-    )
-    {
-      res = co_await req_res(*stream_, req);
-      status = res.result();
-      auto it = res.find(http::field::location);
-      if (it == res.end())
-        break;
+    print("\nStart OneShot session\n");
+    json::string host = make_host(url);
+    json::string target = make_relative_url(url);
+    auto req = make_header(http::verb::get, host, target); 
+    req.set(http::field::accept_encoding, default_encoding_);
+    req.set(http::field::accept, "*/*");
+    req.set(http::field::connection,"keep-alive");
 
-      json::string url = it->value();
-      url = make_relative_url(std::move(url), relative_url);
-      req.target(std::move(url));
-    }
-
+    print(req);
+    auto ex = co_await net::this_coro::executor;
+    session_interface<true> ses{11, host, "443", ex};
+    co_await ses.run();
+    auto res = co_await ses.redirect(req, target);
     co_return std::move(res);
   }
+
 
 
   net::awaitable<void> 
@@ -130,7 +114,7 @@ class Searcher : public session_interface<false>
   )
   {
     print("\nstart redirection...\n");
-    res = co_await redirect(req, "/images");
+    res = co_await redirect(req, "/");
     auto status = res.result();
     if(status != http::status::ok)
     {
@@ -141,20 +125,43 @@ class Searcher : public session_interface<false>
     url += parse_answer(std::move(res));
 
     req = make_header(http::verb::get, host_, url);
-    res = co_await redirect(req, "/images", http::status::found);
+    res = co_await redirect(req, "/", http::status::found);
     status = res.result();
     if(status != http::status::ok)
     {
       throw std::runtime_error{"\nhtml answer wasn't found\n"};
     }
 
-    auto doc = parse_html(res.body());
+    auto refs = parse_html(res.body());
+    refs = filter_by_extension(std::move(refs), "jpg");
+    size_t img_counter = 0;
+    for(auto&i:refs)
+    {
+      try
+      {
+        res = co_await make_oneshot_session(i);
+        auto it = res.find(http::field::content_type);
+        if(it == res.end() || it->value() != "image/jpeg")
+          continue;
+
+        auto& body = res.body();
+        json::string filename{"/home/zon/Downloads/"};
+        filename += std::to_string(img_counter++);
+        filename += ".jpg";
+        store_file(filename, body.data(), body.size());
+      }
+      catch(std::exception const & ex)
+      {
+        print("\n\nOneShot session exception:\n",ex.what(),"\n\n");
+      }
+    }
   }
 
 
   [[nodiscard]]
   json::string parse_answer(http::response<http::string_body> res)
   {
+    print("\n\nStart parsing answer...\n\n");
     boost::iostreams::array_source src{res.body().data(), res.body().size()};
     boost::iostreams::filtering_istream is;
     boost::iostreams::gzip_decompressor gz{};
@@ -168,6 +175,7 @@ class Searcher : public session_interface<false>
     boost::iostreams::back_insert_device ins {encode_js};
     boost::iostreams::copy(is, ins);
 
+    print(encode_js);
     json::value var = json::string{std::move(encode_js)};
     var = Pars::MainParser::try_parse_value(std::move(var));
     Pars::MainParser::pretty_print(std::cout, var);
@@ -183,6 +191,7 @@ class Searcher : public session_interface<false>
 
   public:
 
+  json::string default_encoding_{"gzip, deflate, br"};
   static inline json::string host_{"yandex.ru"};
 };
 

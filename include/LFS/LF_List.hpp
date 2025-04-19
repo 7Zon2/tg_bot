@@ -1,5 +1,6 @@
 #pragma once
 #include "LFS/LF_FreeList.hpp"
+#include "LFS/LF_hazardous.hpp"
 #include "LF_allocator.hpp"
 #include <atomic>
 #include <functional>
@@ -218,7 +219,7 @@ class LF_OrderList : protected FreeList<std::pair<size_t,T>, true>
         else
         {
           prev = head_.load(std::memory_order_relaxed);
-          curr = nullptr;
+          curr = it;
           break;
         }
 
@@ -231,7 +232,7 @@ class LF_OrderList : protected FreeList<std::pair<size_t,T>, true>
         if(prev->next()!=next)
         {
           prev = head_.load(std::memory_order_relaxed);
-          curr = nullptr;
+          curr = it;
           break;
         }
       }
@@ -454,6 +455,9 @@ class LF_OrderList : protected FreeList<std::pair<size_t,T>, true>
 
     Node* tail = tail_.load(std::memory_order_relaxed);
     Node* next = node->next_.load(std::memory_order_relaxed);
+
+    bool tag = is_tagged(next);
+    assert(tag == false);
 
     void* ptr =  alloc_.allocate(sizeof(Node));
     Node* new_node = ::new(ptr) Node(type{hash, std::forward<U>(data)});

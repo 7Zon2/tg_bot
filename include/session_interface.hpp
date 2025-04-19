@@ -1,31 +1,7 @@
 #pragma once
-#include "boost/beast/core/tcp_stream.hpp"
 #include "json_head.hpp"
 #include "print.hpp"
 #include "head.hpp"
-#include "boost/interprocess/detail/os_file_functions.hpp"
-#include "boost/interprocess/file_mapping.hpp"
-#include "boost/interprocess/mapped_region.hpp"
-#include "boost/asio/any_io_executor.hpp"
-#include "boost/asio/buffer.hpp"
-#include "boost/asio/detached.hpp"
-#include "boost/asio/execution_context.hpp"
-#include "boost/asio/io_context.hpp"
-#include "boost/asio/ssl/context.hpp"
-#include "boost/asio/ssl.hpp"
-#include "boost/asio/this_coro.hpp"
-#include "boost/asio/use_awaitable.hpp"
-#include "boost/beast.hpp"
-#include "boost/beast/core/flat_buffer.hpp"
-#include "boost/beast/core/static_buffer.hpp"
-#include "boost/beast/http/status.hpp"
-#include "boost/beast/http/write.hpp"
-#include "boost/beast/core/detail/base64.hpp"
-#include "boost/asio/co_spawn.hpp"
-#include "boost/asio/awaitable.hpp"
-#include "boost/beast/http/message.hpp"
-#include "boost/beast/http/string_body.hpp"
-#include "boost/beast/http/verb.hpp"
 
 class session_base
 {
@@ -47,17 +23,81 @@ class session_base
   resolver_(ex_)
   {}
 
-  virtual ~session_base(){}
+  virtual ~session_base() = 0;
 
 
   net::awaitable<void>
   virtual run () = 0;
 
 
-  net::awaitable<void>
+  void
   virtual shutdown() = 0;
 
   public:
+
+  net::awaitable<void> 
+  virtual write_request
+  (http::request<http::string_body>&& req) = 0;
+
+
+  net::awaitable<void> 
+  virtual write_request
+  (http::request<http::string_body>& req) = 0;
+
+
+  net::awaitable<http::response<http::string_body>> 
+  virtual read_response() = 0;
+
+
+  net::awaitable<http::response<http::string_body>>
+  virtual req_res(http::request<http::string_body>& req) = 0;
+
+
+  net::awaitable<http::response<http::string_body>>
+  virtual req_res(http::request<http::string_body>&& req) = 0;
+
+
+  net::awaitable<http::response<http::string_body>>
+  redirect(auto&& req, json::string relative_url, auto...statuses)
+  {
+    print("\n\nRedirect...\n\n");
+    auto temp_req{std::move(req)};
+    http::response<http::string_body> res;
+    auto status = http::status::temporary_redirect;
+    while
+    (
+      (status == http::status::temporary_redirect)||
+      (status == http::status::permanent_redirect)||
+      ((status == statuses) && ...)
+    )
+    {
+      res = co_await req_res(temp_req);
+      status = res.result();
+      auto it = res.find(http::field::location);
+      if (it == res.end())
+        break;
+
+      
+      json::string url = it->value();
+      url = make_relative_url(std::move(url), relative_url);
+      print("RELATIVE REDIRECT URL:", url,"\n");
+      temp_req.target(std::move(url));
+
+
+      it = res.find(http::field::connection);
+      if (it != res.end() && it->value() == "close")
+      {
+        print("\nreq before reconnection\n", temp_req);
+        print("\nConnection was closed. Try to reconnect...\n");
+        co_await run();
+        print("\nreq after reconnection\n",temp_req);
+      }
+       
+    }
+
+    co_return std::move(res);
+  }
+ 
 
   net::awaitable<void> 
   static write_request
@@ -67,7 +107,16 @@ class session_base
     print("\nwrite data:", write_data, "\n");
   }
 
- 
+
+  net::awaitable<void> 
+  static write_request
+  (auto& stream, http::request<http::string_body>&& req)
+  {
+    size_t write_data = co_await http::async_write(stream, std::move(req));
+    print("\nwrite data:", write_data, "\n");
+  }
+
+
   net::awaitable<http::response<http::string_body>> 
   static read_response(auto & stream)
   {
@@ -75,7 +124,9 @@ class session_base
     http::response<http::string_body> resp;
     size_t read_data = co_await http::async_read(stream, buffer, resp);
     print("\nread data:", read_data, "\n");
-    print_response(resp);
+    auto temp_body = std::move(resp).body();
+    print(resp);
+    resp.body() = std::move(temp_body);
     co_return resp;
   }
 
@@ -85,6 +136,16 @@ class session_base
   (auto & stream, http::request<http::string_body>& req)
   {
     co_await write_request(stream, req);
+    auto res = co_await read_response(stream);
+    co_return res;
+  }
+
+  
+  net::awaitable<http::response<http::string_body>>
+  static req_res
+  (auto & stream, http::request<http::string_body>&& req)
+  {
+    co_await write_request(stream, std::move(req));
     auto res = co_await read_response(stream);
     co_return res;
   }
@@ -225,6 +286,8 @@ class session_base
   tcp::resolver resolver_;
 };
 
+inline session_base::~session_base(){}
+
 
 
 template<bool HTTPS>
@@ -242,7 +305,47 @@ class session_interface<true> : public session_base
   using stream_ptr = std::shared_ptr<stream_type>;
   stream_ptr stream_;
 
-  protected:
+  public:
+
+  net::awaitable<void> 
+  write_request
+  (http::request<http::string_body>&& req) override
+  {
+    co_await session_base::write_request(*stream_, std::move(req));
+  }
+
+
+  net::awaitable<void> 
+  write_request
+  (http::request<http::string_body>& req) override
+  {
+    co_await session_base::write_request(*stream_, req);
+  }
+
+
+  net::awaitable<http::response<http::string_body>> 
+  read_response() override
+  {
+    auto res = co_await session_base::read_response(*stream_);
+    co_return std::move(res);
+  }
+
+
+  net::awaitable<http::response<http::string_body>>
+  req_res(http::request<http::string_body>& req) override
+  {
+    auto res = co_await session_base::req_res(*stream_, req);
+    co_return std::move(res);
+  }
+
+
+  net::awaitable<http::response<http::string_body>>
+  req_res(http::request<http::string_body>&& req) override
+  {
+    auto res = co_await session_base::req_res(*stream_, std::move(req));
+    co_return std::move(res);
+  }
+
 
   net::awaitable<void>
   virtual connect
@@ -267,7 +370,7 @@ class session_interface<true> : public session_base
   }
 
 
-  net::awaitable<void> 
+  void 
   virtual shutdown() override
   {
     std::cout<<"\nShutdown...\n"<<std::endl;
@@ -287,7 +390,6 @@ class session_interface<true> : public session_base
     {
         print("\nconnection was closed gracefully\n");
     }
-    co_return;
   }
 
   public:
@@ -302,15 +404,15 @@ class session_interface<true> : public session_base
     return ctx;
   }
 
-  protected:
+  public:
 
   session_interface
   (
+   int version,
    json::string host,
    json::string port, 
-   int version,
-   ssl::context ctx,
-   net::any_io_executor executor
+   net::any_io_executor executor,
+   std::optional<ssl::context> ctx = {}
   )
   noexcept :
   session_base
@@ -320,9 +422,14 @@ class session_interface<true> : public session_base
     port,
     executor
   ),
-  ctx_(std::move(ctx)),
+  ctx_(ctx ? std::move(ctx).value() : CRTF::load_default_client_ctx()),
   stream_(std::make_shared<stream_type>(ex_, ctx_))
   {}
+
+  ~session_interface()
+  {
+    session_interface::shutdown();
+  }
 
   public:
 
@@ -371,12 +478,6 @@ class session_interface<true> : public session_base
     co_await resolve();
   }
 
-
-  virtual ~session_interface()
-  {
-    (void) shutdown();
-  }
-
 };
 
 
@@ -389,6 +490,8 @@ class session_interface<false> : public session_base
   using stream_type = boost::beast::tcp_stream;
   using stream_ptr  = std::shared_ptr<stream_type>;
   stream_ptr stream_;
+
+  public:
 
   session_interface
   (
@@ -408,7 +511,52 @@ class session_interface<false> : public session_base
   stream_(std::make_shared<stream_type>(ex_))
   {}
 
+  ~session_interface()
+  {
+    session_interface::shutdown();
+  }
+
   public:
+
+  net::awaitable<void> 
+  write_request
+  (http::request<http::string_body>&& req) override
+  {
+    co_await session_base::write_request(*stream_, std::move(req));
+  }
+
+
+  net::awaitable<void> 
+  write_request
+  (http::request<http::string_body>& req) override
+  {
+    co_await session_base::write_request(*stream_, req);
+  }
+
+
+  net::awaitable<http::response<http::string_body>> 
+  read_response() override
+  {
+    auto res = co_await session_base::read_response(*stream_);
+    co_return std::move(res);
+  }
+
+
+  net::awaitable<http::response<http::string_body>>
+  req_res(http::request<http::string_body>& req) override
+  {
+    auto res = co_await session_base::req_res(*stream_, req);
+    co_return std::move(res);
+  }
+
+
+  net::awaitable<http::response<http::string_body>>
+  req_res(http::request<http::string_body>&& req) override
+  {
+    auto res = co_await session_base::req_res(*stream_, std::move(req));
+    co_return std::move(res);
+  }
+
 
   template<typename Derived, typename...Args>
   static 
@@ -460,12 +608,11 @@ class session_interface<false> : public session_base
   }
 
 
-  net::awaitable<void> 
+  void
   virtual shutdown() override
   {
     std::cout<<"\nShutdown...\n"<<std::endl;
     stream_->close();
-    co_return;
   }
 
 };
