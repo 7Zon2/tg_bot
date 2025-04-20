@@ -218,7 +218,7 @@ class LF_OrderList : protected FreeList<std::pair<size_t,T>, true>
         }
         else
         {
-          prev = head_.load(std::memory_order_relaxed);
+          prev = it;
           curr = nullptr;
           break;
         }
@@ -231,7 +231,7 @@ class LF_OrderList : protected FreeList<std::pair<size_t,T>, true>
         hzp_c->protect(cleared);
         if(prev->next()!=next)
         {
-          prev = head_.load(std::memory_order_relaxed);
+          prev = it;
           curr = nullptr;
           break;
         }
@@ -452,14 +452,11 @@ class LF_OrderList : protected FreeList<std::pair<size_t,T>, true>
     assert(node);
 
     Node* tail = tail_.load(std::memory_order_relaxed);
-    Node* next = node->next_.load(std::memory_order_relaxed);
-
-    bool tag = is_tagged(next);
-    assert(tag == false);
+    Node* next = node->next_.load(std::memory_order_relaxed); //if next was corrupted it's ok
 
     void* ptr =  alloc_.allocate(sizeof(Node));
     Node* new_node = ::new(ptr) Node(type{hash, std::forward<U>(data)});
-    new_node->next_.store(next, std::memory_order_relaxed);
+    new_node->next_.store(next, std::memory_order_relaxed); // 
 
     if(!node->next_.compare_exchange_strong(next, new_node, std::memory_order_acq_rel))
     {

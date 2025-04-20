@@ -601,17 +601,6 @@ class LF_HashTable
 
   [[nodiscard]]
   size_t
-  get_table_index
-  (const size_t hash, const size_t segment_index) const noexcept 
-  {
-    size_t table_size = get_table_size_by_segment(segment_index);
-    size_t res = hash % table_size;
-    return res;
-  }
-
-
-  [[nodiscard]]
-  size_t
   get_table_segment
   (const size_t table_index) const noexcept
   {
@@ -624,9 +613,8 @@ class LF_HashTable
       return 1;
     }
 
-    /*bool ap = __builtin_popcount(table_index) - 1;
-    size_t segment_index =  log2_64(table_index) + ap;*/
-    size_t segment_index = std::ceil(std::log2(table_index));
+    bool ap = __builtin_popcount(table_index) - 1;
+    size_t segment_index =  log2_64(table_index) + ap;
     return segment_index;
   }
 
@@ -663,7 +651,7 @@ class LF_HashTable
     PRINT_2("counter:", list_.size(),"\n");
 
     size_t new_index = old_index + 1;
-    size_t table_size = get_table_size_by_table_index(new_index);
+    size_t table_size = get_table_size_by_segment(new_index);
     segment * new_table = new segment(table_size, &ShareResource::res_);
     segment * table{};
     if(!seg_arr_[new_index].compare_exchange_strong(table, new_table, std::memory_order_acq_rel))
