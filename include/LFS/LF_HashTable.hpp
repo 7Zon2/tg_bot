@@ -24,6 +24,32 @@ constexpr size_t UPPER_BIT = 0x8000000000000000;
 
 [[nodiscard]]
 inline size_t 
+log2_64 (size_t value) noexcept //for zero returns zero
+{
+    static const size_t tab64[64] = 
+    {
+        63,  0, 58,  1, 59, 47, 53,  2,
+        60, 39, 48, 27, 54, 33, 42,  3,
+        61, 51, 37, 40, 49, 18, 28, 20,
+        55, 30, 34, 11, 43, 14, 22,  4,
+        62, 57, 46, 52, 38, 26, 32, 41,
+        50, 36, 17, 19, 29, 10, 13, 21,
+        56, 45, 25, 31, 35, 16,  9, 12,
+        44, 24, 15,  8, 23,  7,  6,  5
+    };
+
+    value |= value >> 1;
+    value |= value >> 2;
+    value |= value >> 4;
+    value |= value >> 8;
+    value |= value >> 16;
+    value |= value >> 32;
+    return tab64[((value - (value >> 1))*0x07EDD5E59A4E28C2) >> 58];
+}
+
+
+[[nodiscard]]
+inline size_t 
 reverse_bit_order
 (size_t v) noexcept 
 {
@@ -398,9 +424,8 @@ class LF_HashTable
     {
       return table_index - 1;
     }
-    size_t table_size = get_table_size(table_index);
-    size_t offset = table_index - table_size;
-    long long index = offset -1;
+    size_t table_size = get_table_size_by_table_index(table_index);
+    long long index = table_index - table_size - 1;
     assert(index >= 0);
     return index;
   }
@@ -414,8 +439,9 @@ class LF_HashTable
   }
 
 
+  //returns global table index if the table would be one array 
   [[nodiscard]]
-  size_t get_global_index
+  size_t get_global_index   
   (size_t hash, size_t segment_index) const noexcept 
   {
     size_t size = get_global_size(segment_index);
@@ -545,17 +571,21 @@ class LF_HashTable
     return get_table_size(current_segment_.load(std::memory_order_relaxed));
   }
 
+  [[nodiscard]]
+  size_t 
+  get_table_size_by_table_index(size_t table_index) const noexcept 
+  {
+    size_t segment_index = get_table_segment(table_index);
+    size_t table_size =  get_table_size_by_segment(segment_index);
+    return table_size;
+  }
+  
 
   [[nodiscard]]
   size_t 
-  get_table_size
-  (size_t table_index, int segment_index = -1) const noexcept 
+  get_table_size_by_segment
+  (size_t segment_index) const noexcept 
   {
-    if(segment_index == -1)
-    {
-      segment_index = get_table_segment(table_index);
-    }
-
     if(segment_index == 0)
     {
       return 1;
@@ -574,7 +604,7 @@ class LF_HashTable
   get_table_index
   (const size_t hash, const size_t segment_index) const noexcept 
   {
-    size_t table_size = get_table_size(segment_index);
+    size_t table_size = get_table_size_by_segment(segment_index);
     size_t res = hash % table_size;
     return res;
   }
@@ -593,23 +623,11 @@ class LF_HashTable
     {
       return 1;
     }
-    return std::ceil(std::log2(table_index));
-  }
 
-
-  [[nodiscard]]
-  size_t 
-  get_table_offset
-  (const size_t table_index) const noexcept
-  {
-    if(table_index == 0)
-    {
-      return 0;
-    }
-    size_t segment_index = get_table_segment(table_index);
-    size_t table_size = get_table_size(segment_index);
-    size_t dif = std::fabs(table_size - table_index);
-    return dif;
+    /*bool ap = __builtin_popcount(table_index) - 1;
+    size_t segment_index =  log2_64(table_index) + ap;*/
+    size_t segment_index = std::ceil(std::log2(table_index));
+    return segment_index;
   }
 
 
@@ -645,7 +663,7 @@ class LF_HashTable
     PRINT_2("counter:", list_.size(),"\n");
 
     size_t new_index = old_index + 1;
-    size_t table_size = get_table_size(0, new_index);
+    size_t table_size = get_table_size_by_table_index(new_index);
     segment * new_table = new segment(table_size, &ShareResource::res_);
     segment * table{};
     if(!seg_arr_[new_index].compare_exchange_strong(table, new_table, std::memory_order_acq_rel))

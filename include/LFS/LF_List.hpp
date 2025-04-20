@@ -219,7 +219,7 @@ class LF_OrderList : protected FreeList<std::pair<size_t,T>, true>
         else
         {
           prev = head_.load(std::memory_order_relaxed);
-          curr = it;
+          curr = nullptr;
           break;
         }
 
@@ -232,7 +232,7 @@ class LF_OrderList : protected FreeList<std::pair<size_t,T>, true>
         if(prev->next()!=next)
         {
           prev = head_.load(std::memory_order_relaxed);
-          curr = it;
+          curr = nullptr;
           break;
         }
       }
@@ -241,8 +241,6 @@ class LF_OrderList : protected FreeList<std::pair<size_t,T>, true>
       {
         continue;
       }
-
-      assert(curr==cleared);
 
       type& pair = curr->data_;
       bool found = false;
