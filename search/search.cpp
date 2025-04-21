@@ -2,13 +2,13 @@
 #include "session_interface.hpp"
 
 
-class Searcher : public session_interface<false>
+class Searcher : public session_interface<PROTOCOL::HTTP>
 {
   protected:
 
-  using session_interface<false>::req_res;
-  using session_interface<false>::write_request;
-  using session_interface<false>::read_response;
+  using session_interface<PROTOCOL::HTTP>::req_res;
+  using session_interface<PROTOCOL::HTTP>::write_request;
+  using session_interface<PROTOCOL::HTTP>::read_response;
 
   public:
 
@@ -98,7 +98,7 @@ class Searcher : public session_interface<false>
 
     print(req);
     auto ex = co_await net::this_coro::executor;
-    session_interface<true> ses{11, host, "443", ex};
+    session_interface<PROTOCOL::HTTPS> ses{11, host, "443", ex};
     co_await ses.run();
     auto res = co_await ses.redirect(req, target);
     co_return std::move(res);
@@ -202,7 +202,7 @@ int main()
   try
   {
     net::io_context ioc;
-    net::co_spawn(ioc, session_interface<false>::make_session<Searcher>(11, Searcher::host_, "80"), net::detached); 
+    net::co_spawn(ioc, session_interface<PROTOCOL::HTTP>::make_session<Searcher>(11, Searcher::host_, "80"), net::detached); 
     ioc.run();
   }
   catch(const std::exception& ex)

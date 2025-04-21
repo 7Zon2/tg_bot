@@ -1,51 +1,38 @@
-#include "boost/asio/ssl/stream.hpp"
-#include "boost/beast/core/flat_buffer.hpp"
-#include "boost/beast/core/tcp_stream.hpp"
-#include "boost/beast/ssl/ssl_stream.hpp"
+#include "boost/asio/awaitable.hpp"
+#include "boost/asio/ssl/context.hpp"
+#include "boost/beast/http/message.hpp"
+#include "boost/beast/http/verb.hpp"
+#include "entities/Document.hpp"
 #include "entities/TelegramResponse.hpp"
+#include "entities/concept_entities.hpp"
+#include "entities/tg_message.hpp"
 #include "head.hpp"
 #include "entities/entities.hpp"
-#include "certif.hpp"
-#include "print.hpp"
-#include <boost/asio/use_future.hpp>
-#include "coro_future.hpp"
-#include <exception>
 #include <stacktrace>
 #include <boost/stacktrace/stacktrace.hpp>
-#include <boost/asio/awaitable.hpp>
-#include <boost/asio/co_spawn.hpp>
-#include <boost/asio/detached.hpp>
-#include <thread>
+#include "json_head.hpp"
 #include "tg_exceptions.hpp"
 #include "responses/interface.hpp"
 #include "LFS/LF_stack.hpp"
 #include "LFS/LF_set.hpp"
+#include "session_interface.hpp"
 
 
 template<typename T>
 concept is_getUpdates = std::is_same_v<std::remove_reference_t<T>, Pars::TG::getUpdates>;
 
 
-class session : public std::enable_shared_from_this<session>
+class tg_session : public session_interface<PROTOCOL::HTTPS>
 {
+  protected:
 
-    const json::string host_;
-    const int version_;
-    const json::string port_;
     const json::string token_; 
-    const json::string certif_;
     json::string bot_url;
     json::string target_;
 
-    ssl::context ctx_;
-    boost::asio::any_io_executor ex_;
-    tcp::resolver resolver_;
+    using session_t = session_interface<PROTOCOL::HTTPS>; 
 
-    using stream_type = boost::asio::ssl::stream<beast::tcp_stream>;
-    using stream_ptr = std::unique_ptr<stream_type>;
-    stream_ptr stream_;
-
-    private:
+  protected:
 
     struct UpdateStorage
     {
@@ -55,7 +42,7 @@ class session : public std::enable_shared_from_this<session>
 
     UpdateStorage UpdateStorage_;
 
-    private:
+  private:
 
     struct Timer
     {
@@ -91,30 +78,30 @@ class session : public std::enable_shared_from_this<session>
     };
 
 
-    protected:
+  public:
 
     explicit
-    session
+    tg_session
     (
-        std::string_view host,
-        const int version,
-        std::string_view port,
-        std::string_view token,
-        net::any_io_executor ex,
-        ssl::context& ctx
+      int version,
+      json::string_view host,
+      json::string_view port,
+      net::any_io_executor ex,
+      ssl::context ctx,
+      json::string_view token
     )
     : 
-      host_(host)
-    , version_(version)
-    , port_(port)
-    , token_(token)
-     ,ctx_(std::move(ctx))
-     , ex_(ex)
-    , resolver_(ex_)
-    ,stream_(new stream_type(ex_,ctx_))
+      session_interface
+      (
+        version,
+        host,
+        port,
+        ex,
+        std::move(ctx)
+      )
     {
         bot_url.append("/bot");
-        bot_url.append(token_);
+        bot_url.append(token);
         print
         (
             "host: ", host_, "\n"
@@ -125,96 +112,29 @@ class session : public std::enable_shared_from_this<session>
         );
     }
 
-    virtual ~session(){}
 
-    public:
-
-    static
-    boost::asio::awaitable<void>
-    create_and_run
-    (
-        std::string_view host,
-        const int version,
-        std::string_view port,
-        std::string_view token,
-        ssl::context& ctx
-    )
-    {
-        auto executor =  co_await boost::asio::this_coro::executor;
-        session ses_(host, version, port, token, executor, ctx);
-        co_await ses_.run();
-    }
+    ~tg_session(){}
 
     protected:
 
-    void shutdown()
-    {
-        std::cout<<"\nShutdown...\n"<<std::endl;
-
-        boost::system::error_code er;
-        auto _ = stream_->shutdown(er);
-        print(er.what());
-
-        if(er == net::error::eof)
-        {
-            // Rationale:
-            // http://stackoverflow.com/questions/25587403/boost-asio-ssl-async-shutdown-always-finishes-with-an-error
-            print("\nconnection was closed with the eof error\n");
-            er = {};
-        }
-        else
-        {
-            print("\nconnection was closed gracefully\n");
-        }
-    }
-
-
     boost::asio::awaitable<void>
-    resolve(bool isWait)
+    handshake() override
     {
-        // Look up the domain name
-        auto res = co_await resolver_.async_resolve(host_, port_);
-        co_await connect(res, isWait);
-    }
+      co_await session_t::handshake();
 
+      try
+      {
+        Pars::TG::TelegramResponse resp = co_await
+        start_getUpdates<Pars::TG::TelegramResponse,true>(Pars::TG::getUpdates{});
+        co_await parse_result(std::move(resp));
+      }
+      catch(const std::exception& e)
+      {
+          std::cerr << e.what() << '\n';
+          std::terminate();
+      }
 
-    boost::asio::awaitable<void>
-    connect(const tcp::resolver::results_type& results, bool isWait)
-    {
-        // Make the connection on the IP address we get from a lookup
-        auto ep = co_await beast::get_lowest_layer(*stream_).async_connect(results);
-
-        print("Connecting...\n\n", "connected endpoint:\n");
-        print_endpoint(ep);
-        print("\n\n");
-
-       co_await handshake(isWait);
-    }
-
-
-    boost::asio::awaitable<void>
-    handshake(bool isWait)
-    {
-        print("Handshake...\n");
-        // Perform the SSL handshake
-        co_await stream_->async_handshake(ssl::stream_base::client);
-
-        try
-        {
-            Pars::TG::TelegramResponse resp = co_await
-            start_getUpdates<Pars::TG::TelegramResponse,true>(Pars::TG::getUpdates{});
-            co_await parse_result(std::move(resp));
-        }
-        catch(const std::exception& e)
-        {
-            std::cerr << e.what() << '\n';
-            shutdown();
-        }
-
-        if(isWait)
-          co_await start_waiting();
-        else
-          co_return;
+      co_await start_waiting();
     }
 
     public:
@@ -226,200 +146,183 @@ class session : public std::enable_shared_from_this<session>
     }
 
 
-    void simple_requset
-    ( http::request<http::string_body> &req )
-    {   
-        req.version(version_);
-        req.method(http::verb::get);
-        req.set(http::field::host, host_);
-        req.set(http::field::user_agent, "lalala");
-        req.target("/");
-    }
-
-
-    void GetWebhookRequest
-    ( http::request<http::string_body>& req)
+    template<Pars::TG::is_TelegramBased T>
+    requires requires(T&& obj)
     {
-        req.version(version_);
-        req.method(http::verb::get);
-        req.set(http::field::host, host_);
-        req.target(bot_url);
+      std::forward<T>(obj).fields_to_url();
+    }
+    [[nodiscard]]
+    json::string prepare_url(T&& obj)
+    {
+      json::string url = bot_url;
+      url += std::forward<T>(obj).fields_to_url();
+      return url;
     }
 
 
+    template<Pars::TG::is_TelegramBased T>
     [[nodiscard]]
     http::request<http::string_body>
-    DeleteWebhookRequest(const bool del)
+    prepare_request(T&& obj, http::verb verb = http::verb::get)
     {
-        json::value val = Pars::TG::deletewebhook::fields_to_value
-        (
-            del
-        );
-        json::string data = Pars::MainParser::serialize_to_string(val);
-        json::string target = bot_url;
-        return PostRequest(std::move(data), std::move(target),"application/json",false);
+      json::string url = prepare_url(std::forward<T>(obj));
+      return make_header(verb, host_, std::move(url));
     }
 
-
-    [[nodiscard]]
-    http::request<http::string_body>
-    GetFileRequest(json::string file_id)
-    {
-        json::string url{"/getFile?file_id="};
-        url+=std::move(file_id);
-        return prepare_request<false>(std::move(url));
-    }
-
-
-    template<bool isPost>
-    [[nodiscard]]
-    http::request<http::string_body>
-    prepare_request(json::string url, json::string head ="", json::string content_type = "text/html")
-    {
-        using namespace Pars;
-        json::string url_ = std::move(head);
-        url_ += bot_url;
-        url_  = MainParser::prepare_url_text(std::move(url_));
-        url = MainParser::prepare_url_text(std::move(url));
-        url_ += std::move(url);
-        print("\n\nsend_post_request\n\n",url_,"\n\n");
-        if constexpr(isPost)
-        {
-            return PostRequest(" ", std::move(url_), content_type, false);
-        }
-        else
-        {
-            return GetRequest(std::move(url_));
-        }
-    }
-
-
-    template<bool isPost, Pars::TG::is_TelegramBased T>
-    [[nodiscard]]
-    http::request<http::string_body>
-    prepare_request(T&& obj, json::string  head = "", json::string content_type = "text/html")
-    {
-        using namespace Pars;
-        json::string url = std::move(head);
-        url+=bot_url;
-        url = MainParser::prepare_url_text(std::move(url));
-        json::string obj_url = std::forward<T>(obj).fields_to_url();
-        url += std::move(obj_url);
-        url = MainParser::prepare_url_text(std::move(url));
-        if constexpr (isPost)
-        {
-            return PostRequest(" ", std::move(url), content_type, false);
-        }
-        else
-        {
-            return GetRequest(std::move(url));
-        }
-    }
 
     void
     update_id(const Pars::TG::TelegramResponse& res)
     {
-        if (res.update_id.has_value())
-        {
-            size_t new_id = res.update_id.value() + 1;
-            print("\nnew update id: ", new_id,"\n\n");
-            UpdateStorage_.update_stack.push(new_id);
-        }
+      if (res.update_id.has_value())
+      {
+        size_t new_id = res.update_id.value() + 1;
+        print("\nnew update id: ", new_id,"\n\n");
+        UpdateStorage_.update_stack.push(new_id);
+      }
     }
 
 
     public:
 
-    [[nodiscard]]
-    boost::asio::awaitable<void>
-    send_response
-    (http::request<http::string_body> req)
-    {
-        co_await start_request_response<void, false, true>(std::move(req));
-    }
-
 
     template<Pars::TG::is_TelegramBased U>
-    boost::asio::awaitable<void>
-    send_response
+    net::awaitable<void> 
+    write_request
     (U&& obj)
     {
-        http::request<http::string_body> req = prepare_request<false>(std::forward<U>(obj));
-        co_await send_response(std::move(req));
+        http::request<http::string_body> req = prepare_request(std::forward<U>(obj));
+        co_await session_t::write_request(std::move(req));
     }
 
 
-    template<typename Res = Pars::TG::TelegramResponse>
-    [[nodiscard]]
+    template<Pars::TG::is_TelegramBased Res = Pars::TG::TelegramResponse>
     boost::asio::awaitable<Res>
     read_response()
     {
         using namespace Pars;
-
-        Res res{};
-        res = co_await start_request_response<Res, true, false>({});
-        co_return std::move(res);
+        auto res =  co_await session_t::read_response();
+        json::value var = json::string{std::move(res).body()};
+        var = MainParser::try_parse_value(std::move(var));
+        Res obj{};
+        obj = std::move(var);
+        co_return std::move(obj);
     }
 
     public:
 
-    template<typename Res = Pars::TG::TelegramResponse>
-    [[nodiscard]]
+    template<Pars::TG::is_TelegramBased Res = Pars::TG::TelegramResponse>
     boost::asio::awaitable<Res>
-    start_transaction(http::request<http::string_body> req)
+    req_res(http::request<http::string_body> req)
     {
-        co_await send_response(std::move(req));
-        Res res = co_await read_response<Res>();
-        co_return std::move(res);
-    }
-
-
-    template<Pars::TG::is_TelegramBased U, typename Res = Pars::TG::TelegramResponse>
-    boost::asio::awaitable<Res>
-    start_transaction(U&& obj)
-    {
-        co_await send_response(std::forward<U>(obj));
-        Res res = co_await read_response<Res>();
-        co_return std::move(res);
+      co_await session_t::write_request(std::move(req));
+      Res res = co_await read_response<Res>();
+      co_return std::move(res);
     }
 
 
     template<bool getUpdates>
     boost::asio::awaitable<Pars::TG::TelegramResponse>
-    request_response(http::request<http::string_body> req)
+    req_res(http::request<http::string_body> req)
     {
         using namespace Pars;
-        using type = TG::TelegramResponse;
 
-        type res{};
-        co_await send_response(std::move(req));
+        TG::TelegramResponse res{};
+        co_await session_t::write_request(std::move(req));
         if constexpr (getUpdates)
         {
-             res = co_await
-             start_getUpdates<type, false, false>
-            (Pars::TG::getUpdates{});
+          res = co_await
+          start_getUpdates<TG::TelegramResponse, false, false>
+          (Pars::TG::getUpdates{});
         }
-        co_return std::move(res);
-    }
-
-
-    template<typename Res, bool getUpdates, Pars::TG::is_TelegramBased U>
-    boost::asio::awaitable<Res>
-    request_response(U&& obj)
-    {
-        http::request<http::string_body>   req = prepare_request<false>(std::forward<U>(obj));
-        Res res = request_response<Res, getUpdates>(std::move(req));
         co_return std::move(res);
     }
 
     protected:
 
+    net::awaitable<void>
+    send_echo(Pars::TG::message mes)
+    {
+      using namespace Pars;
+
+      json::string data{};
+      if(mes.document)
+      {
+        TG::Document& doc = mes.document.value();
+        json::string url = bot_url;
+        url+=TG::File::getFile_url(doc.file_id);
+         
+        http::request<http::string_body> req = make_header(http::verb::get, host_, url);
+        co_await session_t::write_request(std::move(req));
+
+        TG::TelegramResponse res;
+        TG::File file;
+        for(;;)
+        {
+          res = co_await read_response<>();
+          if(res.ok && res.result)
+          {
+            file = std::move(res.result).value();
+            if(file.file_path)
+            {
+              break;
+            }
+          }
+        }
+
+        url = "file/";
+        url += bot_url;
+        url += file.file_path.value();
+        req = make_header(http::verb::get, host_, url);
+        auto res_b = co_await session_t::req_res(std::move(req));
+        data = std::move(res_b).body();
+      }
+      else
+      {
+        data = std::move(mes.text).value();
+      }
+
+      auto req = prepare_request(std::move(mes));
+      co_await Commands::Echo{}(*this, std::move(req), std::move(data));
+    }
+
+    
+    net::awaitable<void>
+    send_search(Pars::TG::message mes)
+    {
+      using namespace Pars;
+      co_return;
+    }
+
+
     boost::asio::awaitable<void>
     send_command
     (Pars::TG::message mes)
     {
-        using namespace Commands;
-        co_await CommandInterface<session>::exec(*this, std::move(mes));
+      json::string text{};
+      if(mes.text)
+      {
+        text = std::move(mes.text).value();
+      }
+
+      Commands::CommandType type = Commands::get_command(text);
+      switch(type)
+      {
+        case Commands::CommandType::Echo : 
+        {
+          co_await send_echo(std::move(mes));
+        }
+
+        case Commands::CommandType::Search :
+        {
+          co_await send_search(std::move(mes));
+        }
+
+        case Commands::CommandType::None :
+          co_return;
+
+        default:
+          co_return;
+      }
     }
 
 
@@ -512,7 +415,7 @@ class session : public std::enable_shared_from_this<session>
           if(reconnect)
           {
             reconnect = false;
-            co_await run(false);
+            co_await run();
           }
 
           try
@@ -533,7 +436,7 @@ class session : public std::enable_shared_from_this<session>
           catch(const std::exception& ex)
           {
             print(ex.what());
-            shutdown();
+            session_interface<PROTOCOL::HTTPS>::shutdown();
             stream_ = std::make_unique<stream_type>(ex_, ctx_);
             reconnect = true;
           }
@@ -542,89 +445,9 @@ class session : public std::enable_shared_from_this<session>
 
     protected:
 
-    template<typename  Res, bool isRead = true, bool isWrite = true>
-    [[nodiscard]]
-    boost::asio::awaitable<Res>
-    start_request_response(std::optional<http::request<http::string_body>> opt_req = {})
-    {
-        using namespace Pars;
-
-        static std::mutex mut;
-
-        bool isopen = beast::get_lowest_layer(*stream_).socket().is_open();
-        if (! isopen)
-        {
-            throw std::runtime_error{"\nSocket is not open'\n"};
-        }
-
-        if constexpr (isWrite)
-        {
-            if (opt_req.has_value() == false)
-            {
-                throw std::runtime_error{"\n request is empty\n"};
-            }
-            size_t writable{};
-            auto& req = opt_req.value();
-            {
-                std::lock_guard<std::mutex> lk{mut};
-                std::this_thread::sleep_for(1200ms);
-                writable = co_await http::async_write(*stream_ , req, boost::asio::use_awaitable);
-            }
-            print("\n==============================================================================\n", req,"\n");
-            print("\nwritable:", writable,"\n");
-            print("\n==============================================================================\n");
-        }
-        if constexpr(isRead)
-        {
-            http::response<http::string_body> res{};
-            size_t readable{};
-
-            {
-                std::lock_guard<std::mutex> lk{mut};
-                try
-                {
-                  boost::beast::flat_buffer buffer{};
-                  readable = co_await http::async_read(*stream_, buffer, res, boost::asio::use_awaitable);
-                }
-                catch(const std::exception& ex)
-                {
-                  print(ex.what());
-                  print_response(res);
-                  throw ex;
-                }
-            }
-
-            print("\nreadable:", readable,"\n");
-            print_response(res);
-
-            if constexpr (TG::is_TelegramBased<Res>)
-            {
-                json::value var =  json::string{std::move(res).body()};
-                var     =  Pars::MainParser::try_parse_value(std::move(var));
-                Res obj{};
-                obj= std::move(var);
-                co_return obj;
-            }
-            else if constexpr (TG::is_HeaderResult<Res>)
-            {
-                co_return std::move(res);
-            }
-            else if constexpr(std::is_same_v<Res, void>)
-            {
-                co_return;
-            }
-            else
-            {
-                static_assert(false, "\nCorrect result type wasn't specified\n");
-            }
-        }
-    }
-
-    protected:
-
     template<bool isForce = false, bool isLast = false>
     [[nodiscard]]
-    boost::asio::awaitable<std::optional<http::request<http::string_body>>>
+    net::awaitable<std::optional<http::request<http::string_body>>>
     prepare_getUpdates(Pars::TG::getUpdates upd)
     {
         upd.timeout = Timer::timeout.count();
@@ -644,12 +467,13 @@ class session : public std::enable_shared_from_this<session>
         {
             if(Timer::update())
             {
-                co_return prepare_request<false>(std::move(upd));
+                co_return prepare_request(std::move(upd));
             }
         }
 
         co_return std::optional<http::request<http::string_body>>{};
     }
+
 
     template
     <
@@ -670,11 +494,11 @@ class session : public std::enable_shared_from_this<session>
             Res obj;
             if (opt_req.has_value())
             {
-                obj = co_await start_request_response<Res>(std::move(opt_req).value());
+                obj = co_await req_res<Res>(std::move(opt_req).value());
             }
             else
             {
-                obj = co_await start_request_response<Res, true, false>();
+                obj = co_await read_response<Res>();
             }
             co_return obj;
         }
@@ -690,128 +514,17 @@ class session : public std::enable_shared_from_this<session>
         }
     }
 
-    protected:
+    public:
 
-    void
-    PrepareMultiPart
-    (http::request<http::string_body>& req,  json::string_view data)
+    net::awaitable<void>
+    run() override
     {
-        #define MULTI_PART_BOUNDARY "Fairy"
-        #define CRLF "\r\n"
-
-        req.set(http::field::content_type,"multipart/form-data; boundary=" MULTI_PART_BOUNDARY);
-
-        json::string temp
-        {
-            "--" MULTI_PART_BOUNDARY CRLF
-            R"(Content-Disposition: form-data; name="file"; filename=somefile)" CRLF
-            "Content-Type: application/octet-stream" CRLF CRLF
-        };
-        temp.append(data);
-        temp+=CRLF;
-        temp+="--" MULTI_PART_BOUNDARY "--" CRLF;
-
-        #undef MULTI_PART_BOUNDARY
-        #undef CRLF
-        req.body() = std::move(temp);
+      co_await session_interface<PROTOCOL::HTTPS>::run();
     }
 
-
-    [[nodiscard]]
-    http::request<http::string_body>
-    GetRequest
-    (
-        json::string_view target
-    )
-    {
-        http::request<http::string_body> req;
-        req.method(http::verb::get);
-        req.set(http::field::host, host_);
-        req.set(http::field::user_agent, "Raven-Fairy");
-        req.target(target);
-        return req;
-    }
-
-
-    [[nodiscard]]
-    http::request<http::string_body>
-    PostRequest
-    (
-        json::string_view data, 
-        json::string_view target,
-        json::string_view content_type, 
-        bool multipart
-    )
-    {  
-        http::request<http::string_body> req;
-        req.method(http::verb::post);
-        req.set(http::field::host, host_);
-        req.set(http::field::keep_alive, "timeout=5, max=1000");
-        if(multipart)
-        {
-            PrepareMultiPart(req, data);
-            print("\nPreparedMultiRequest:\n\n");
-            std::cout<<req<<std::endl;
-        }
-        else
-        {
-            req.set(http::field::content_type, content_type);
-            req.set(http::field::content_length, boost::lexical_cast<std::string>(data.size()));
-            req.set(http::field::body, data);
-            req.body() = data;
-        }
-        req.set(http::field::user_agent, "Raven-Fairy");
-        req.target(target);
-        req.prepare_payload();
-        return req;
-    }
-
-
-    void GetRequest
-    ( http::request<http::string_body>& req, std::string_view target)
-    {
-        req.method(http::verb::get);
-        req.set(http::field::host, host_);
-        req.set(http::field::user_agent, "lalala");
-        req.target(target);
-    }
-
-    protected:
-
-    // Start the asynchronous operation
-    boost::asio::awaitable<void>
-    run(bool isWait = true)
-    {
-        // Set SNI Hostname (many hosts need this to handshake successfully)
-        if(! SSL_set_tlsext_host_name(stream_->native_handle(), host_.data()))
-        {
-          throw boost::system::system_error
-          (
-            static_cast<int>(::ERR_get_error()),
-            net::error::get_ssl_category()
-          );
-        }
-
-        co_await resolve(isWait);
-    }
-
-
-    void print_response(auto&& res)
-    {
-        print("Response:\n\n====================================================================================\n");
-        for(auto&& i : res)
-        {
-            print
-            (
-                "field name: ",  i.name_string(),"\t",
-                "field value: ", i.value(),"\n"
-            );
-        }
-        print(res,"\n=========================================================================================\n");
-    }
 };
 
-//------------------------------------------------------------------------------
+
 
 int main(int argc, char** argv)
 {
@@ -836,23 +549,25 @@ int main(int argc, char** argv)
       return 1;
     }
 
-    std::string bot_token = argv[1];
-
-    std::string host   = "api.telegram.org";
-    std::string port   = "443";
+    json::string bot_token = argv[1];
+    json::string host   = "api.telegram.org";
+    json::string port   = "443";
     int version = 11;
 
     try
     {         
         net::io_context ioc;
-
         ssl::context ctx{ssl::context::tlsv13_client};
-        
         ctx.set_default_verify_paths();
-
         ctx.set_verify_mode(ssl::verify_peer);
 
-        boost::asio::co_spawn(ioc, session::create_and_run(host, version, port, bot_token, ctx), boost::asio::detached);
+        net::co_spawn
+        (
+          ioc, 
+          session_interface<PROTOCOL::HTTPS>::make_session<tg_session>
+          (version, host, port, true, std::move(ctx), bot_token), 
+          boost::asio::detached
+        );
         ioc.run();
     }
     catch(const std::exception& e)

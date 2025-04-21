@@ -30,6 +30,17 @@ namespace Pars
           return entity_name;
         }
 
+        
+        [[nodiscard]]
+        static json::string 
+        getFile_url(json::string_view file_id) noexcept
+        {
+          static const json::string file_url{"/getFile?file_id="};
+          json::string url = file_url;
+          url+=file_id;
+          return url;
+        }
+
       public:
 
         File() noexcept {}

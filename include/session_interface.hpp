@@ -35,6 +35,30 @@ class session_base
 
   public:
 
+  [[nodiscard]]
+  json::string 
+  get_host() const noexcept 
+  {
+    return host_;
+  }
+
+
+  [[nodiscard]]
+  json::string
+  get_port() const noexcept
+  {
+    return port_;
+  }
+
+
+  [[nodiscard]]
+  int get_version() const noexcept
+  {
+    return version_;
+  }
+
+  public:
+
   net::awaitable<void> 
   virtual write_request
   (http::request<http::string_body>&& req) = 0;
@@ -218,7 +242,7 @@ class session_base
     json::string filename,
     json::string data,
     Pars::optstr encoding = {},
-    json::string boundaries = R"(7b38fa245a9bfa229d3751cf6b3d94fa)"
+    json::string boundaries = "magicboundaries"
   )
   {
     static const json::string  crlf{"\r\n"};
@@ -289,13 +313,19 @@ class session_base
 inline session_base::~session_base(){}
 
 
+enum class PROTOCOL
+{
+  HTTP,
+  HTTPS
+};
 
-template<bool HTTPS>
+
+template<PROTOCOL T>
 class session_interface;
 
 
 template<>
-class session_interface<true> : public session_base
+class session_interface<PROTOCOL::HTTPS> : public session_base
 {
   protected: 
 
@@ -453,7 +483,7 @@ class session_interface<true> : public session_base
 
     auto ex = co_await net::this_coro::executor;
     std::shared_ptr<Derived> session = std::make_shared<Derived>
-    (version, host, port, std::move(ctx).value(), ex, std::forward<Args>(args)...);
+    (version, host, port, ex, std::move(ctx).value(), std::forward<Args>(args)...);
     
     if(run)
       co_await session->run();
@@ -463,7 +493,7 @@ class session_interface<true> : public session_base
 
 
   net::awaitable<void>
-  virtual run() override
+  run() override
   {
     // Set SNI Hostname (many hosts need this to handshake successfully)
     if(! SSL_set_tlsext_host_name(stream_->native_handle(), host_.data()))
@@ -483,7 +513,7 @@ class session_interface<true> : public session_base
 
 
 template<>
-class session_interface<false> : public session_base
+class session_interface<PROTOCOL::HTTP> : public session_base
 {
   protected:
 

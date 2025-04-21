@@ -1,10 +1,8 @@
 #pragma once
-#include "head.hpp"
-#include "print.hpp"
-#include "json_head.hpp"
+#include "boost/beast/http/message.hpp"
+#include "boost/beast/http/string_body.hpp"
+#include "session_interface.hpp"
 #include <entities/File.hpp>
-#include <boost/asio.hpp>
-#include <boost/asio/awaitable.hpp>
 #include <entities/entities.hpp>
 
 
@@ -15,278 +13,229 @@ namespace Commands
 {
     using namespace Pars;
 
+
+    class NothingMessage;
+    class Echo;
+    class Search;
+
+
     enum class
     CommandType
     {
-        None,
-        Message,
-        File
+      None,
+      Echo,
+      Search
     };
 
-    template<typename T>
-    class NothingMessage;
 
-    template<typename T>
-    class Echo;
-
-    template<typename T>
     class CommandInterface
     {
-        public:
+      protected:
 
         CommandType type_ = CommandType::None;
+        static inline json::string command_prefix_{"/"};
 
-        template<typename Self>
-        void set_commandType(this Self&& self) noexcept
-        {
-                self.set_CommandType();
-        }
-
-        protected:
-
+        session_base* session_;
         size_t command_offset{};
-        T& session_;
+
+      protected:
 
         template<typename Self>
-        void  set_offset(this Self&& self) noexcept
+        void set_offset
+        (this Self&& self) noexcept
         {
-            self.set_offset();
+          self.set_offset();
         }
 
-        protected:
+      protected:
 
-        CommandInterface(T& session, CommandType type):
-                session_(session), type_(type){}
+        CommandInterface( session_base* session)
+        noexcept:
+        session_(session)
+        {}
+
+        CommandInterface() noexcept {}
+
+        void set_session
+        (session_base* session) noexcept 
+        {
+          session_ = session;
+        }
 
         public:
 
-        CommandInterface(T& session):
-                session_(session){}
+        void
+        set_command_prefix
+        (json::string_view prefix) noexcept
+        {
+          command_prefix_  = prefix;
+        }
 
         virtual ~CommandInterface() = 0;
 
-
-        template<TG::is_message Obj>
-        [[nodiscard]]
-        boost::asio::awaitable<void>
-        static exec(T& session, Obj&& mes)
-        {
-            using namespace Pars;
-
-            if (Echo<T>::isCommand(mes))
-            {
-                Echo<T> com(session, std::forward<Obj>(mes));
-                co_await com();
-                co_return;
-            }
-
-            NothingMessage<T> com(session, std::forward<Obj>(mes));
-            co_await com();
-            co_return;
-        }
-
-        public:
+      public:
 
         template<typename Derived, typename Obj>
         static bool
-        isCommand(Obj&& obj) noexcept
+        isCommand(json::string_view str) noexcept
         {
-            return Derived::isCommand(std::forward<Obj>(obj));
+            return Derived::isCommand(str);
         }
 
-    };
+    }; //CommandInterface
 
-    template<typename T>
-    CommandInterface<T>::~CommandInterface(){}
+    inline CommandInterface::~CommandInterface(){}
 
 
-    template<typename T>
-    class NothingMessage : public CommandInterface<T>
+    class NothingMessage : public CommandInterface
     {
-        protected:
+      protected:
 
-        TG::SendMessage mes_;
-
-        void  set_offset() noexcept
-        {
-            NothingMessage::command_offset = 0;
-        }
-
-        public:
-
-        void set_commandType() noexcept
-        {
-            this->type_ = CommandType::Message;
-        }
-
-
-        NothingMessage(T& session, TG::SendMessage mes):
-            CommandInterface<T>(session), mes_(std::move(mes))
-        {
-        }
-
-
-        NothingMessage(T& session):
-        CommandInterface<T>(session, CommandType::Message)
-        {
-        }
-
-        ~NothingMessage(){}
-
-        public:
-
-        boost::asio::awaitable<void> operator()()
-        {
-            set_offset();
-            mes_.text  = "There is Nothing. Where everything is gone?";
-            co_await this->session_.template start_transaction<>(std::move(mes_));
-        }
-    };
-
-
-    template<typename T>
-    class Echo : public NothingMessage<T>
-    {
-        protected:
-
-        boost::asio::awaitable<void>
-        onFile()
-        {
-            TG::Document& doc = Echo::mes_.document.value();
-            http::request<http::string_body> req = Echo::session_.GetFileRequest(doc.file_id);
-            co_await Echo::session_.send_response(std::move(req));
-
-            TG::TelegramResponse res;
-            TG::File file;
-            for(;;)
-            {
-                res = co_await
-                Echo::session_.template read_response<>();
-                if (res.ok && res.result.has_value())
-                {
-                    file = std::move(res.result).value();
-                    if (file.file_path.has_value())
-                    {
-                        break;
-                    }
-                }
-            }
-
-            using type = http::response<http::string_body>;
-            req = Echo::session_.template prepare_request
-                  <false>(std::move(file.file_path).value(), "file");
-
-            type res_b = co_await Echo::session_.
-            template start_transaction<type>(std::move(req));
-            Echo::mes_.text = std::move(res_b).body();
-        }
+        static inline json::string command_{};
 
         void set_offset() noexcept
         {
-            Echo::command_offset = 5;
+          command_offset = 0;
         }
 
-        public:
+      public:
 
-            Echo(T& session) :
-            NothingMessage<T>(session)
+        NothingMessage(session_base* session)
+        noexcept : CommandInterface(session)
+        {}
+
+        NothingMessage() noexcept {}
+
+        ~NothingMessage() = 0;
+  
+      public:
+
+        [[nodiscard]]
+        static bool 
+        isCommand(json::string_view str) noexcept 
+        {
+          return str.empty();
+        }
+
+
+        net::awaitable<void> 
+        static operator()
+        (session_base & session, json::string_view url)
+        {
+          json::string host = session.get_host();
+          http::request<http::string_body> req = 
+          session.make_header
+          (
+            http::verb::get,
+            host,
+            url
+          );
+          req.body() = "There is Nothing. Where everything is gone?";
+          co_await session.req_res(std::move(req));
+        }
+
+    };//NothingMessage
+
+    inline NothingMessage::~NothingMessage(){}
+
+
+    class Echo : public NothingMessage
+    {
+      protected:
+
+        static inline json::string command_{"echo"};
+
+      protected:
+
+        [[nodiscard]]
+        static size_t 
+        get_offset() noexcept
+        {
+          size_t offset = command_prefix_.size();
+          offset += command_.size();
+          return offset;
+        }
+
+      public:
+
+        Echo(session_base* session) 
+        noexcept : NothingMessage(session)
+        {}
+
+        Echo()noexcept{}
+
+        ~Echo(){}
+
+      public:
+
+        [[nodiscard]]
+        static 
+        bool isCommand
+        (std::string_view str)
+        {
+          json::string command = command_prefix_;
+          command += command_; 
+          return str == command;
+        }
+
+
+        boost::asio::awaitable<void>
+        static operator()
+        (
+        session_base& session, 
+        http::request<http::string_body> req_,
+        json::string data,
+        const size_t limit = 2056
+        )
+        {
+          size_t max_offset = 0;
+          size_t offset = Echo::get_offset();
+          json::string host = session.get_host();
+
+          while(offset + limit < data.size())
+          {
+            if (data.size() - offset > limit)
             {
+              max_offset = limit;
+            }
+            else
+            {
+              max_offset =  data.size() - offset;
             }
 
+            json::string substr
+            {data.begin() + offset,
+            data.begin() + offset + max_offset};
 
-            Echo(T& session, TG::SendMessage mes):
-                NothingMessage<T>(session, std::move(mes))
-            {
-            }
+            http::request<http::string_body> req = req_;
+            req.body() = std::move(substr);
+            co_await session.write_request(std::move(req));
+            offset = offset + limit;
+          }
 
-            ~Echo(){}
+          json::string substr{data.begin() + offset, data.end()};
+          if (!substr.empty())
+          {
+            http::request<http::string_body> req = req_;
+            req.body() = std::move(substr);
+            co_await session.write_request(std::move(req));
+          }
 
-
-            void set_commandType() noexcept
-            {
-                if (this->mes_.document.has_value())
-                {
-                    this->type_ = CommandType::File;
-                }
-                else if (this->mes_.text.has_value())
-                {
-                    this->type_ = CommandType::Message;
-                }
-                else
-                {
-                    this->type_ = CommandType::None;
-                }
-            }
-
-            template<TG::is_message Obj>
-            [[nodiscard]]
-            static bool isCommand
-            (Obj&& mes)
-            {
-                const static json::string command{"/echo"};
-                if (mes.document.has_value())
-                {
-                    return true;
-                }
-
-                json::string& ref = mes.text.value();
-                if(ref.empty())
-                {
-                    return false;
-                }
-
-                json::string substr{ref.begin(), ref.begin()+command.size()};
-                return substr == command;
-            }
-
-
-            boost::asio::awaitable<void>
-            operator()()
-            {
-                set_commandType();
-                switch (Echo::type_)
-                {
-                    case CommandType::File : co_await onFile(); break;
-
-                    case CommandType::Message : set_offset(); break;
-
-                    default: co_return;
-                }
-
-                size_t max_offset = 0;
-                size_t offset = Echo::command_offset;
-                const size_t limit = 2056;
-                json::string data = std::move(Echo::mes_).text.value();
-
-
-                while(offset + limit < data.size())
-                {
-                    if (data.size() - offset > limit)
-                    {
-                        max_offset = limit;
-                    }
-                    else
-                    {
-                        max_offset =  data.size() - offset;
-                    }
-
-                    json::string substr
-                        {data.begin() + offset,
-                         data.begin() + offset + max_offset};
-
-                    TG::SendMessage mes;
-                    mes.chat_id = Echo::mes_.chat_id;
-                    mes.text = std::move(substr);
-                    co_await Echo::session_.template start_transaction<>(std::move(mes));
-                    offset = offset + limit;
-                }
-
-                json::string substr{data.begin() + offset, data.end()};
-                if (!substr.empty())
-                {
-                    Echo::mes_.text = std::move(substr);
-                    co_await Echo::session_.template start_transaction<>(std::move(Echo::mes_));
-                }
-            }
+      }//Echo
     };
+
+
+    [[nodiscard]]
+    inline CommandType 
+    get_command(json::string_view command) noexcept
+    {
+
+      if (Echo::isCommand(command))
+      {
+        return CommandType::Echo;
+      }
+          
+      return CommandType::None;
+    }
+
 } //namespace Command
