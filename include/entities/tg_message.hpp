@@ -54,17 +54,20 @@ namespace Pars
             optstr media_group_id;
             optstr author_signature;
             optstr text;
+            optstr caption;
              
 
             public:
 
-            message(){}
+            message() noexcept {}
+
 
             template<is_all_json_entities T>
             message(T&& val)
             {
                 create(std::forward<T>(val));
             }
+
 
             message
             (
@@ -88,9 +91,10 @@ namespace Pars
                 optstr media_group_id = {},
                 optstr author_signature = {},
                 optstr text = {},
-                std::optional<Document> document = {}
+                std::optional<Document> document = {},
+                optstr caption = {}
             )
-            :
+            noexcept: 
                 message_id(message_id),
                 date(date),
                 chat(std::move(chat)),
@@ -111,7 +115,8 @@ namespace Pars
                 is_from_offline(is_from_offline),
                 media_group_id(std::move(media_group_id)),
                 author_signature(std::move(author_signature)),
-                text(std::move(text))
+                text(std::move(text)),
+                caption(std::move(caption))
                 {
 
                 }
@@ -166,7 +171,8 @@ namespace Pars
                     std::make_pair(JS_POINTER(message, media_group_id), json::kind::string),
                     std::make_pair(JS_POINTER(message, author_signature), json::kind::string),
                     std::make_pair(JS_POINTER(message, text), json::kind::string),
-                    std::make_pair(JS_POINTER(message, document), json::kind::object)
+                    std::make_pair(JS_POINTER(message, document), json::kind::object),
+                    std::make_pair(JS_POINTER(message, caption), json::kind::string)
                 );
             };
 
@@ -241,7 +247,10 @@ namespace Pars
                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(text, text));
 
                MainParser::field_from_map
-                <json::kind::object>(std::forward<T>(map), MAKE_PAIR(document, document));
+               <json::kind::object>(std::forward<T>(map), MAKE_PAIR(document, document));
+
+               MainParser::field_from_map
+               <json::kind::string>(std::forward<T>(map), MAKE_PAIR(caption, caption));
             }
 
 
@@ -272,7 +281,8 @@ namespace Pars
                     Utils::forward_like<Self>(self.media_group_id),
                     Utils::forward_like<Self>(self.author_signature),
                     Utils::forward_like<Self>(self.text),
-                    Utils::forward_like<Self>(self.document)
+                    Utils::forward_like<Self>(self.document),
+                    Utils::forward_like<Self>(self.caption)
                 );
             }
 
@@ -301,7 +311,8 @@ namespace Pars
                 optstr media_group_id = {},
                 optstr author_signature = {},
                 optstr text = {},
-                std::optional<Document> document = {}
+                std::optional<Document> document = {},
+                optstr caption = {}
             )
             {
 
@@ -370,7 +381,8 @@ namespace Pars
                         MAKE_OP(is_from_offline, is_from_offline),
                         MAKE_OP(media_group_id, std::move(media_group_id)),
                         MAKE_OP(author_signature, std::move(author_signature)),
-                        MAKE_OP(text, std::move(text))
+                        MAKE_OP(text, std::move(text)),
+                        MAKE_OP(caption, std::move(caption))
                     );  
 
                 MainParser::container_move(std::move(opt_ob), objects);

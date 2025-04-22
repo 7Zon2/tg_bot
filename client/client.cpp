@@ -242,6 +242,7 @@ class tg_session : public session_interface<PROTOCOL::HTTPS>
     send_echo(Pars::TG::SendMessage mes)
     {
       using namespace Pars;
+      print("\n\n_________________SEND_ECHO_____________________\n\n");
 
       auto callback = [this, chat_id = mes.chat_id](json::string mes) -> net::awaitable<void>
       {
@@ -250,6 +251,7 @@ class tg_session : public session_interface<PROTOCOL::HTTPS>
         co_await session_t::write_request(std::move(req));
       };
 
+      
       json::string data{};
       if(mes.document)
       {
@@ -258,6 +260,7 @@ class tg_session : public session_interface<PROTOCOL::HTTPS>
         url+=TG::File::getFile_url(doc.file_id);
          
         http::request<http::string_body> req = make_header(http::verb::get, host_, url);
+        print("\n********GET FILE REQUEST*********\n", req);
         co_await session_t::write_request(std::move(req));
 
         TG::TelegramResponse res;
@@ -275,10 +278,18 @@ class tg_session : public session_interface<PROTOCOL::HTTPS>
           }
         }
 
-        url = "file/";
+        if (!file.file_path)
+        {
+          throw std::runtime_error{"\nfile path was not found\n"};
+        }
+
+        json::string_view file_path = file.file_path.value();
+        url = "/file";
         url += bot_url;
-        url += file.file_path.value();
+        url += "/";
+        url += file_path;
         req = make_header(http::verb::get, host_, url);
+        print("\n*****GET FILE PATH REQUEST******\n",req);
         auto res_b = co_await session_t::req_res(std::move(req));
         data = std::move(res_b).body();
       }
@@ -309,20 +320,26 @@ class tg_session : public session_interface<PROTOCOL::HTTPS>
         text = mes.text.value();
       }
 
-      print("\nsend_command. Text:",text,"\n");
-      Commands::CommandType type = Commands::get_command(text);
+      Commands::CommandType type = Commands::CommandType::None;
+      if(mes.caption)
+      {
+        type = Commands::get_command(mes.caption.value());
+      }
+      else
+      {
+        type = Commands::get_command(text);
+      }
+
       switch(type)
       {
         case Commands::CommandType::Echo : 
         {
-          print("\nEcho command\n");
           co_await send_echo(std::move(mes));
           break;
         }
 
         case Commands::CommandType::Search :
         {
-          print("\nSearch command\n");
           co_await send_search(std::move(mes));
           break;
         }
@@ -337,7 +354,7 @@ class tg_session : public session_interface<PROTOCOL::HTTPS>
             co_await session_t::write_request(std::move(req));
           };
 
-          print("\nNone command\n");
+          print("\n\n_________________SEND_NONE_MESSAGE___________________\n\n");
           co_await Commands::NothingMessage{}(callback);
           co_return;
         }

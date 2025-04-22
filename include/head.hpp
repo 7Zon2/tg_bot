@@ -200,7 +200,7 @@ skip_http (json::string_view v) noexcept
 
 [[nodiscard]]
 inline json::string
-make_host(const json::string& url, json::string_view pattern = "/")
+make_host(json::string_view url, json::string_view pattern = "/")
 {
   size_t skip_pos = skip_http(url);
   size_t pos = url.find(pattern, skip_pos);

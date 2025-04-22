@@ -145,9 +145,7 @@ namespace Commands
           json::string string_offset = command_prefix_;
           string_offset += command_;
 
-          print("\nstring_offset:", string_offset,"\n");
-          print("\nview:", view,"\n");
-          if(view.size() <= string_offset.size())
+          if(view.size() < string_offset.size())
           {
             return 0;
           }
