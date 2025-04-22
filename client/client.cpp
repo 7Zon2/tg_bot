@@ -146,16 +146,14 @@ class tg_session : public session_interface<PROTOCOL::HTTPS>
     }
 
 
-    template<Pars::TG::is_TelegramBased T>
-    requires requires(T&& obj)
-    {
-      std::forward<T>(obj).fields_to_url();
-    }
+    template<Pars::TG::is_UrlConvertible T>
     [[nodiscard]]
     json::string prepare_url(T&& obj)
     {
+      print("\nprepare url\n");
       json::string url = bot_url;
       url += std::forward<T>(obj).fields_to_url();
+      print(url,"\n");
       return url;
     }
 
@@ -165,6 +163,7 @@ class tg_session : public session_interface<PROTOCOL::HTTPS>
     http::request<http::string_body>
     prepare_request(T&& obj, http::verb verb = http::verb::get)
     {
+      print("\nprepare request\n");
       json::string url = prepare_url(std::forward<T>(obj));
       return make_header(verb, host_, std::move(url));
     }
@@ -240,9 +239,16 @@ class tg_session : public session_interface<PROTOCOL::HTTPS>
     protected:
 
     net::awaitable<void>
-    send_echo(Pars::TG::message mes)
+    send_echo(Pars::TG::SendMessage mes)
     {
       using namespace Pars;
+
+      auto callback = [this, chat_id = mes.chat_id](json::string mes) -> net::awaitable<void>
+      {
+        TG::SendMessage send_mes{chat_id, std::move(mes)};
+        auto req = prepare_request(std::move(send_mes));
+        co_await session_t::write_request(std::move(req));
+      };
 
       json::string data{};
       if(mes.document)
@@ -281,13 +287,12 @@ class tg_session : public session_interface<PROTOCOL::HTTPS>
         data = std::move(mes.text).value();
       }
 
-      auto req = prepare_request(std::move(mes));
-      co_await Commands::Echo{}(*this, std::move(req), std::move(data));
+      co_await Commands::Echo{}(callback, std::move(data));
     }
 
     
     net::awaitable<void>
-    send_search(Pars::TG::message mes)
+    send_search(Pars::TG::SendMessage mes)
     {
       using namespace Pars;
       co_return;
@@ -298,27 +303,44 @@ class tg_session : public session_interface<PROTOCOL::HTTPS>
     send_command
     (Pars::TG::message mes)
     {
-      json::string text{};
+      json::string_view text;
       if(mes.text)
       {
-        text = std::move(mes.text).value();
+        text = mes.text.value();
       }
 
+      print("\nsend_command. Text:",text,"\n");
       Commands::CommandType type = Commands::get_command(text);
       switch(type)
       {
         case Commands::CommandType::Echo : 
         {
+          print("\nEcho command\n");
           co_await send_echo(std::move(mes));
+          break;
         }
 
         case Commands::CommandType::Search :
         {
+          print("\nSearch command\n");
           co_await send_search(std::move(mes));
+          break;
         }
 
         case Commands::CommandType::None :
+        {
+          auto callback = [&](json::string data) -> net::awaitable<void>
+          {
+            Pars::TG::SendMessage mes_{std::move(mes)};
+            mes_.text = std::move(data);
+            auto req = prepare_request(std::move(mes_));
+            co_await session_t::write_request(std::move(req));
+          };
+
+          print("\nNone command\n");
+          co_await Commands::NothingMessage{}(callback);
           co_return;
+        }
 
         default:
           co_return;

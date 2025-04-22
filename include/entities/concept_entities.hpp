@@ -43,6 +43,12 @@ namespace Pars
             t.opt_fields;
             t.entity_name;
         };
+      
+        template<typename T>
+        concept is_UrlConvertible = requires(T&& t)
+        {
+          std::forward<T>(t).fields_to_url();
+        };
 
         template<typename T>
         concept is_TelegramResponse = std::is_same_v<std::remove_reference_t<T>, TelegramResponse>;

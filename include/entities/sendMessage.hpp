@@ -29,18 +29,38 @@ namespace Pars
             public:
 
             SendMessage(const message& mes):
-                message(mes)
-                {
-                    chat_id = mes.chat.id;
-                }
+            message(mes)
+            {
+              chat_id = mes.chat.id;
+            }
 
-            SendMessage(message&& mes):
-                message(std::move(mes))
-                {
-                    chat_id = mes.chat.id;
-                }
 
-            SendMessage(){}
+            SendMessage(message&& mes)
+            noexcept:
+            message(std::move(mes))
+            {
+              chat_id = mes.chat.id;
+            }
+
+
+            SendMessage& operator = (const message& mes)
+            {
+              SendMessage temp{mes};
+              *this = std::move(temp);
+              return *this;
+            }
+
+
+            SendMessage& operator =(message&& mes) noexcept 
+            {
+              SendMessage temp{std::move(mes)};
+              *this = std::move(temp);
+              return *this;
+            }
+
+
+            SendMessage()noexcept{}
+
 
             SendMessage
             (

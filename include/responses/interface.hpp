@@ -106,7 +106,7 @@ namespace Commands
 
         NothingMessage() noexcept {}
 
-        ~NothingMessage() = 0;
+        ~NothingMessage(){}
   
       public:
 
@@ -120,23 +120,14 @@ namespace Commands
 
         net::awaitable<void> 
         static operator()
-        (session_base & session, json::string_view url)
+        (auto&& callback)
         {
-          json::string host = session.get_host();
-          http::request<http::string_body> req = 
-          session.make_header
-          (
-            http::verb::get,
-            host,
-            url
-          );
-          req.body() = "There is Nothing. Where everything is gone?";
-          co_await session.req_res(std::move(req));
+          static const json::string mes{"There is Nothing. Where everything is gone?"};
+          co_await callback(mes);
         }
 
     };//NothingMessage
 
-    inline NothingMessage::~NothingMessage(){}
 
 
     class Echo : public NothingMessage
@@ -149,11 +140,24 @@ namespace Commands
 
         [[nodiscard]]
         static size_t 
-        get_offset() noexcept
+        get_offset(json::string_view view) noexcept
         {
-          size_t offset = command_prefix_.size();
-          offset += command_.size();
-          return offset;
+          json::string string_offset = command_prefix_;
+          string_offset += command_;
+
+          print("\nstring_offset:", string_offset,"\n");
+          print("\nview:", view,"\n");
+          if(view.size() <= string_offset.size())
+          {
+            return 0;
+          }
+
+          json::string substr = view.substr(0, string_offset.size());
+          if (substr == string_offset)
+          {
+            return substr.size();
+          }
+          return 0;
         }
 
       public:
@@ -173,24 +177,21 @@ namespace Commands
         bool isCommand
         (std::string_view str)
         {
-          json::string command = command_prefix_;
-          command += command_; 
-          return str == command;
+          size_t pos = get_offset(str); 
+          return pos;
         }
 
 
         boost::asio::awaitable<void>
         static operator()
         (
-        session_base& session, 
-        http::request<http::string_body> req_,
+        auto&& callback,
         json::string data,
         const size_t limit = 2056
         )
         {
           size_t max_offset = 0;
-          size_t offset = Echo::get_offset();
-          json::string host = session.get_host();
+          size_t offset = Echo::get_offset(data);
 
           while(offset + limit < data.size())
           {
@@ -207,18 +208,14 @@ namespace Commands
             {data.begin() + offset,
             data.begin() + offset + max_offset};
 
-            http::request<http::string_body> req = req_;
-            req.body() = std::move(substr);
-            co_await session.write_request(std::move(req));
+            co_await callback(std::move(substr));
             offset = offset + limit;
           }
 
           json::string substr{data.begin() + offset, data.end()};
           if (!substr.empty())
           {
-            http::request<http::string_body> req = req_;
-            req.body() = std::move(substr);
-            co_await session.write_request(std::move(req));
+            co_await callback(std::move(substr));
           }
 
       }//Echo
