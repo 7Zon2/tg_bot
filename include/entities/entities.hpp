@@ -11,5 +11,6 @@
 #include "PhotoSize.hpp"
 #include "forwardMessage.hpp"
 #include "sendMessage.hpp"
+#include "sendPhoto.hpp"
 #include "Audio.hpp"
 #include "Animation.hpp"

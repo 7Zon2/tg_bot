@@ -3,7 +3,10 @@
 #include "User.hpp"
 #include "Chat.hpp"
 #include "Document.hpp"
+#include "PhotoSize.hpp"
 #include "MessageOrigin.hpp"
+#include "entities/PhotoSize.hpp"
+
 
 namespace Pars
 {
@@ -15,6 +18,7 @@ namespace Pars
 
             using optuser = std::optional<User>;
             using optchat = std::optional<Chat>;
+            using optphoto = std::optional<std::pmr::vector<PhotoSize>>;
 
             static inline const json::string entity_name{"message"};
             static constexpr  size_t req_fields = 3;
@@ -47,6 +51,7 @@ namespace Pars
             ///
             ///....
             std::optional<Document> document;
+            optphoto photo;
             optuser via_bot;
             optuint edit_date;
             optbool has_protected_content;
@@ -92,6 +97,7 @@ namespace Pars
                 optstr author_signature = {},
                 optstr text = {},
                 std::optional<Document> document = {},
+                optphoto photo = {},
                 optstr caption = {}
             )
             noexcept: 
@@ -109,6 +115,7 @@ namespace Pars
                 is_automatic_forward(is_automatic_forward),
                 reply_to_message(std::move(reply_to_message)),
                 document(std::move(document)),
+                photo(std::move(photo)),
                 via_bot(std::move(via_bot)),
                 edit_date(edit_date),
                 has_protected_content(has_protected_content),
@@ -172,6 +179,7 @@ namespace Pars
                     std::make_pair(JS_POINTER(message, author_signature), json::kind::string),
                     std::make_pair(JS_POINTER(message, text), json::kind::string),
                     std::make_pair(JS_POINTER(message, document), json::kind::object),
+                    std::make_pair(JS_POINTER(message, photo), json::kind::array),
                     std::make_pair(JS_POINTER(message, caption), json::kind::string)
                 );
             };
@@ -249,6 +257,33 @@ namespace Pars
                MainParser::field_from_map
                <json::kind::object>(std::forward<T>(map), MAKE_PAIR(document, document));
 
+
+               json::array photo_sizes;
+               MainParser::field_from_map
+               <json::kind::array>(std::forward<T>(map), MAKE_PAIR(photo, photo_sizes));
+
+               print("\n\nPhoto Sizes array:", photo_sizes.size(),"\n\n");
+               if( ! photo_sizes.empty())
+               {
+                  photo = std::pmr::vector<PhotoSize>{};
+               }
+               else
+               {
+                 photo = std::nullopt;
+               }
+
+               for(auto&& ph : photo_sizes)
+               {
+                 PhotoSize temp{};
+                 auto map = PhotoSize::verify_fields(std::move(ph));
+                 if(map)
+                 {
+                   temp.fields_from_map(std::move(map).value());
+                   auto& vec = photo.value();
+                   vec.push_back(std::move(temp));
+                 }
+               }
+
                MainParser::field_from_map
                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(caption, caption));
             }
@@ -282,6 +317,7 @@ namespace Pars
                     Utils::forward_like<Self>(self.author_signature),
                     Utils::forward_like<Self>(self.text),
                     Utils::forward_like<Self>(self.document),
+                    Utils::forward_like<Self>(self.photo),
                     Utils::forward_like<Self>(self.caption)
                 );
             }
@@ -312,6 +348,7 @@ namespace Pars
                 optstr author_signature = {},
                 optstr text = {},
                 std::optional<Document> document = {},
+                optphoto photo = {},
                 optstr caption = {}
             )
             {
@@ -360,10 +397,12 @@ namespace Pars
                     std::move(from),
                     std::move(sender_chat),
                     std::move(sender_business_bot),
-                    (is_exist) ? (is_move ? std::move(origin_) : origin_) : std::optional<std::reference_wrapper<MessageOrigin>>{},
+                    (is_exist) ? (is_move ? std::move(origin_) : origin_) 
+                    : std::optional<std::reference_wrapper<MessageOrigin>>{},
                     std::move(mes_),
                     std::move(via_bot),
-                    std::move(document)
+                    std::move(document),
+                    std::move(photo)
                 );
 
                 MainParser::container_move(std::move(req_ob), objects);

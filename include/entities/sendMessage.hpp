@@ -1,6 +1,7 @@
 #pragma once
 #include "TelegramEntities.hpp"
 #include "tg_message.hpp"
+#include <type_traits>
 
 namespace Pars
 {
@@ -13,7 +14,7 @@ namespace Pars
 
             static inline const json::string entity_name{"sendmessage"};
             static constexpr  size_t req_fields = 2; //chat_id, text
-            static constexpr  size_t opt_fields = 17;
+            static constexpr  size_t opt_fields = 11; //this struct is not full
 
             [[nodiscard]]
             json::string
@@ -43,7 +44,8 @@ namespace Pars
             }
 
 
-            SendMessage& operator = (const message& mes)
+            SendMessage& operator = 
+            (const message& mes)
             {
               SendMessage temp{mes};
               *this = std::move(temp);
@@ -51,7 +53,8 @@ namespace Pars
             }
 
 
-            SendMessage& operator =(message&& mes) noexcept 
+            SendMessage& operator =
+            (message&& mes) noexcept 
             {
               SendMessage temp{std::move(mes)};
               *this = std::move(temp);
@@ -59,7 +62,8 @@ namespace Pars
             }
 
 
-            SendMessage()noexcept{}
+            SendMessage()
+            noexcept{}
 
 
             SendMessage
@@ -67,8 +71,8 @@ namespace Pars
                 const size_t chat_id,
                 json::string text_
             )
-            :
-                chat_id(chat_id)
+            noexcept:
+            chat_id(chat_id)
             {
                 text = std::move(text_);
             }
@@ -85,12 +89,13 @@ namespace Pars
             [[nodiscard]]
             json::string
             fields_to_url(this Self&& self) 
+            noexcept (std::is_rvalue_reference_v<Self>)
             {
                 json::string id{FIELD_EQUAL(chat_id)};
                 id  += std::to_string(self.chat_id);
 
                 json::string txt{FIELD_EQUAL(text)};
-                txt += Utils::forward_like<Self>(self.text.value());
+                txt += Utils::forward_like<Self>(self.text).value();
 
                 json::string req{URL_REQUEST(sendMessage)};
                 URL_BIND(req, id);
@@ -102,8 +107,7 @@ namespace Pars
 
             template<as_json_value T>
             [[nodiscard]]
-            static
-            opt_fields_map
+            static opt_fields_map
             requested_fields(T&& val)
             {
 
@@ -125,8 +129,7 @@ namespace Pars
 
             template<as_json_value T>
             [[nodiscard]]
-            static
-            opt_fields_map
+            static opt_fields_map
             optional_fields(T&& val)
             {
                 return {};
@@ -139,7 +142,7 @@ namespace Pars
             (T && map)
             {
                 MainParser::field_from_map
-               <json::kind::uint64>(std::forward<T>(map), MAKE_PAIR(chat_id, chat_id));
+               <json::kind::int64>(std::forward<T>(map), MAKE_PAIR(chat_id, chat_id));
 
                 MainParser::field_from_map
                 <json::kind::string>(std::forward<T>(map), MAKE_PAIR(text, text));
@@ -150,6 +153,7 @@ namespace Pars
             [[nodiscard]]
             json::value
             fields_to_value(this Self&& self)
+            noexcept (std::is_rvalue_reference_v<Self>)
             {
                 return SendMessage::fields_to_value
                 (
@@ -160,8 +164,7 @@ namespace Pars
 
 
             [[nodiscard]]
-            static 
-            json::value
+            static json::value
             fields_to_value
             (
                 size_t chat_id,

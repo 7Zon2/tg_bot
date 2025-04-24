@@ -2,22 +2,32 @@
 #include "boost/beast/http/message.hpp"
 #include "boost/beast/http/string_body.hpp"
 #include "session_interface.hpp"
+#include <concepts>
 #include <entities/File.hpp>
 #include <entities/entities.hpp>
+#include <type_traits>
 
 
 template<typename F>
 concept is_coro = std::is_same_v<std::decay_t<F>, boost::asio::awaitable<typename F::value_type>>;
 
+
+template<typename Derived>
+class CommandInterface;
+
+
+template<typename Derived>
+concept isCommandBase = requires (Derived&& obj)
+{
+  decltype(Derived::command_){};
+  {Derived::isCommand(json::string_view{})} noexcept -> std::same_as<bool>;
+  requires std::is_base_of_v<CommandInterface<Derived>, std::decay_t<Derived>>;
+};
+
+
 namespace Commands
 {
     using namespace Pars;
-
-
-    class NothingMessage;
-    class Echo;
-    class Search;
-
 
     enum class
     CommandType
@@ -28,33 +38,48 @@ namespace Commands
     };
 
 
+    template<isCommandBase Derived>
     class CommandInterface
     {
       protected:
 
-        CommandType type_ = CommandType::None;
         static inline json::string command_prefix_{"/"};
-
         session_base* session_;
-        size_t command_offset{};
 
       protected:
 
-        template<typename Self>
-        void set_offset
-        (this Self&& self) noexcept
+        [[nodiscard]]
+        static size_t 
+        get_offset(json::string_view view) noexcept
         {
-          self.set_offset();
+          json::string string_offset = command_prefix_;
+          string_offset += Derived::command_;
+
+          if(view.size() < string_offset.size())
+          {
+            return 0;
+          }
+
+          json::string substr = view.substr(0, string_offset.size());
+          if (substr == string_offset)
+          {
+            return substr.size();
+          }
+          return 0;
         }
 
       protected:
 
-        CommandInterface( session_base* session)
+        CommandInterface(session_base* session)
         noexcept:
         session_(session)
         {}
 
-        CommandInterface() noexcept {}
+
+        CommandInterface() 
+        noexcept {}
+
+      public:
 
         void set_session
         (session_base* session) noexcept 
@@ -62,9 +87,8 @@ namespace Commands
           session_ = session;
         }
 
-        public:
 
-        void
+        static void
         set_command_prefix
         (json::string_view prefix) noexcept
         {
@@ -75,7 +99,6 @@ namespace Commands
 
       public:
 
-        template<typename Derived, typename Obj>
         static bool
         isCommand(json::string_view str) noexcept
         {
@@ -84,27 +107,25 @@ namespace Commands
 
     }; //CommandInterface
 
-    inline CommandInterface::~CommandInterface(){}
+    template<isCommandBase Derived>
+    inline CommandInterface<Derived>::~CommandInterface(){}
 
 
-    class NothingMessage : public CommandInterface
+    class NothingMessage : public CommandInterface<NothingMessage>
     {
       protected:
 
         static inline json::string command_{};
 
-        void set_offset() noexcept
-        {
-          command_offset = 0;
-        }
-
       public:
 
         NothingMessage(session_base* session)
-        noexcept : CommandInterface(session)
+        noexcept: 
+        CommandInterface<NothingMessage>(session)
         {}
 
-        NothingMessage() noexcept {}
+        NothingMessage() 
+        noexcept {}
 
         ~NothingMessage(){}
   
@@ -130,7 +151,7 @@ namespace Commands
 
 
 
-    class Echo : public NothingMessage
+    class Echo : public CommandInterface<Echo>
     {
       protected:
 
@@ -161,19 +182,23 @@ namespace Commands
       public:
 
         Echo(session_base* session) 
-        noexcept : NothingMessage(session)
+        noexcept : 
+        CommandInterface<Echo>(session)
         {}
 
-        Echo()noexcept{}
+
+        Echo()
+        noexcept{}
+
 
         ~Echo(){}
 
       public:
 
         [[nodiscard]]
-        static 
-        bool isCommand
-        (std::string_view str)
+        static bool 
+        isCommand
+        (std::string_view str) noexcept 
         {
           size_t pos = get_offset(str); 
           return pos;
@@ -183,9 +208,9 @@ namespace Commands
         boost::asio::awaitable<void>
         static operator()
         (
-        auto&& callback,
-        json::string data,
-        const size_t limit = 2056
+          auto&& callback,
+          json::string data,
+          const size_t limit = 2056
         )
         {
           size_t max_offset = 0;
@@ -219,6 +244,43 @@ namespace Commands
       }//Echo
     };
 
+
+    class Search : public CommandInterface<Search>
+    {
+      protected:
+
+        static inline json::string command_{"search"};
+
+      public:
+
+        Search()
+        noexcept{}
+
+
+        Search(session_base* session)
+        noexcept : CommandInterface<Search>(session)
+        {}
+
+      public:
+
+        [[nodiscard]]
+        static bool 
+        isCommand
+        (json::string_view view) noexcept 
+        {
+          size_t pos = get_offset(view);
+          return pos;
+        }
+    
+        
+        net::awaitable<void>
+        static operator ()
+        (json::string_view data)
+        {
+
+        }
+    };
+    
 
     [[nodiscard]]
     inline CommandType 

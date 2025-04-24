@@ -63,6 +63,8 @@ namespace Pars
 
     #define FIELD_EQUAL(field) FIELD_NAME(field)"="
 
+    #define JSP(field) boost::algorithm::to_lower_copy(json::string{"/"#field})
+
     #define JS_POINTER(method, field) boost::algorithm::to_lower_copy(json::string{"/"#method"/"#field})
 
     #define MAKE_PAIR(name, field) std::make_pair(FIELD_NAME(name), std::ref(field))

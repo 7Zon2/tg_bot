@@ -1,5 +1,6 @@
 #pragma once
 #include "concept_entities.hpp"
+#include "json_head.hpp"
 #include "tg_requestes.hpp"
 
 namespace Pars
@@ -105,7 +106,7 @@ namespace Pars
             {
                 json::object ob{MainParser::get_storage_ptr()};
 
-                auto lamb = [&ob]<typename U>(U&& obj)
+                auto obj_pars = [&ob]<typename U>(U&& obj)
                 {
                     json::object temp{MainParser::get_storage_ptr()};
                     if constexpr(is_opt<U>)
@@ -126,7 +127,42 @@ namespace Pars
                     MainParser::container_move(std::move(temp), ob);
                 };
 
-                (lamb(std::forward<T>(objs)),...);
+
+                auto type_pars = [&obj_pars]<typename U>(U&& obj)
+                {
+                  if constexpr(is_opt<U>)
+                  {
+                    bool constexpr is_container = requires {obj.value().begin(); obj.value().end();};
+                    if constexpr(is_container)
+                    {                    
+                      for(auto&& i : obj.value())
+                      {
+                        obj_pars(Utils::forward_like<U>(i));
+                      }
+                    }
+                    else
+                    {
+                      obj_pars(std::forward<U>(obj));
+                    }
+                  }
+                  else
+                  {
+                    bool constexpr is_container = requires{obj.begin(); obj.end();};
+                    if constexpr(is_container)
+                    {
+                      for(auto&& i : obj)
+                      {
+                        obj_pars(Utils::forward_like<U>(i));
+                      }
+                    }
+                    else
+                    {
+                      obj_pars(std::forward<U>(obj));
+                    }
+                  }
+                };
+
+                (type_pars(std::forward<T>(objs)),...);
 
                 return ob;
             }
@@ -134,8 +170,7 @@ namespace Pars
 
             template<as_json_value T>
             [[nodiscard]]
-            static
-            opt_fields_map
+            static opt_fields_map
             requested_fields(T&& val)
             {
                 return Derived::requested_fields(std::forward<T>(val)); 
@@ -144,8 +179,7 @@ namespace Pars
 
             template<as_json_value T>
             [[nodiscard]]
-            static
-            fields_map
+            static fields_map
             optional_fields(T&& val)
             {
                 return Derived::optional_fields(std::forward<T>(val));
@@ -200,7 +234,7 @@ namespace Pars
 
                 auto opt_map = Derived::optional_fields(std::forward<T>(val));
 
-                auto map = std::move(req_map.value());
+                auto map = std::move(req_map).value();
 
                 for(auto && i : opt_map)
                 {

@@ -41,6 +41,14 @@ namespace Pars
           return url;
         }
 
+
+        [[nodiscard]]
+        json::string
+        getFile_url() const noexcept
+        {
+          return getFile_url(file_id);
+        }
+
       public:
 
         File() noexcept {}

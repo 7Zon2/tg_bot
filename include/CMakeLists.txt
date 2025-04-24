@@ -15,3 +15,4 @@ add_library(Headers INTERFACE
 target_include_directories(Headers INTERFACE TestUtils)
 target_include_directories(Headers INTERFACE entities)
 target_include_directories(Headers INTERFACE LFS)
+target_include_directories(Headers INTERFACE searcher)

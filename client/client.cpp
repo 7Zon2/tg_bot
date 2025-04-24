@@ -5,7 +5,6 @@
 #include "entities/Document.hpp"
 #include "entities/TelegramResponse.hpp"
 #include "entities/concept_entities.hpp"
-#include "entities/tg_message.hpp"
 #include "head.hpp"
 #include "entities/entities.hpp"
 #include <stacktrace>
@@ -239,10 +238,59 @@ class tg_session : public session_interface<PROTOCOL::HTTPS>
     protected:
 
     net::awaitable<void>
+    send_photo(Pars::TG::SendPhoto mes)
+    {
+      using namespace Pars;
+      print("\n\nsend_photo\n\n");
+      
+      if ( ! mes.photo)
+      {
+        print("photo not found\n");
+        co_return;
+      }
+
+      auto& vec = mes.photo.value();
+      if(vec.empty())
+      {
+        print("vector of photo sizes is empty\n");
+        co_return;
+      }
+
+      TG::PhotoSize phz = std::move(vec[0]);
+      json::string url = bot_url;
+      url += phz.getFile_url();
+
+      http::request<http::string_body> req = make_header(http::verb::get, host_, url);
+      TG::TelegramResponse res = co_await req_res<>(std::move(req));
+      
+      print("\n******PHOTO_SIZE resp******", res,"\n");
+      if(!res.ok || !res.result)
+      {
+        print("response wasn't succcess\n");
+        co_return;
+      }
+      
+      phz = std::move(res.result).value();
+      if(!phz.file_path)
+      {
+        print("\nFile path wasn't found\n");
+        co_return;
+      }
+
+      json::string_view file_path = phz.file_path.value();
+      url = "/file";
+      url += bot_url;
+      url += "/";
+      url += file_path;
+      req = make_header(http::verb::get, host_, std::move(url));
+      auto res_b = co_await session_t::req_res(std::move(req));
+    }
+
+
+    net::awaitable<void>
     send_echo(Pars::TG::SendMessage mes)
     {
       using namespace Pars;
-      print("\n\n_________________SEND_ECHO_____________________\n\n");
 
       auto callback = [this, chat_id = mes.chat_id](json::string mes) -> net::awaitable<void>
       {
@@ -260,7 +308,6 @@ class tg_session : public session_interface<PROTOCOL::HTTPS>
         url+=TG::File::getFile_url(doc.file_id);
          
         http::request<http::string_body> req = make_header(http::verb::get, host_, url);
-        print("\n********GET FILE REQUEST*********\n", req);
         co_await session_t::write_request(std::move(req));
 
         TG::TelegramResponse res;
@@ -289,7 +336,6 @@ class tg_session : public session_interface<PROTOCOL::HTTPS>
         url += "/";
         url += file_path;
         req = make_header(http::verb::get, host_, url);
-        print("\n*****GET FILE PATH REQUEST******\n",req);
         auto res_b = co_await session_t::req_res(std::move(req));
         data = std::move(res_b).body();
       }

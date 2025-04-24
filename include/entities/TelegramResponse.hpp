@@ -1,5 +1,6 @@
 #pragma once
 #include "TelegramEntities.hpp"
+#include "json_head.hpp"
 
 namespace Pars
 {
@@ -59,7 +60,7 @@ namespace Pars
                 auto map = MainParser::mapped_pointers_validation
                 (
                     std::forward<T>(val),
-                    std::make_pair("/ok", json::kind::bool_)
+                    std::make_pair(JSP(ok), json::kind::bool_)
                 );
 
                 if(map.size() != req_fields)
@@ -75,7 +76,7 @@ namespace Pars
             fields_map
             optional_fields(T&& val)
             {
-                const static json::string resP{"/result"};
+                const static json::string resP{JSP(result)};
                 auto pair = std::make_pair(resP, json::kind::array);
                 std::error_code er;
                 auto* pv = val.find_pointer(resP, er);
@@ -99,8 +100,8 @@ namespace Pars
                 auto map = MainParser::mapped_pointers_validation
                 (
                     std::forward<T>(val), 
-                    std::make_pair("/error_code", json::kind::int64),
-                    std::make_pair("/description", json::kind::string),
+                    std::make_pair(JSP(error_code), json::kind::int64),
+                    std::make_pair(JSP(description), json::kind::string),
                     pair
                 );
                 return map;
@@ -114,7 +115,7 @@ namespace Pars
                 auto findUpdate = [this]()
                 {
                     boost::system::error_code er;
-                    json::value* v = result.value().find_pointer("/update_id", er);
+                    json::value* v = result.value().find_pointer(JSP(update_id), er);
                     if (!er)
                         update_id = v->as_int64();
                     else

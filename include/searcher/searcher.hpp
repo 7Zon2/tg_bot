@@ -1,5 +1,7 @@
+#pragma once
 #include "head.hpp"
 #include "session_interface.hpp"
+
 
 
 class Searcher : public session_interface<PROTOCOL::HTTP>
@@ -196,19 +198,3 @@ class Searcher : public session_interface<PROTOCOL::HTTP>
 };
 
 
-
-int main()
-{
-  try
-  {
-    net::io_context ioc;
-    net::co_spawn(ioc, session_interface<PROTOCOL::HTTP>::make_session<Searcher>(11, Searcher::host_, "80"), net::detached); 
-    ioc.run();
-  }
-  catch(const std::exception& ex)
-  {
-    print("\n\n", ex.what(), "\n\n");
-  }
-
-  return 0;
-}
