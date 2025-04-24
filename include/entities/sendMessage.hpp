@@ -1,5 +1,8 @@
 #pragma once
 #include "TelegramEntities.hpp"
+#include "boost/beast/http/message.hpp"
+#include "boost/beast/http/string_body.hpp"
+#include "session_interface.hpp"
 #include "tg_message.hpp"
 #include <type_traits>
 
@@ -87,21 +90,22 @@ namespace Pars
 
             template<typename Self>
             [[nodiscard]]
-            json::string
+            http::request<http::string_body>
             fields_to_url(this Self&& self) 
             noexcept (std::is_rvalue_reference_v<Self>)
             {
-                json::string id{FIELD_EQUAL(chat_id)};
-                id  += std::to_string(self.chat_id);
+              json::string id{FIELD_EQUAL(chat_id)};
+              id  += std::to_string(self.chat_id);
 
-                json::string txt{FIELD_EQUAL(text)};
-                txt += Utils::forward_like<Self>(self.text).value();
+              json::string txt{FIELD_EQUAL(text)};
+              txt += Utils::forward_like<Self>(self.text).value();
 
-                json::string req{URL_REQUEST(sendMessage)};
-                URL_BIND(req, id);
-                URL_BIND(req, txt);
-                req.pop_back();
-                return req;
+              json::string req{URL_REQUEST(sendMessage)};
+              URL_BIND(req, id);
+              URL_BIND(req, txt);
+              req.pop_back();
+   
+              return session_base::make_header(http::verb::get,"",std::move(req));
             } 
 
 

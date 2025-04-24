@@ -1,12 +1,16 @@
 #include "boost/asio/awaitable.hpp"
 #include "boost/asio/ssl/context.hpp"
 #include "boost/beast/http/message.hpp"
+#include "boost/beast/http/string_body.hpp"
 #include "boost/beast/http/verb.hpp"
+#include "entities/File.hpp"
 #include "entities/Document.hpp"
 #include "entities/TelegramResponse.hpp"
 #include "entities/concept_entities.hpp"
+#include "entities/sendPhoto.hpp"
 #include "head.hpp"
 #include "entities/entities.hpp"
+#include <optional>
 #include <stacktrace>
 #include <boost/stacktrace/stacktrace.hpp>
 #include "json_head.hpp"
@@ -147,24 +151,20 @@ class tg_session : public session_interface<PROTOCOL::HTTPS>
 
     template<Pars::TG::is_UrlConvertible T>
     [[nodiscard]]
-    json::string prepare_url(T&& obj)
+    http::request<http::string_body> 
+    prepare_request(T&& obj)
     {
       print("\nprepare url\n");
+      
+      http::request<http::string_body> req = std::forward<T>(obj).fields_to_url();
+      req.set(http::field::host, host_);
+      json::string target = req.target();
+      
       json::string url = bot_url;
-      url += std::forward<T>(obj).fields_to_url();
+      url+=std::move(target);
+      
       print(url,"\n");
-      return url;
-    }
-
-
-    template<Pars::TG::is_TelegramBased T>
-    [[nodiscard]]
-    http::request<http::string_body>
-    prepare_request(T&& obj, http::verb verb = http::verb::get)
-    {
-      print("\nprepare request\n");
-      json::string url = prepare_url(std::forward<T>(obj));
-      return make_header(verb, host_, std::move(url));
+      return req;
     }
 
 
@@ -183,7 +183,7 @@ class tg_session : public session_interface<PROTOCOL::HTTPS>
     public:
 
 
-    template<Pars::TG::is_TelegramBased U>
+    template<Pars::TG::is_UrlConvertible U>
     net::awaitable<void> 
     write_request
     (U&& obj)
@@ -243,7 +243,7 @@ class tg_session : public session_interface<PROTOCOL::HTTPS>
       using namespace Pars;
       print("\n\nsend_photo\n\n");
       
-      if ( ! mes.photo)
+      if( ! mes.photo)
       {
         print("photo not found\n");
         co_return;
@@ -258,12 +258,12 @@ class tg_session : public session_interface<PROTOCOL::HTTPS>
 
       TG::PhotoSize phz = std::move(vec[0]);
       json::string url = bot_url;
-      url += phz.getFile_url();
+      url += TG::File::getFile_url(phz.file_id);
 
       http::request<http::string_body> req = make_header(http::verb::get, host_, url);
       TG::TelegramResponse res = co_await req_res<>(std::move(req));
       
-      print("\n******PHOTO_SIZE resp******", res,"\n");
+      print("\n******PHOTO_SIZE resp******", req,"\n");
       if(!res.ok || !res.result)
       {
         print("response wasn't succcess\n");
@@ -277,13 +277,28 @@ class tg_session : public session_interface<PROTOCOL::HTTPS>
         co_return;
       }
 
+
+      auto callback = [this, chat_id = mes.chat_id]
+      (http::response<http::string_body> resp) -> net::awaitable<void>
+      {
+        json::string data{std::move(resp).body()};
+        TG::SendPhoto photo{chat_id, std::move(data), std::nullopt};
+        auto req = prepare_request(std::move(photo));
+        co_await session_t::write_request(std::move(req));
+      };
+
       json::string_view file_path = phz.file_path.value();
       url = "/file";
       url += bot_url;
       url += "/";
       url += file_path;
-      req = make_header(http::verb::get, host_, std::move(url));
+
+      req = make_header(http::verb::get, host_, url);
       auto res_b = co_await session_t::req_res(std::move(req));
+
+      Commands::Search search;
+      json::string data{ std::move(res_b).body()};
+      co_await search(callback, std::move(data));
     }
 
 
@@ -335,8 +350,10 @@ class tg_session : public session_interface<PROTOCOL::HTTPS>
         url += bot_url;
         url += "/";
         url += file_path;
+
         req = make_header(http::verb::get, host_, url);
         auto res_b = co_await session_t::req_res(std::move(req));
+
         data = std::move(res_b).body();
       }
       else
@@ -605,6 +622,7 @@ class tg_session : public session_interface<PROTOCOL::HTTPS>
     run() override
     {
       co_await session_interface<PROTOCOL::HTTPS>::run();
+      co_await Commands::Search::start();
     }
 
 };

@@ -3,30 +3,21 @@
 #include "boost/beast/http/string_body.hpp"
 #include "session_interface.hpp"
 #include <concepts>
-#include <entities/File.hpp>
-#include <entities/entities.hpp>
 #include <type_traits>
-
-
-template<typename F>
-concept is_coro = std::is_same_v<std::decay_t<F>, boost::asio::awaitable<typename F::value_type>>;
-
-
-template<typename Derived>
-class CommandInterface;
-
-
-template<typename Derived>
-concept isCommandBase = requires (Derived&& obj)
-{
-  decltype(Derived::command_){};
-  {Derived::isCommand(json::string_view{})} noexcept -> std::same_as<bool>;
-  requires std::is_base_of_v<CommandInterface<Derived>, std::decay_t<Derived>>;
-};
+#include "searcher/searcher.hpp"
 
 
 namespace Commands
 {
+
+    template<typename F>
+    concept is_coro = std::is_same_v<std::decay_t<F>, boost::asio::awaitable<typename F::value_type>>;
+
+
+    template<typename Derived>
+    class CommandInterface;
+
+
     using namespace Pars;
 
     enum class
@@ -38,7 +29,7 @@ namespace Commands
     };
 
 
-    template<isCommandBase Derived>
+    template<typename  Derived>
     class CommandInterface
     {
       protected:
@@ -107,15 +98,15 @@ namespace Commands
 
     }; //CommandInterface
 
-    template<isCommandBase Derived>
+    template<typename Derived>
     inline CommandInterface<Derived>::~CommandInterface(){}
 
 
     class NothingMessage : public CommandInterface<NothingMessage>
     {
-      protected:
+      public:
 
-        static inline json::string command_{};
+        const static inline json::string command_{};
 
       public:
 
@@ -124,8 +115,10 @@ namespace Commands
         CommandInterface<NothingMessage>(session)
         {}
 
+
         NothingMessage() 
         noexcept {}
+
 
         ~NothingMessage(){}
   
@@ -153,37 +146,17 @@ namespace Commands
 
     class Echo : public CommandInterface<Echo>
     {
-      protected:
+      public:
 
-        static inline json::string command_{"echo"};
+        const static inline json::string command_{"echo"};
 
-      protected:
-
-        [[nodiscard]]
-        static size_t 
-        get_offset(json::string_view view) noexcept
-        {
-          json::string string_offset = command_prefix_;
-          string_offset += command_;
-
-          if(view.size() < string_offset.size())
-          {
-            return 0;
-          }
-
-          json::string substr = view.substr(0, string_offset.size());
-          if (substr == string_offset)
-          {
-            return substr.size();
-          }
-          return 0;
-        }
+        using base_t = CommandInterface<Echo>;
 
       public:
 
         Echo(session_base* session) 
         noexcept : 
-        CommandInterface<Echo>(session)
+        base_t(session)
         {}
 
 
@@ -200,7 +173,7 @@ namespace Commands
         isCommand
         (std::string_view str) noexcept 
         {
-          size_t pos = get_offset(str); 
+          size_t pos = base_t::get_offset(str); 
           return pos;
         }
 
@@ -247,9 +220,15 @@ namespace Commands
 
     class Search : public CommandInterface<Search>
     {
+      public:
+
+        const static inline json::string command_{"search"};
+      
       protected:
 
-        static inline json::string command_{"search"};
+        static inline std::shared_ptr<Searcher> searcher_;
+
+        using base_t = CommandInterface<Search>;
 
       public:
 
@@ -258,8 +237,17 @@ namespace Commands
 
 
         Search(session_base* session)
-        noexcept : CommandInterface<Search>(session)
+        noexcept : 
+        base_t(session)
         {}
+
+        
+        net::awaitable<void>
+        static start()
+        {
+          searcher_ = co_await session_interface<PROTOCOL::HTTP>::
+          make_session<Searcher>(11, "yandex.ru","80");
+        }
 
       public:
 
@@ -268,18 +256,21 @@ namespace Commands
         isCommand
         (json::string_view view) noexcept 
         {
-          size_t pos = get_offset(view);
+          size_t pos = base_t::get_offset(view);
           return pos;
         }
     
         
+        template<typename F>
         net::awaitable<void>
         static operator ()
-        (json::string_view data)
+        (F&& callback, json::string data)
         {
-
+          auto& searcher = *searcher_;
+          co_await searcher(std::forward<F>(callback), std::move(data));
         }
-    };
+
+      };//Search
     
 
     [[nodiscard]]
@@ -290,6 +281,10 @@ namespace Commands
       if (Echo::isCommand(command))
       {
         return CommandType::Echo;
+      }
+      if (Search::isCommand(command))
+      {
+        return CommandType::Search;
       }
           
       return CommandType::None;

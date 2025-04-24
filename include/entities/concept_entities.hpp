@@ -1,6 +1,7 @@
 #pragma once
 #include <concepts>
 #include <boost/json/value.hpp>
+#include <boost/beast/http.hpp>
 
 namespace Pars
 {
@@ -45,9 +46,10 @@ namespace Pars
         };
       
         template<typename T>
-        concept is_UrlConvertible = requires(T&& t)
+        concept is_UrlConvertible = requires(T&& obj)
         {
-          std::forward<T>(t).fields_to_url();
+          {obj.fields_to_url()} -> 
+          std::same_as<boost::beast::http::request<boost::beast::http::string_body>>;
         };
 
         template<typename T>

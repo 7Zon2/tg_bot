@@ -2,6 +2,7 @@
 #include "entities/tg_message.hpp"
 #include "json_head.hpp"
 #include "sendMessage.hpp"
+#include "session_interface.hpp"
 #include <type_traits>
 
 
@@ -89,18 +90,32 @@ namespace Pars
 
         template<typename Self> 
         [[nodiscard]]
-        json::string
+        http::request<http::string_body>
         fields_to_url(this Self&& self)
         noexcept (std::is_rvalue_reference_v<Self>)
         {
+          assert(self.photo_url || self.photo_data);
+
           json::string id{FIELD_EQUAL(chat_id)};
           id += std::to_string(self.chat_id);
 
           if( ! self.photo_url)
           {
-            json::string req{URL_REQUEST(sendPhoto)};
-            URL_BIND(req, id);
-            req.pop_back();
+            json::string url{URL_REQUEST(sendPhoto)};
+            URL_BIND(url, id);
+            url.pop_back();
+
+            auto req = session_base::make_header(http::verb::get, "", std::move(url));
+            session_base::prepare_multipart
+            (
+              req, 
+              "image/jpeg",
+              "encoded_image",
+              "kartinka",
+              Utils::forward_like<Self>(self.photo_data).value(),
+              "gzip, deflate, br"
+            );
+
             return req;
           }
 
@@ -111,7 +126,8 @@ namespace Pars
           URL_BIND(req, id);
           URL_BIND(req, url);
           req.pop_back();
-          return req;
+
+          return session_base::make_header(http::verb::get,"",std::move(req));
         }
 
 

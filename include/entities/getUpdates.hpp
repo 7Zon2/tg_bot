@@ -1,5 +1,7 @@
 #pragma once
 #include "TelegramEntities.hpp"
+#include "head.hpp"
+#include "session_interface.hpp"
 
 namespace Pars
 {
@@ -45,23 +47,24 @@ namespace Pars
 
             public:
 
+            template<typename Self>
             [[nodiscard]]
-            json::string
-            fields_to_url() 
+            http::request<http::string_body>
+            fields_to_url(this Self&& self) 
             {
                 json::string off{FIELD_EQUAL(offset)};
-                off += MainParser::parse_opt_as_string(offset);
+                off += MainParser::parse_opt_as_string(self.offset);
 
                 json::string lim{FIELD_EQUAL(limit)};
-                lim += MainParser::parse_opt_as_string(limit);
+                lim += MainParser::parse_opt_as_string(self.limit);
 
                 json::string time{FIELD_EQUAL(timeout)};
-                time += MainParser::parse_opt_as_string(timeout);
+                time += MainParser::parse_opt_as_string(self.timeout);
 
                 json::string updates;
-                if (allowed_updates.has_value())
+                if (self.allowed_updates.has_value())
                 {
-                    for(auto&& i : allowed_updates.value())
+                    for(auto&& i : self.allowed_updates.value())
                     {
                         updates += FIELD_EQUAL(allowed_updates);
                         updates += i;
@@ -76,7 +79,7 @@ namespace Pars
                 req += std::move(time); req += "&";
                 req += std::move(updates);
 
-                return req;
+                return session_base::make_header(http::verb::get, "", std::move(req));
             }
 
 

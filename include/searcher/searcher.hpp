@@ -1,4 +1,5 @@
 #pragma once
+#include "boost/interprocess/file_mapping.hpp"
 #include "head.hpp"
 #include "session_interface.hpp"
 
@@ -28,23 +29,67 @@ class Searcher : public session_interface<PROTOCOL::HTTP>
     host,
     port,
     executor
-  )
-  {}
+  ){}
 
-  
+  public:
+
   net::awaitable<void>
   run() override
   {
     co_await session_interface::run();
-    co_await request_upload_image(boost::interprocess::file_mapping{}, "/home/zon/Downloads/Kiki.jpg");
+  }
+
+  
+  template<typename F>
+  net::awaitable<void>
+  operator()
+  (
+    F&& callback,
+    std::optional<json::string> data = {},
+    std::optional<json::string> filename = {}
+  )
+  {
+    if(data)
+    {
+      co_await request_upload_image
+      (
+        std::move(data).value(), 
+        std::forward<F>(callback)
+      );
+    }
+
+    if(filename)
+    {
+      co_await request_upload_image
+      (
+        boost::interprocess::file_mapping{}, 
+        filename.value(), 
+        std::forward<F>(callback)
+      );
+    }
+  }
+
+  protected:
+
+  template<typename F>
+  net::awaitable<void>
+  request_upload_image
+  (
+    boost::interprocess::file_mapping map, 
+    json::string_view filename, 
+    F&& callback
+  )
+  {
+    json::string data = load_file(filename); 
+    co_await request_upload_image(std::move(data), std::forward<F>(callback));
   }
 
 
+  template<typename F>
   net::awaitable<void>
   request_upload_image
-  (boost::interprocess::file_mapping map, json::string filename)
+  (json::string data, F&& callback)
   {
-    json::string data = load_file(filename);
 
     auto req = make_header
       (
@@ -57,9 +102,9 @@ class Searcher : public session_interface<PROTOCOL::HTTP>
     prepare_multipart
     (
       req,
-      R"(image/jpeg)",
-      R"("encoded_image")",
-      R"("Kiki")",
+      "image/jpeg",
+      "encoded_image",
+      "kartinka",
       std::move(data),
       default_encoding_
     );
@@ -76,12 +121,12 @@ class Searcher : public session_interface<PROTOCOL::HTTP>
       (status != http::status::temporary_redirect)
     )
     {
-      throw std::runtime_error{"not found"};
+      throw std::runtime_error{"\nnot found\n"};
     }
 
     if(status == http::status::temporary_redirect)
     {
-      co_await start_redirection(std::move(req), std::move(res));
+      co_await start_redirection(std::move(req), std::move(res), std::forward<F>(callback));
     }
   }
 
@@ -108,11 +153,13 @@ class Searcher : public session_interface<PROTOCOL::HTTP>
 
 
 
+  template<typename F>
   net::awaitable<void> 
   start_redirection
   (
    http::request<http::string_body> req,
-   http::response<http::string_body> res
+   http::response<http::string_body> res,
+   F&& callback
   )
   {
     print("\nstart redirection...\n");
@@ -136,7 +183,6 @@ class Searcher : public session_interface<PROTOCOL::HTTP>
 
     auto refs = parse_html(res.body());
     refs = filter_by_extension(std::move(refs), "jpg");
-    size_t img_counter = 0;
     for(auto&i:refs)
     {
       try
@@ -146,11 +192,7 @@ class Searcher : public session_interface<PROTOCOL::HTTP>
         if(it == res.end() || it->value() != "image/jpeg")
           continue;
 
-        auto& body = res.body();
-        json::string filename{"/home/zon/Downloads/"};
-        filename += std::to_string(img_counter++);
-        filename += ".jpg";
-        store_file(filename, body.data(), body.size());
+        co_await callback(std::move(res));
       }
       catch(std::exception const & ex)
       {
@@ -196,5 +238,3 @@ class Searcher : public session_interface<PROTOCOL::HTTP>
   json::string default_encoding_{"gzip, deflate, br"};
   static inline json::string host_{"yandex.ru"};
 };
-
-

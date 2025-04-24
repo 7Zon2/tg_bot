@@ -252,26 +252,26 @@ class session_base
       req.set(http::field::accept_encoding, encoding.value());
     }
 
-    req.set(http::field::accept, R"(*/*)");
-    req.set(http::field::connection, R"(keep-alive)");
-    json::string head_content{R"(multipart/form-data; boundary=)"}; head_content += boundaries;
+    req.set(http::field::accept, "*/*");
+    req.set(http::field::connection, "keep-alive");
+    json::string head_content{"multipart/form-data; boundary="}; head_content += boundaries;
 
     json::string body{}; 
-    json::string b_name{R"(name=)"}; b_name += name; b_name+=";";
-    json::string b_filename{R"(filename=)"}; b_filename += filename;
+    json::string b_name{"name="}; b_name += name; b_name+=";";
+    json::string b_filename{"filename="}; b_filename += filename;
 
-    body += R"(--)"; body+=boundaries;                  body += crlf;
+    body += "--"; body+=boundaries;  body += crlf; 
     
-    body += R"(Content-Disposition: form-data; )";  
-    body += R"(name="upfile"; )"; body += R"(filename="blob")";        body += crlf;
+    body += "Content-Disposition: form-data;";  
+    body += std::move(b_name); body += std::move(b_filename); body += crlf;
 
-    body += R"(Content-Type: )"; body += content_type;  body += crlf; body += crlf;
+    body += "Content-Type:"; body += content_type;  body += crlf; body += crlf;
 
-    print_response(req);
+    print("\n\nmultipart request:\n", req, "\n\n");
 
     body+=std::move(data); body += crlf;
 
-    body += R"(--)"; body += boundaries; body += R"(--)"; body += crlf;
+    body += "--"; body += boundaries; body += "--"; body += crlf;
 
     print("\ncontent_lengh:", body.size(),"\n");
     req.set(http::field::content_length, std::to_string(body.size()));
