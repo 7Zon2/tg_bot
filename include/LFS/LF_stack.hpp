@@ -53,7 +53,9 @@ class LF_stack : public FreeList<T>
       auto * node = FreeList_t::pop();
       if(node)
       {
-        alloc_->deallocate(node, sizeof(Node));
+        auto hzp = alloc_->get_hazard();
+        hzp->protect(node);
+        alloc_->reclaim_hazard(std::move(hzp));
       }
     }
 

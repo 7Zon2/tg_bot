@@ -104,7 +104,7 @@ class LF_OrderList : protected FreeList<std::pair<size_t,T>, true>
 
   protected:
 
-  LF_allocator alloc_;
+  std::shared_ptr<LF_allocator> alloc_;
   Compare comporator_;
 
   public:
@@ -112,15 +112,21 @@ class LF_OrderList : protected FreeList<std::pair<size_t,T>, true>
   using iterator = order_iterator;
 
   LF_OrderList(Compare comporator = Compare{}):
-    alloc_([this](void* data, size_t data_size)
-    {    
-      Node* node = static_cast<Node*>(data);
-      std::destroy_at(&node->data_);
-      ShareResource::res_.deallocate(data, data_size);
-    }), 
+    alloc_
+    ( 
+      std::make_shared<LF_allocator>
+      (
+        [this](void* data, size_t data_size)
+        {    
+          Node* node = static_cast<Node*>(data);
+          std::destroy_at(&node->data_);
+          ShareResource::res_.deallocate(data, data_size);
+        }
+      )
+    ), 
     comporator_(comporator)
   {
-    FreeList<type,true>::set_allocator(&alloc_);
+    FreeList<type,true>::set_allocator(alloc_);
     void* p = allocate();
     Node* next = ::new(p) Node(); //the ghost node for the find method
     Node* head = head_.load(std::memory_order_relaxed);
@@ -161,7 +167,7 @@ class LF_OrderList : protected FreeList<std::pair<size_t,T>, true>
     while(head)
     {
       Node* next = head->next();
-      alloc_.deallocate(head, sizeof(Node));
+      alloc_->deallocate(head, sizeof(Node));
       head = next;
     }
   }
@@ -181,7 +187,7 @@ class LF_OrderList : protected FreeList<std::pair<size_t,T>, true>
     Node * prev = it;
     Node * curr = nullptr;
     Node * next = nullptr;
-    auto hzp_c = alloc_.get_hazard();
+    auto hzp_c = alloc_->get_hazard();
     for(;;)
     {
       curr = prev->next();
@@ -216,8 +222,8 @@ class LF_OrderList : protected FreeList<std::pair<size_t,T>, true>
         bool success = prev->next_.compare_exchange_strong(curr, next, std::memory_order_relaxed);
         if(success)
         {
-          alloc_.reclaim_hazard(std::move(hzp_c));
-          hzp_c = alloc_.get_hazard();
+          alloc_->reclaim_hazard(std::move(hzp_c));
+          hzp_c = alloc_->get_hazard();
         }
         else
         {
@@ -357,7 +363,7 @@ class LF_OrderList : protected FreeList<std::pair<size_t,T>, true>
   void 
   clear() override
   {
-    alloc_.clear();
+    alloc_->clear();
     void * p = allocate();
     Node * new_head = ::new(p) Node();
 
@@ -370,7 +376,7 @@ class LF_OrderList : protected FreeList<std::pair<size_t,T>, true>
     while(head)
     {
       Node* next = head->next();
-      alloc_.deallocate(head, sizeof(Node));
+      alloc_->deallocate(head, sizeof(Node));
       head = clear_tag(next).second;
     }
     counter_.store(0, std::memory_order_release);
@@ -456,13 +462,13 @@ class LF_OrderList : protected FreeList<std::pair<size_t,T>, true>
     Node* tail = tail_.load(std::memory_order_relaxed);
     Node* next = node->next_.load(std::memory_order_relaxed); //if next was corrupted it's ok
 
-    void* ptr =  alloc_.allocate(sizeof(Node));
+    void* ptr =  alloc_->allocate(sizeof(Node));
     Node* new_node = ::new(ptr) Node(type{hash, std::forward<U>(data)});
     new_node->next_.store(next, std::memory_order_relaxed); // 
 
     if(!node->next_.compare_exchange_strong(next, new_node, std::memory_order_acq_rel))
     {
-      alloc_.deallocate(new_node, sizeof(Node));
+      alloc_->deallocate(new_node, sizeof(Node));
       return {};
     }
     if(node == tail)
