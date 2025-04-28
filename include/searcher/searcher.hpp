@@ -3,6 +3,8 @@
 #include "boost/interprocess/file_mapping.hpp"
 #include "head.hpp"
 #include "session_interface.hpp"
+#include <optional>
+#include <utility>
 
 
 template<PROTOCOL PR = PROTOCOL::HTTPS>
@@ -108,11 +110,13 @@ class Searcher : public session_interface<PR>
     session_base::prepare_multipart
     (
       req,
-      R"(image/jpeg)",
-      R"(encoded_image)",
-      R"(kartinka)",
-      std::move(data),
-      default_encoding_
+      std::make_tuple
+      (
+        "upfile",
+        "blob",
+        "image/jpeg",
+        std::move(data)
+      )
     );
 
 

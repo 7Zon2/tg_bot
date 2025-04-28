@@ -522,7 +522,7 @@ namespace Pars
 
                 case json::kind::int64   : {(t == pair.second)  ? opt =  std::forward<T>(*it).as_int64()   : opt = checkInt(t, it); break;}
 
-                case json::kind::null    : {(t == pair.second)  ? opt =  nullptr          : opt = std::nullopt; break;}
+                case json::kind::null    : {(t == pair.second)  ? opt =  nullptr                           : opt = std::nullopt; break;}
 
                 case json::kind::object  : {(t == pair.second)  ? opt =  std::forward<T>(*it).as_object()  : opt = std::nullopt; break;}
 

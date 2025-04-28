@@ -1,8 +1,11 @@
 #pragma once
 #include "entities/tg_message.hpp"
+#include "head.hpp"
 #include "json_head.hpp"
 #include "sendMessage.hpp"
 #include "session_interface.hpp"
+#include <stdexcept>
+#include <tuple>
 #include <type_traits>
 
 
@@ -94,10 +97,8 @@ namespace Pars
         fields_to_url(this Self&& self)
         noexcept (std::is_rvalue_reference_v<Self>)
         {
-          assert(self.photo_url || self.photo_data);
-
-          json::string id{FIELD_EQUAL(chat_id)};
-          id += std::to_string(self.chat_id);
+          if(!self.photo_url && !self.photo_data)
+            throw std::runtime_error{"\nNo available data to make photo url\n"};
 
           if( ! self.photo_url)
           {
@@ -105,35 +106,43 @@ namespace Pars
             session_base::prepare_multipart
             (
               req, 
-              "image/jpeg",
-              R"(encoded_image)",
-              R"(kartinka)",
-              Utils::forward_like<Self>(self.photo_data).value(),
-              "gzip, deflate, br"
+              std::make_tuple
+              (
+                FIELD_NAME(chat_id),
+                json::string{},
+                json::string{},
+                std::to_string(self.chat_id)
+              ),
+              std::make_tuple
+              (
+               FIELD_NAME(photo),
+               "Kartinka.jpg",
+               json::string{},
+               Utils::forward_like<Self>(self.photo_data).value()
+              )
             );
 
-            
-            json::string photo{FIELD_EQUAL(photo)};
-            //photo += std::move(req).body();
-
             json::string url{URL_REQUEST(sendPhoto)};
-            URL_BIND(url, id);
-            URL_BIND(url, photo);
-            url.pop_back();
-
             req.target(std::move(url));
+
             return req;
           }
+          else
+          {
 
-          json::string url{FIELD_EQUAL(photo)};
-          url += Utils::forward_like<Self>(self.photo_url).value();
+            json::string id{FIELD_EQUAL(chat_id)};
+            id += std::to_string(self.chat_id);
 
-          json::string req{URL_REQUEST(sendPhoto)};
-          URL_BIND(req, id);
-          URL_BIND(req, url);
-          req.pop_back();
+            json::string url{FIELD_EQUAL(photo)};
+            url += Utils::forward_like<Self>(self.photo_url).value();
 
-          return session_base::make_header(http::verb::get,"",std::move(req));
+            json::string req{URL_REQUEST(sendPhoto)};
+            URL_BIND(req, id);
+            URL_BIND(req, url);
+            req.pop_back();
+
+            return session_base::make_header(http::verb::get,"",std::move(req));
+          }
         }
 
 

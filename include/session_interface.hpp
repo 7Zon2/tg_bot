@@ -2,6 +2,8 @@
 #include "json_head.hpp"
 #include "print.hpp"
 #include "head.hpp"
+#include <optional>
+#include <type_traits>
 
 class session_base
 {
@@ -253,46 +255,112 @@ class session_base
   }
  
 
+  template<typename...Types> //tuples
   static void 
   prepare_multipart
   (
     http::request<http::string_body>& req,
-    json::string content_type,
-    json::string name,
-    json::string filename,
-    json::string data,
-    Pars::optstr encoding = {},
-    json::string boundaries = "magicboundaries"
+    Types&&...fields
   )
   {
-    static const json::string  crlf{"\r\n"};
 
-    if(encoding)
+    static_assert(sizeof...(fields) > 0);
+
+    static const json::string  crlf{"\r\n"};
+    static const json::string boundaries = R"(magicboundaries)";
+    
+    auto fix_quotes = [](std::string_view vw)
     {
-      req.set(http::field::accept_encoding, encoding.value());
-    }
+      std::string str;
+      str.reserve(vw.size());
+      
+      if (*vw.data() != '\"')
+      {
+        str.push_back('\"');
+      }
+      
+      str += vw;
+      
+      if(vw.back() != '\"')
+      {
+        str.push_back('\"'); 
+      }
+      
+      return str;
+    };
+
+
+    auto add_field = [fix_quotes]<typename D>
+    requires 
+    (
+      std::is_convertible_v<std::decay_t<D>, std::string_view>
+    )
+    (
+      std::string_view name, 
+      std::string_view filename, 
+      std::string_view content_type, 
+      D && data
+    )
+    {
+      std::string str{};
+      
+      str += R"(--)"; str += boundaries; str += crlf;
+      str += R"(Content-Disposition: form-data; )";
+
+      str += R"(name=)";
+      str += fix_quotes(name);
+
+      if( ! filename.empty())
+      {
+        str += "; ";
+        str += R"(filename=)";
+        str += fix_quotes(filename);
+        str += ";";
+      }
+
+      if ( ! content_type.empty())
+      {
+        str += crlf;
+        str += R"(Content-Type: )";
+        str += content_type;
+      }
+      
+      str += crlf; str += crlf;
+      print(str);
+      str += std::move(data);
+      str += crlf;
+      return str;
+    };
+    
 
     req.set(http::field::accept, "*/*");
+    req.set(http::field::accept_encoding, "gzip, deflate, br");
     req.set(http::field::connection, "keep-alive");
-    json::string head_content{R"(multipart/form-data; boundary=)"}; head_content += boundaries;
 
-    json::string body{}; 
-    json::string b_name{R"(name=)"}; b_name += name; b_name+=";";
-    json::string b_filename{R"(filename=)"}; b_filename += filename;
+    json::string content_type = R"(multipart/form-data; boundary=)";
+    content_type += boundaries;
+    req.set(http::field::content_type, std::move(content_type));
 
-    body += R"(--)"; body+=boundaries;  body += crlf; 
-    
-    body += R"(Content-Disposition: form-data; )";  
-    body += R"(name="upfile"; )"; body += R"(filename="blob")"; body += crlf;
+    print_response(req);
 
-    body += R"(Content-Type: )"; body += content_type;  body += crlf; body += crlf;
+    json::string body{};
 
-    body+=std::move(data); body += crlf;
+    body += 
+    (
+      add_field
+      (
+        Utils::forward_like<Types>(std::get<0>(fields)), 
+        Utils::forward_like<Types>(std::get<1>(fields)),
+        Utils::forward_like<Types>(std::get<2>(fields)),
+        Utils::forward_like<Types>(std::get<3>(fields))
+      ) 
+      + ... + ""
+    );
 
     body += R"(--)"; body += boundaries; body += R"(--)"; body += crlf;
 
+    Pars::dump_data("dump.txt", body);
     req.set(http::field::content_length, std::to_string(body.size()));
-    req.set(http::field::content_type, head_content);
     req.body() = std::move(body);
   }
 
