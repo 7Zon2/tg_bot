@@ -64,7 +64,19 @@ namespace Pars
 
             public:
 
-            message() noexcept {}
+            message() noexcept{}
+
+
+            message(const message&) = default;
+
+
+            message(message&&) noexcept = default;
+
+
+            message& operator = (const message&) = default;
+
+
+            message& operator = (message&&) = default;
 
 
             template<is_all_json_entities T>
@@ -262,7 +274,7 @@ namespace Pars
                MainParser::field_from_map
                <json::kind::array>(std::forward<T>(map), MAKE_PAIR(photo, photo_sizes));
 
-               print("\n\nPhoto Sizes array:", photo_sizes.size(),"\n\n");
+               print("\n\nPhoto Sizes json_array:", photo_sizes.size(),"\n\n");
                if( ! photo_sizes.empty())
                {
                   photo = std::pmr::vector<PhotoSize>{};
@@ -278,6 +290,7 @@ namespace Pars
                  auto map = PhotoSize::verify_fields(std::move(ph));
                  if(map)
                  {
+                   print("VALID PHOTO SIZE\n");
                    temp.fields_from_map(std::move(map).value());
                    auto& vec = photo.value();
                    vec.push_back(std::move(temp));

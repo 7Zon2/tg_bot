@@ -101,27 +101,33 @@ namespace Pars
 
           if( ! self.photo_url)
           {
-            json::string url{URL_REQUEST(sendPhoto)};
-            URL_BIND(url, id);
-            url.pop_back();
-
-            auto req = session_base::make_header(http::verb::get, "", std::move(url));
+            auto req = session_base::make_header(http::verb::post, "", "");
             session_base::prepare_multipart
             (
               req, 
               "image/jpeg",
-              "encoded_image",
-              "kartinka",
+              R"(encoded_image)",
+              R"(kartinka)",
               Utils::forward_like<Self>(self.photo_data).value(),
               "gzip, deflate, br"
             );
 
+            
+            json::string photo{FIELD_EQUAL(photo)};
+            //photo += std::move(req).body();
+
+            json::string url{URL_REQUEST(sendPhoto)};
+            URL_BIND(url, id);
+            URL_BIND(url, photo);
+            url.pop_back();
+
+            req.target(std::move(url));
             return req;
           }
 
           json::string url{FIELD_EQUAL(photo)};
           url += Utils::forward_like<Self>(self.photo_url).value();
-        
+
           json::string req{URL_REQUEST(sendPhoto)};
           URL_BIND(req, id);
           URL_BIND(req, url);

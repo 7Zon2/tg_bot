@@ -1,34 +1,41 @@
 #pragma once
+#include "boost/beast/http/string_body.hpp"
 #include "boost/interprocess/file_mapping.hpp"
 #include "head.hpp"
 #include "session_interface.hpp"
 
 
-
-class Searcher : public session_interface<PROTOCOL::HTTP>
+template<PROTOCOL PR = PROTOCOL::HTTPS>
+class Searcher : public session_interface<PR>
 {
   protected:
 
-  using session_interface<PROTOCOL::HTTP>::req_res;
-  using session_interface<PROTOCOL::HTTP>::write_request;
-  using session_interface<PROTOCOL::HTTP>::read_response;
+  using session_base_t = session_interface<PR>;
+
+  using session_base_t::req_res;
+  using session_base_t::write_request;
+  using session_base_t::read_response;
+  using session_base_t::stream_;
 
   public:
 
+  template<typename...Types>
   Searcher
   (
    int version,
    json::string host,
    json::string port, 
-   net::any_io_executor executor
+   net::any_io_executor executor,
+   Types&&...args
   )
   noexcept :
-  session_interface
+  session_interface<PR>
   (
     version,
     host,
     port,
-    executor
+    executor,
+    std::forward<Types>(args)...
   ){}
 
   public:
@@ -36,7 +43,7 @@ class Searcher : public session_interface<PROTOCOL::HTTP>
   net::awaitable<void>
   run() override
   {
-    co_await session_interface::run();
+    co_await session_interface<PR>::run();
   }
 
   
@@ -44,9 +51,9 @@ class Searcher : public session_interface<PROTOCOL::HTTP>
   net::awaitable<void>
   operator()
   (
-    F&& callback,
-    std::optional<json::string> data = {},
-    std::optional<json::string> filename = {}
+    std::optional<json::string> data,
+    std::optional<json::string> filename,
+    F&& callback
   )
   {
     if(data)
@@ -57,8 +64,7 @@ class Searcher : public session_interface<PROTOCOL::HTTP>
         std::forward<F>(callback)
       );
     }
-
-    if(filename)
+    else if(filename)
     {
       co_await request_upload_image
       (
@@ -91,7 +97,7 @@ class Searcher : public session_interface<PROTOCOL::HTTP>
   (json::string data, F&& callback)
   {
 
-    auto req = make_header
+    auto req = session_base::make_header
       (
         http::verb::post,
         "yandex.ru",
@@ -99,12 +105,12 @@ class Searcher : public session_interface<PROTOCOL::HTTP>
       );
 
 
-    prepare_multipart
+    session_base::prepare_multipart
     (
       req,
-      "image/jpeg",
-      "encoded_image",
-      "kartinka",
+      R"(image/jpeg)",
+      R"(encoded_image)",
+      R"(kartinka)",
       std::move(data),
       default_encoding_
     );
@@ -118,15 +124,20 @@ class Searcher : public session_interface<PROTOCOL::HTTP>
       (status != http::status::found) && 
       (status != http::status::see_other) &&
       (status != http::status::accepted) &&
-      (status != http::status::temporary_redirect)
+      (status != http::status::temporary_redirect) &&
+      (status != http::status::ok)
     )
     {
-      throw std::runtime_error{"\nnot found\n"};
+      throw std::runtime_error{"\nImage searching request wasn't successful\n"};
     }
 
-    if(status == http::status::temporary_redirect)
+    if(status == http::status::ok)
     {
-      co_await start_redirection(std::move(req), std::move(res), std::forward<F>(callback));
+      co_await start_browsing(std::move(res), std::forward<F>(callback));
+    }
+    else if(status == http::status::temporary_redirect)
+    {
+      co_await start_redirection(std::move(req), std::forward<F>(callback));
     }
   }
 
@@ -138,44 +149,38 @@ class Searcher : public session_interface<PROTOCOL::HTTP>
     print("\nStart OneShot session\n");
     json::string host = make_host(url);
     json::string target = make_relative_url(url);
-    auto req = make_header(http::verb::get, host, target); 
+    auto req = session_base::make_header(http::verb::get, host, target); 
     req.set(http::field::accept_encoding, default_encoding_);
     req.set(http::field::accept, "*/*");
     req.set(http::field::connection,"keep-alive");
+    
+    print_response(req);
 
-    print(req);
     auto ex = co_await net::this_coro::executor;
     session_interface<PROTOCOL::HTTPS> ses{11, host, "443", ex};
     co_await ses.run();
+
     auto res = co_await ses.redirect(req, target);
     co_return std::move(res);
   }
 
 
-
   template<typename F>
-  net::awaitable<void> 
-  start_redirection
+  net::awaitable<void>
+  start_browsing
   (
-   http::request<http::string_body> req,
-   http::response<http::string_body> res,
-   F&& callback
+    http::response<http::string_body> res,
+    F&& callback
   )
   {
-    print("\nstart redirection...\n");
-    res = co_await redirect(req, "/");
-    auto status = res.result();
-    if(status != http::status::ok)
-    {
-      throw std::runtime_error{"\nurl image wasn't found\n"};
-    }
-    
+    print("\nSTART BROWSING...\n");
+
     json::string url = "/images/search?";
     url += parse_answer(std::move(res));
 
-    req = make_header(http::verb::get, host_, url);
-    res = co_await redirect(req, "/", http::status::found);
-    status = res.result();
+    auto req = session_base::make_header(http::verb::get, host_, url);
+    res = co_await session_base::redirect(req, "/", http::status::found);
+    auto status = res.result();
     if(status != http::status::ok)
     {
       throw std::runtime_error{"\nhtml answer wasn't found\n"};
@@ -183,7 +188,7 @@ class Searcher : public session_interface<PROTOCOL::HTTP>
 
     auto refs = parse_html(res.body());
     refs = filter_by_extension(std::move(refs), "jpg");
-    for(auto&i:refs)
+    for(auto&&i:refs)
     {
       try
       {
@@ -199,6 +204,25 @@ class Searcher : public session_interface<PROTOCOL::HTTP>
         print("\n\nOneShot session exception:\n",ex.what(),"\n\n");
       }
     }
+  }
+
+  template<typename F>
+  net::awaitable<void> 
+  start_redirection
+  (
+   http::request<http::string_body> req,
+   F&& callback
+  )
+  {
+    print("\nSTART REDIRECTION...\n");
+    auto res = co_await session_base::redirect(req, "/");
+    auto status = res.result();
+    if(status != http::status::ok)
+    {
+      throw std::runtime_error{"\nredirection for finding an image wasn't successful\n"};
+    }
+   
+   co_await start_browsing(std::move(res), std::forward<F>(callback)); 
   }
 
 
@@ -219,7 +243,6 @@ class Searcher : public session_interface<PROTOCOL::HTTP>
     boost::iostreams::back_insert_device ins {encode_js};
     boost::iostreams::copy(is, ins);
 
-    print(encode_js);
     json::value var = json::string{std::move(encode_js)};
     var = Pars::MainParser::try_parse_value(std::move(var));
     Pars::MainParser::pretty_print(std::cout, var);
@@ -227,7 +250,9 @@ class Searcher : public session_interface<PROTOCOL::HTTP>
     boost::system::error_code er;
     auto * it = var.find_pointer("/blocks/0/params/url", er);
     if(er)
+    {
       throw std::runtime_error{"\npointer wasn't found/n"};
+    }
 
     json::string url = it->as_string();
     return url; 

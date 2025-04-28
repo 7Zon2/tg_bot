@@ -3,12 +3,15 @@
 #include <cstddef>
 #include <cstdint>
 #include <iterator>
+#include <memory>
 #include <memory_resource>
 #include <atomic>
 #include <cassert>
 #include <type_traits>
 #include <utility>
 #include "share_resource.hpp"
+
+
 
 template<typename T, bool AtomicNode = false>
 struct Node_Type
@@ -143,7 +146,20 @@ class FreeList
 
     protected:
 
-    std::pmr::memory_resource* res_{};
+    using resourse_deleter = decltype
+    (
+      [](std::pmr::memory_resource* res)
+      {
+        if(res!=&ShareResource::res_)
+        {
+          delete res;
+        }
+      }
+    ); 
+
+    using resource_t = std::shared_ptr<std::pmr::memory_resource>;
+
+    resource_t res_{};
     std::atomic<Node*> head_{};
     std::atomic<Node*> tail_{};
     std::atomic<int64_t> counter_{};
@@ -190,8 +206,8 @@ class FreeList
 
     using iterator = FL_iterator;
 
-    FreeList(std::pmr::memory_resource* res = &ShareResource::res_):
-      res_(res)
+    FreeList(resource_t res = nullptr):
+      res_(res!=nullptr ? res : resource_t(&ShareResource::res_, resourse_deleter{}))
     {
       initialize();
     }
@@ -281,14 +297,14 @@ class FreeList
     }
 
 
-    void set_allocator(std::pmr::memory_resource* res = &ShareResource::res_)
+    void set_allocator(resource_t res)
     {
       res_ = res;
     }
 
 
     [[nodiscard]]
-    auto* get_allocator() const noexcept 
+    auto get_allocator() const noexcept 
     {
       return res_;
     }
@@ -440,6 +456,13 @@ class FreeList
       return std::move(temp);
     }
 
+
+    bool empty()
+    {
+      Node* head = head_.load(std::memory_order_relaxed);
+      Node* tail = tail_.load(std::memory_order_relaxed);
+      return head == tail;
+    }
 
     size_t size() const noexcept
     {

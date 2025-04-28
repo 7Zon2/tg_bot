@@ -1,70 +1,61 @@
 #pragma once
-#include <algorithm>
 #include <atomic>
+#include <memory>
 #include <optional>
+#include "LFS/LF_FreeList.hpp"
+#include "LFS/share_resource.hpp"
 #include "LF_allocator.hpp"
 
 
 template<typename T>
 class LF_stack : public FreeList<T>
 {
-    using FreeList<T>::head_;
-    using FreeList<T>::counter_;
-    using FreeList<T>::tail_;
-    using Node = typename FreeList<T>::Node;
-
     protected:
 
-    LF_allocator alloc_;
+    using FreeList_t = FreeList<T>;
+    using FreeList_t::head_;
+    using FreeList_t::counter_;
+    using FreeList_t::tail_;
+    using Node = typename FreeList_t::Node;
+  
+    protected:
+
+    std::shared_ptr<LF_allocator> alloc_;
 
     public:
 
     LF_stack():
-      alloc_([](void* data, size_t data_size)
+      alloc_
+      (
+       std::make_shared<LF_allocator>
+       (  
+          [](void* data, size_t sz)
+          {
+            Node* node = static_cast<Node*>(data);
+            std::destroy_at(&node->data_);
+            ShareResource::res_.deallocate(data,sz);
+          },
+          2
+       )
+      )
       {
-        std::destroy_at(static_cast<T*>(data));
-      }, 2)
-    {
-      FreeList<T>::set_allocator(&alloc_);
-    }
+        FreeList_t::set_allocator(alloc_);
+      }
+
 
     ~LF_stack()
     {}
 
+    public:
 
-    protected:
-
-    [[nodiscard]]
-    std::optional<T> pop()
+    void pop()
     {
-      Node * old_head = head_.load(std::memory_order_relaxed);
-      Node * tail = tail_.load(std::memory_order_relaxed); 
-      auto  hzp =  alloc_.get_hazard();
-      do
+      auto * node = FreeList_t::pop();
+      if(node)
       {
-        Node*  temp{};
-        do
-        {
-          temp = old_head;
-          hzp->protect(old_head);
-          old_head = head_.load(std::memory_order_relaxed);
-        }
-        while(old_head!=temp);
+        alloc_->deallocate(node, sizeof(Node));
       }
-      while(old_head!=tail && !head_.compare_exchange_strong(old_head, old_head->next_));
-      
-      std::optional<T> opt;
-      if(old_head!=tail)
-      {
-        opt = std::move(old_head->data_);
-        counter_.fetch_sub(1, std::memory_order_release);
-      }
-      
-      alloc_.reclaim_hazard(std::move(hzp));
-      return opt;
     }
-
-  public:
 
 
   [[nodiscard]]
@@ -72,7 +63,7 @@ class LF_stack : public FreeList<T>
   {
     Node * temp{};
     Node * old_head = head_.load(std::memory_order_relaxed);
-    auto hzp = alloc_.get_hazard();
+    auto hzp = alloc_->get_hazard();
     do
     {
       temp = old_head;

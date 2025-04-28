@@ -105,8 +105,9 @@ class Hazardous final
     
     HZP() noexcept = default;
 
-    ~HZP()
-    {}
+
+    ~HZP(){}
+
 
     template<typename T>
     HZP(T& data) noexcept
@@ -259,7 +260,8 @@ class Hazardous final
   public:
 
   Hazardous(const size_t limit,const del_foo& deleter):
-    deleter_(deleter), limit_(limit){}
+    deleter_(deleter), 
+    limit_(limit){}
 
   Hazardous(const size_t limit, del_foo&& deleter) noexcept:
     deleter_(std::move(deleter)), limit_(limit){}
@@ -296,7 +298,15 @@ class Hazardous final
 
   ~Hazardous()
   {
-    
+    auto& head_ = hlist_.head();
+    auto head = head_.exchange(nullptr, std::memory_order_relaxed);
+    while(head)
+    {
+      head = clear_node_tag(head);
+      auto alloc = hlist_.get_allocator();
+      alloc->deallocate(head, sizeof(FreeList<HZP,true>::Node));
+      head = head->next();
+    }
   }
 
   public:
@@ -494,7 +504,6 @@ class Hazardous final
       next = clear_node_tag(next); //clear to go on
       h = next;
     }
-
 
 
     PRINT("\n global hazard list size:",hlist_.size(),"\n");

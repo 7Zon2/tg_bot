@@ -35,6 +35,30 @@ class session_base
 
   public:
 
+  template<typename Derived, typename...Args>
+  static 
+  net::awaitable<std::shared_ptr<Derived>> 
+  make_session
+  (
+    int version,
+    json::string host,
+    json::string port,
+    bool run = true,
+    Args&&...args
+  )
+  {
+    auto ex = co_await net::this_coro::executor;
+    std::shared_ptr<Derived> session = std::make_shared<Derived>
+    (version, host, port, ex, std::forward<Args>(args)...);
+    
+    if(run)
+      co_await session->run();
+
+    co_return session;
+  }
+
+  public:
+
   [[nodiscard]]
   json::string 
   get_host() const noexcept 
@@ -111,10 +135,8 @@ class session_base
       it = res.find(http::field::connection);
       if (it != res.end() && it->value() == "close")
       {
-        print("\nreq before reconnection\n", temp_req);
         print("\nConnection was closed. Try to reconnect...\n");
         co_await run();
-        print("\nreq after reconnection\n",temp_req);
       }
        
     }
@@ -148,9 +170,7 @@ class session_base
     http::response<http::string_body> resp;
     size_t read_data = co_await http::async_read(stream, buffer, resp);
     print("\nread data:", read_data, "\n");
-    auto temp_body = std::move(resp).body();
-    print(resp);
-    resp.body() = std::move(temp_body);
+    print_response(resp);
     co_return resp;
   }
 
@@ -254,31 +274,26 @@ class session_base
 
     req.set(http::field::accept, "*/*");
     req.set(http::field::connection, "keep-alive");
-    json::string head_content{"multipart/form-data; boundary="}; head_content += boundaries;
+    json::string head_content{R"(multipart/form-data; boundary=)"}; head_content += boundaries;
 
     json::string body{}; 
-    json::string b_name{"name="}; b_name += name; b_name+=";";
-    json::string b_filename{"filename="}; b_filename += filename;
+    json::string b_name{R"(name=)"}; b_name += name; b_name+=";";
+    json::string b_filename{R"(filename=)"}; b_filename += filename;
 
-    body += "--"; body+=boundaries;  body += crlf; 
+    body += R"(--)"; body+=boundaries;  body += crlf; 
     
-    body += "Content-Disposition: form-data;";  
-    body += std::move(b_name); body += std::move(b_filename); body += crlf;
+    body += R"(Content-Disposition: form-data; )";  
+    body += R"(name="upfile"; )"; body += R"(filename="blob")"; body += crlf;
 
-    body += "Content-Type:"; body += content_type;  body += crlf; body += crlf;
-
-    print("\n\nmultipart request:\n", req, "\n\n");
+    body += R"(Content-Type: )"; body += content_type;  body += crlf; body += crlf;
 
     body+=std::move(data); body += crlf;
 
-    body += "--"; body += boundaries; body += "--"; body += crlf;
+    body += R"(--)"; body += boundaries; body += R"(--)"; body += crlf;
 
-    print("\ncontent_lengh:", body.size(),"\n");
     req.set(http::field::content_length, std::to_string(body.size()));
     req.set(http::field::content_type, head_content);
-    
     req.body() = std::move(body);
-    Pars::dump_data("search.bin", req);
   }
 
   protected:
@@ -463,35 +478,6 @@ class session_interface<PROTOCOL::HTTPS> : public session_base
 
   public:
 
-  template<typename Derived, typename...Args>
-  static 
-  net::awaitable<std::shared_ptr<Derived>> 
-  make_session
-  (
-    int version,
-    json::string host,
-    json::string port,
-    bool run = true,
-    std::optional<ssl::context> ctx = {},
-    Args&&...args
-  )
-  {
-    if(ctx.has_value() == false)
-    {
-      ctx = make_default_context();
-    }
-
-    auto ex = co_await net::this_coro::executor;
-    std::shared_ptr<Derived> session = std::make_shared<Derived>
-    (version, host, port, ex, std::move(ctx).value(), std::forward<Args>(args)...);
-    
-    if(run)
-      co_await session->run();
-
-    co_return session;
-  }
-
-
   net::awaitable<void>
   run() override
   {
@@ -585,29 +571,6 @@ class session_interface<PROTOCOL::HTTP> : public session_base
   {
     auto res = co_await session_base::req_res(*stream_, std::move(req));
     co_return std::move(res);
-  }
-
-
-  template<typename Derived, typename...Args>
-  static 
-  net::awaitable<std::shared_ptr<Derived>> 
-  make_session
-  (
-    int version,
-    json::string host,
-    json::string port,
-    bool run = true,
-    Args&&...args
-  )
-  {
-    auto ex = co_await net::this_coro::executor;
-    std::shared_ptr<Derived> session = std::make_shared<Derived>
-    (version, host, port, ex, std::forward<Args>(args)...);
-    
-    if(run)
-      co_await session->run();
-
-    co_return session;
   }
 
   

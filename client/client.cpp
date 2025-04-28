@@ -53,10 +53,12 @@ class tg_session : public session_interface<PROTOCOL::HTTPS>
 
         static inline const std::chrono::seconds timeout{15};
         static inline std::atomic<std::chrono::seconds> last_time
-        {std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now().time_since_epoch())};
+        {std::chrono::duration_cast<std::chrono::seconds>
+        (std::chrono::high_resolution_clock::now().time_since_epoch())};
 
         static inline std::atomic<std::chrono::seconds> current_time
-        {std::chrono::duration_cast<std::chrono::seconds>(std::chrono::high_resolution_clock::now().time_since_epoch())};
+        {std::chrono::duration_cast<std::chrono::seconds>
+        (std::chrono::high_resolution_clock::now().time_since_epoch())};
 
         [[nodiscard]]
         static 
@@ -64,7 +66,8 @@ class tg_session : public session_interface<PROTOCOL::HTTPS>
         get_dif()
         {
             using namespace std::chrono;
-            current_time.store(duration_cast<seconds>(high_resolution_clock::now().time_since_epoch()), std::memory_order_release);
+            current_time.store(duration_cast<seconds>
+            (high_resolution_clock::now().time_since_epoch()), std::memory_order_release);
             return current_time.load(std::memory_order_release) - last_time.load(std::memory_order_release);
         }
 
@@ -74,7 +77,8 @@ class tg_session : public session_interface<PROTOCOL::HTTPS>
         update()
         {
             using namespace std::chrono;
-            current_time.store(duration_cast<seconds>(high_resolution_clock::now().time_since_epoch()), std::memory_order_release);
+            current_time.store(duration_cast<seconds>
+            (high_resolution_clock::now().time_since_epoch()), std::memory_order_release);
             auto past_time = last_time.load(std::memory_order_release);
             return last_time.compare_exchange_strong(past_time, current_time, std::memory_order_acq_rel);
         }
@@ -154,7 +158,7 @@ class tg_session : public session_interface<PROTOCOL::HTTPS>
     http::request<http::string_body> 
     prepare_request(T&& obj)
     {
-      print("\nprepare url\n");
+      print("\n\n________PREPARE REQUEST__________\n\n");
       
       http::request<http::string_body> req = std::forward<T>(obj).fields_to_url();
       req.set(http::field::host, host_);
@@ -162,8 +166,9 @@ class tg_session : public session_interface<PROTOCOL::HTTPS>
       
       json::string url = bot_url;
       url+=std::move(target);
-      
-      print(url,"\n");
+      req.target(std::move(url));
+
+      print_response(req); 
       return req;
     }
 
@@ -201,6 +206,7 @@ class tg_session : public session_interface<PROTOCOL::HTTPS>
         auto res =  co_await session_t::read_response();
         json::value var = json::string{std::move(res).body()};
         var = MainParser::try_parse_value(std::move(var));
+        MainParser::pretty_print(std::cout, var);
         Res obj{};
         obj = std::move(var);
         co_return std::move(obj);
@@ -238,14 +244,14 @@ class tg_session : public session_interface<PROTOCOL::HTTPS>
     protected:
 
     net::awaitable<void>
-    send_photo(Pars::TG::SendPhoto mes)
+    send_search(Pars::TG::SendPhoto mes) //while only for a photo
     {
       using namespace Pars;
-      print("\n\nsend_photo\n\n");
+      print("\n\n**********SEND_SEARCH***********\n\n");
       
       if( ! mes.photo)
       {
-        print("photo not found\n");
+        print("vector of photo sizes is optional\n");
         co_return;
       }
 
@@ -256,35 +262,35 @@ class tg_session : public session_interface<PROTOCOL::HTTPS>
         co_return;
       }
 
-      TG::PhotoSize phz = std::move(vec[0]);
+      TG::PhotoSize phz = std::move(std::move(vec.back()));
       json::string url = bot_url;
       url += TG::File::getFile_url(phz.file_id);
 
       http::request<http::string_body> req = make_header(http::verb::get, host_, url);
-      TG::TelegramResponse res = co_await req_res<>(std::move(req));
-      
-      print("\n******PHOTO_SIZE resp******", req,"\n");
-      if(!res.ok || !res.result)
+      print("\n\n******PHOTO REQUEST*******\n", req, "\n\n");
+      for(;;)
       {
-        print("response wasn't succcess\n");
-        co_return;
-      }
-      
-      phz = std::move(res.result).value();
-      if(!phz.file_path)
-      {
-        print("\nFile path wasn't found\n");
-        co_return;
+        TG::TelegramResponse res = co_await req_res<>(req);
+        if(res.ok && res.result)
+        {
+          phz = std::move(res.result).value();
+          if(phz.file_path)
+          {
+            break;
+          }
+        }
       }
 
 
       auto callback = [this, chat_id = mes.chat_id]
       (http::response<http::string_body> resp) -> net::awaitable<void>
       {
+        print("\n\n_______SEARCH CALLBACK______\n\n");
         json::string data{std::move(resp).body()};
         TG::SendPhoto photo{chat_id, std::move(data), std::nullopt};
         auto req = prepare_request(std::move(photo));
-        co_await session_t::write_request(std::move(req));
+        auto res = co_await req_res<>(std::move(req));
+        print_response(resp);
       };
 
       json::string_view file_path = phz.file_path.value();
@@ -294,26 +300,28 @@ class tg_session : public session_interface<PROTOCOL::HTTPS>
       url += file_path;
 
       req = make_header(http::verb::get, host_, url);
-      auto res_b = co_await session_t::req_res(std::move(req));
+      http::response<http::string_body> res_b = co_await 
+      session_t::req_res(std::move(req));
 
+      if(res_b.body().empty())
+      {
+        print("\nPhoto body is empty\n");
+        co_return;
+      }
+
+      print("\n\nSTART SEARCHING...\n\n");
       Commands::Search search;
       json::string data{ std::move(res_b).body()};
-      co_await search(callback, std::move(data));
+      co_await search(std::move(data), callback);
     }
 
 
     net::awaitable<void>
     send_echo(Pars::TG::SendMessage mes)
     {
+      print("\n\nSEND ECHO\n\n");
+
       using namespace Pars;
-
-      auto callback = [this, chat_id = mes.chat_id](json::string mes) -> net::awaitable<void>
-      {
-        TG::SendMessage send_mes{chat_id, std::move(mes)};
-        auto req = prepare_request(std::move(send_mes));
-        co_await session_t::write_request(std::move(req));
-      };
-
       
       json::string data{};
       if(mes.document)
@@ -353,7 +361,6 @@ class tg_session : public session_interface<PROTOCOL::HTTPS>
 
         req = make_header(http::verb::get, host_, url);
         auto res_b = co_await session_t::req_res(std::move(req));
-
         data = std::move(res_b).body();
       }
       else
@@ -361,15 +368,16 @@ class tg_session : public session_interface<PROTOCOL::HTTPS>
         data = std::move(mes.text).value();
       }
 
-      co_await Commands::Echo{}(callback, std::move(data));
-    }
 
-    
-    net::awaitable<void>
-    send_search(Pars::TG::SendMessage mes)
-    {
-      using namespace Pars;
-      co_return;
+      auto callback = [this, chat_id = mes.chat_id](json::string mes) -> net::awaitable<void>
+      {
+        TG::SendMessage send_mes{chat_id, std::move(mes)};
+        auto req = prepare_request(std::move(send_mes));
+        auto resp = co_await session_t::req_res(std::move(req));
+        print_response(resp);
+      };
+
+      co_await Commands::Echo{}(callback, std::move(data));
     }
 
 
@@ -377,6 +385,8 @@ class tg_session : public session_interface<PROTOCOL::HTTPS>
     send_command
     (Pars::TG::message mes)
     {
+      print("\n\n__________START SEND COMMAND__________\n\n");
+
       json::string_view text;
       if(mes.text)
       {
@@ -403,6 +413,7 @@ class tg_session : public session_interface<PROTOCOL::HTTPS>
 
         case Commands::CommandType::Search :
         {
+          print("\nSIZE OF PHOTOS BEFORE CALL COMMAND = ", mes.photo.value().size());
           co_await send_search(std::move(mes));
           break;
         }
@@ -417,7 +428,6 @@ class tg_session : public session_interface<PROTOCOL::HTTPS>
             co_await session_t::write_request(std::move(req));
           };
 
-          print("\n\n_________________SEND_NONE_MESSAGE___________________\n\n");
           co_await Commands::NothingMessage{}(callback);
           co_return;
         }
@@ -621,8 +631,8 @@ class tg_session : public session_interface<PROTOCOL::HTTPS>
     net::awaitable<void>
     run() override
     {
-      co_await session_interface<PROTOCOL::HTTPS>::run();
       co_await Commands::Search::start();
+      co_await session_interface<PROTOCOL::HTTPS>::run();
     }
 
 };

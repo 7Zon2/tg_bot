@@ -2,6 +2,7 @@
 #include "LFS/share_resource.hpp"
 #include "LF_hazardous.hpp"
 #include <atomic>
+#include <functional>
 #include <type_traits>
 
 class LF_allocator : public std::pmr::memory_resource
@@ -18,9 +19,16 @@ class LF_allocator : public std::pmr::memory_resource
 
     public:
 
+    LF_allocator(const size_t limit = 10):
+      limit_(limit),
+      custom_deleter_(default_deleter{}),
+      hazardous_(limit, custom_deleter_)
+      {}
+        
+
     LF_allocator
     (
-     std::function<void(void*, size_t)>deleter = default_deleter{}, 
+     std::function<void(void*,size_t)> deleter,
      const size_t limit = 10
     ):
       limit_(limit),
@@ -30,23 +38,14 @@ class LF_allocator : public std::pmr::memory_resource
         {
           if(data)
           {
-            using type = std::remove_cvref_t<decltype(del)>;
-            if constexpr(std::is_same_v<type, default_deleter>)
-            {
-              del(data, data_size);
-            }
-            else
-            {
-              del(data, data_size);
-              ShareResource::res_.deallocate(data, data_size);
-            }
+            del(data, data_size);
           }
         }
       ), 
       hazardous_
       (
-       limit,
-       custom_deleter_
+        limit,
+        custom_deleter_
       )
     {}
 

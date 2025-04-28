@@ -89,7 +89,7 @@ store_file
 (json::string_view filename, const char * data, size_t sz)
 {
   print("\nstore file: ", filename,"\n");
-   std::fstream ff;
+  std::fstream ff;
   ff.open(filename, std::ios::out|std::ios::binary);
   ff.write(data, sz);
 }
@@ -229,18 +229,12 @@ make_relative_url(const json::string& url, json::string_view pattern = "/")
 
 
 inline void 
-print_response(auto&& res, bool only_headers = false)
+print_response(auto&& res)
 {
+  auto body = std::move(res).body();
   print("Response:\n\n====================================================================================\n");
-  for(auto&& i : res)
-  {
-    print
-    (
-      "field name: ",  i.name_string(),"\t",
-      "field value: ", i.value(),"\n"
-    );
-  }
-  print(res,"\n=========================================================================================\n");
+  print(res);
+  res.body() = std::move(body);
 }
 
 

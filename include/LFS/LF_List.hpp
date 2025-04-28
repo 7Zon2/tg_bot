@@ -1,6 +1,7 @@
 #pragma once
 #include "LFS/LF_FreeList.hpp"
 #include "LFS/LF_hazardous.hpp"
+#include "LFS/share_resource.hpp"
 #include "LF_allocator.hpp"
 #include <atomic>
 #include <functional>
@@ -113,7 +114,9 @@ class LF_OrderList : protected FreeList<std::pair<size_t,T>, true>
   LF_OrderList(Compare comporator = Compare{}):
     alloc_([this](void* data, size_t data_size)
     {    
-      std::destroy_at(static_cast<type*>(data));
+      Node* node = static_cast<Node*>(data);
+      std::destroy_at(&node->data_);
+      ShareResource::res_.deallocate(data, data_size);
     }), 
     comporator_(comporator)
   {
@@ -265,7 +268,6 @@ class LF_OrderList : protected FreeList<std::pair<size_t,T>, true>
   }
 
   public:
-
 
   [[nodiscard]]
   std::pair<Node*,Hazardous::hazard_pointer> 

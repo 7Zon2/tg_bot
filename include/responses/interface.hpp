@@ -223,10 +223,12 @@ namespace Commands
       public:
 
         const static inline json::string command_{"search"};
-      
+        static constexpr PROTOCOL searcher_v = PROTOCOL::HTTPS;
+        static inline json::string searching_port = "443"; 
+
       protected:
 
-        static inline std::shared_ptr<Searcher> searcher_;
+        static inline std::shared_ptr<Searcher<searcher_v>> searcher_;
 
         using base_t = CommandInterface<Search>;
 
@@ -245,8 +247,8 @@ namespace Commands
         net::awaitable<void>
         static start()
         {
-          searcher_ = co_await session_interface<PROTOCOL::HTTP>::
-          make_session<Searcher>(11, "yandex.ru","80");
+          searcher_ = co_await session_base::
+          make_session<Searcher<searcher_v>>(11, "yandex.ru", searching_port);
         }
 
       public:
@@ -264,10 +266,10 @@ namespace Commands
         template<typename F>
         net::awaitable<void>
         static operator ()
-        (F&& callback, json::string data)
+        (json::string data, F&& callback)
         {
           auto& searcher = *searcher_;
-          co_await searcher(std::forward<F>(callback), std::move(data));
+          co_await searcher(std::move(data), std::nullopt, std::forward<F>(callback));
         }
 
       };//Search
@@ -277,12 +279,22 @@ namespace Commands
     inline CommandType 
     get_command(json::string_view command) noexcept
     {
+      print("\n\n*********GET COMMAND***********: ", command);
 
-      if (Echo::isCommand(command))
+      size_t pos = command.find_first_not_of(' ');
+      if(pos == json::string::npos)
+      {
+        return CommandType::None;
+      }
+
+      json::string command_{command.begin()+pos, command.end()};
+
+
+      if (Echo::isCommand(command_))
       {
         return CommandType::Echo;
       }
-      if (Search::isCommand(command))
+      if (Search::isCommand(command_))
       {
         return CommandType::Search;
       }
@@ -290,4 +302,4 @@ namespace Commands
       return CommandType::None;
     }
 
-} //namespace Command
+} //namespace Commands
