@@ -1,20 +1,19 @@
 #pragma once
 #include "PhotoSize.hpp"
-#include "json_head.hpp"
 
 
 namespace Pars
 {
   namespace TG
   {
-    struct Document : public PhotoSize
+    struct Document : public File
     {
       public:
 
       using File::operator=;
 
       static const constexpr size_t req_fields = 2;
-      static const constexpr size_t opt_fields = 3;
+      static const constexpr size_t opt_fields = 4;
 
       static const inline json::string entity_name{"document"};
 
@@ -35,14 +34,17 @@ namespace Pars
 
       Document() noexcept {}
       
+
       Document(File file) noexcept :
-        PhotoSize(std::move(file)){}
-      
+        File(std::move(file)){}
+     
+
       template<is_all_json_entities T>
       Document(T&& obj)
       {
         create(std::forward<T>(obj));
       }
+
 
       Document
       (
@@ -55,19 +57,20 @@ namespace Pars
       )
       noexcept 
       :
-        PhotoSize
+        File
         (
           std::move(file_id),
           std::move(file_unique_id),
-          0,
-          0,
-          file_size
+          file_size,
+          {}
         ),
+        thumbnail(std::move(thumbnail)),
         file_name(std::move(file_name)),
         mime_type(std::move(mime_type))
       {
 
       }
+
 
       ~Document(){}
 

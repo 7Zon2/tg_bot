@@ -2,6 +2,7 @@
 #include <concepts>
 #include <boost/json/value.hpp>
 #include <boost/beast/http.hpp>
+#include <type_traits>
 
 namespace Pars
 {
@@ -63,6 +64,9 @@ namespace Pars
 
         template<typename T>
         concept is_message = std::is_same_v<std::remove_cvref_t<T>, message>;
+
+        template<typename T>
+        concept as_message_based = std::is_base_of_v<message, std::remove_cvref_t<T>>;
 
         template<typename T>
         concept is_sendmessage = std::is_same_v<std::remove_reference_t<T>, SendMessage>;

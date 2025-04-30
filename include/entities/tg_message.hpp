@@ -203,7 +203,6 @@ namespace Pars
             fields_from_map
             (T && map)
             {
-
                MainParser::field_from_map
                <json::kind::int64>(map, MAKE_PAIR(message_id, message_id));
 
@@ -274,7 +273,6 @@ namespace Pars
                MainParser::field_from_map
                <json::kind::array>(std::forward<T>(map), MAKE_PAIR(photo, photo_sizes));
 
-               print("\n\nPhoto Sizes json_array:", photo_sizes.size(),"\n\n");
                if( ! photo_sizes.empty())
                {
                   photo = std::pmr::vector<PhotoSize>{};
@@ -290,7 +288,6 @@ namespace Pars
                  auto map = PhotoSize::verify_fields(std::move(ph));
                  if(map)
                  {
-                   print("VALID PHOTO SIZE\n");
                    temp.fields_from_map(std::move(map).value());
                    auto& vec = photo.value();
                    vec.push_back(std::move(temp));

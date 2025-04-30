@@ -12,14 +12,14 @@ namespace Pars
         {
             protected:
 
-            template<is_all_json_entities T>
-            void create(T&& val)
+            template<typename Self, is_all_json_entities T>
+            void create(this Self&& self, T&& val)
             {
                 json::value val_ = std::forward<T>(val);
-                auto map = verify_fields(std::move(val_));
+                auto map = self.verify_fields(std::move(val_));
                 if (map.has_value())
                 {
-                    fields_from_map(std::move(map.value()));
+                  self.fields_from_map(std::move(map.value()));
                 }
             }
 
@@ -37,30 +37,30 @@ namespace Pars
             
             TelegramEntities(){}
 
-            template<is_all_json_entities T>
-            void operator=(T&& val)
+            template<typename Self, is_all_json_entities T>
+            void operator = (this Self&& self, T&& val)
             {
                 json::value val_ = std::forward<T>(val);
-                auto map = verify_fields(std::move(val_));
+                auto map = self.verify_fields(std::move(val_));
                 if (map.has_value())
                 {
-                    fields_from_map(std::move(map.value()));
+                    self.fields_from_map(std::move(map.value()));
                 }
             }
 
 
-            template<is_fields_map T>
-            void operator=(T&& map)
+            template<typename Self, is_fields_map T>
+            void operator=(this Self&& self, T&& map)
             {
                 if constexpr (std::is_polymorphic_v<std::remove_reference_t<Derived>>)
                 {
-                    auto it = map.find(get_entity_name());
+                    auto it = map.find(self.get_entity_name());
                     if (it!=map.end())
                     {
-                        auto entity_map = verify_fields(Utils::forward_like<T>(it->second), get_entity_name());
+                        auto entity_map = self.verify_fields(Utils::forward_like<T>(it->second), self.get_entity_name());
                         if (entity_map.has_value())
                         {
-                            fields_from_map(std::move(entity_map.value()));
+                            self.fields_from_map(std::move(entity_map.value()));
                         }
                     }
                 }
@@ -69,7 +69,7 @@ namespace Pars
                     auto it = map.find(entity_name);
                     if (it!=map.end())
                     {
-                        *this = Utils::forward_like<T>(it->second);
+                        self = Utils::forward_like<T>(it->second);
                     }
                 }
             }
@@ -186,27 +186,21 @@ namespace Pars
             }
 
 
-            template<is_fields_map T>
+            template<typename D = Derived, is_fields_map T>
             void
             fields_from_map(T&& map)
             {
-                return static_cast<Derived&>(*this).fields_from_map(std::forward<T>(map));
+                return static_cast<D&>(*this).fields_from_map(std::forward<T>(map));
             }
 
 
+            template<typename Self>
             [[nodiscard]]
             json::string
-            fields_to_url() &
+            field_to_url
+            (this Self&& self)
             {
-                return static_cast<Derived&>(*this).fields_to_url();
-            }
-
-
-            [[nodiscard]]
-            json::string
-            fields_to_url() &&
-            {
-                return static_cast<Derived&&>(*this).fields_to_url();
+              return self.fields_to_url();
             }
 
             public:

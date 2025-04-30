@@ -1,7 +1,10 @@
 #pragma once
+#include "boost/asio/steady_timer.hpp"
+#include "boost/beast/core/stream_traits.hpp"
 #include "json_head.hpp"
 #include "print.hpp"
 #include "head.hpp"
+#include <chrono>
 #include <optional>
 #include <type_traits>
 
@@ -412,6 +415,7 @@ class session_interface<PROTOCOL::HTTPS> : public session_base
 {
   protected: 
 
+  std::optional<size_t> timeout_;
   json::string certif_;
   ssl::context ctx_;
   using stream_type = boost::asio::ssl::stream<beast::tcp_stream>;
@@ -419,6 +423,18 @@ class session_interface<PROTOCOL::HTTPS> : public session_base
   stream_ptr stream_;
 
   public:
+
+  void set_timeout
+  (size_t timeout) noexcept
+  {
+    timeout_ = timeout;
+  }
+
+
+  void set_timeout() noexcept
+  {
+    timeout_.reset();
+  }
 
   net::awaitable<void> 
   write_request
@@ -479,6 +495,11 @@ class session_interface<PROTOCOL::HTTPS> : public session_base
   virtual handshake() override
   {
     print("Handshake...\n"); 
+
+    if(timeout_)
+    {
+      beast::get_lowest_layer(*stream_).expires_after(std::chrono::milliseconds(timeout_.value())); 
+    }
     co_await stream_->async_handshake(ssl::stream_base::client);
   }
 

@@ -3,10 +3,12 @@
 #include "boost/beast/http/message.hpp"
 #include "boost/beast/http/string_body.hpp"
 #include "boost/beast/http/verb.hpp"
+#include "boost/json/string_view.hpp"
 #include "entities/File.hpp"
 #include "entities/Document.hpp"
 #include "entities/TelegramResponse.hpp"
 #include "entities/concept_entities.hpp"
+#include "entities/sendMessage.hpp"
 #include "entities/sendPhoto.hpp"
 #include "head.hpp"
 #include "entities/entities.hpp"
@@ -152,6 +154,16 @@ class tg_session : public session_interface<PROTOCOL::HTTPS>
         target_ = target;
     }
 
+    
+    [[nodiscard]]
+    json::string 
+    make_tg_url(json::string url)
+    {
+      json::string temp = bot_url;
+      temp += std::move(url);
+      return temp;
+    }
+
 
     template<Pars::TG::is_UrlConvertible T>
     [[nodiscard]]
@@ -249,20 +261,9 @@ class tg_session : public session_interface<PROTOCOL::HTTPS>
       using namespace Pars;
       print("\n\n**********SEND_SEARCH***********\n\n");
       
-      if( ! mes.photo)
-      {
-        print("vector of photo sizes is optional\n");
-        co_return;
-      }
+      auto vec = std::move(mes).find_photo();
 
-      auto& vec = mes.photo.value();
-      if(vec.empty())
-      {
-        print("vector of photo sizes is empty\n");
-        co_return;
-      }
-
-      TG::PhotoSize phz = std::move(std::move(vec.back()));
+      TG::PhotoSize phz = std::move(vec.back());
       json::string url = bot_url;
       url += TG::File::getFile_url(phz.file_id);
 
@@ -315,6 +316,23 @@ class tg_session : public session_interface<PROTOCOL::HTTPS>
       co_await search(std::move(data), callback);
     }
 
+
+    net::awaitable<void>
+    send_message
+    (size_t chat_id, json::string message)
+    {
+      print("\n___SEND MESSAGE____\n");
+      
+      Pars::TG::SendMessage mes{chat_id, message};
+      auto req = std::move(mes).fields_to_url();
+      req.set(http::field::host, host_);
+
+      json::string url = req.target();
+      url = make_tg_url(std::move(url));
+      req.target(std::move(url));
+    
+      co_await session_t::req_res(std::move(req));
+    }
 
     net::awaitable<void>
     send_echo(Pars::TG::SendMessage mes)
@@ -371,10 +389,7 @@ class tg_session : public session_interface<PROTOCOL::HTTPS>
 
       auto callback = [this, chat_id = mes.chat_id](json::string mes) -> net::awaitable<void>
       {
-        TG::SendMessage send_mes{chat_id, std::move(mes)};
-        auto req = prepare_request(std::move(send_mes));
-        auto resp = co_await session_t::req_res(std::move(req));
-        print_response(resp);
+        co_await send_message(chat_id, std::move(mes));
       };
 
       co_await Commands::Echo{}(callback, std::move(data));
@@ -408,24 +423,36 @@ class tg_session : public session_interface<PROTOCOL::HTTPS>
         case Commands::CommandType::Echo : 
         {
           co_await send_echo(std::move(mes));
-          break;
+          co_return;
         }
 
         case Commands::CommandType::Search :
         {
-          print("\nSIZE OF PHOTOS BEFORE CALL COMMAND = ", mes.photo.value().size());
-          co_await send_search(std::move(mes));
-          break;
+          try
+          {
+            co_await send_search(std::move(mes));
+            co_return;
+          }
+          catch(const std::exception& ex)
+          {
+            print("\n\nSearching Exception: ", ex.what(), "\n\n");
+          }
+         
+          const static json::string search_error
+          {
+            "It seems to me that I lost all the photos flying to you. " 
+            "Can you remember what was there?"
+          };
+
+          co_await send_message(mes.chat.id, search_error);
+          co_return;
         }
 
         case Commands::CommandType::None :
         {
-          auto callback = [&](json::string data) -> net::awaitable<void>
+          auto callback = [this, chat_id = mes.chat.id](json::string data) -> net::awaitable<void>
           {
-            Pars::TG::SendMessage mes_{std::move(mes)};
-            mes_.text = std::move(data);
-            auto req = prepare_request(std::move(mes_));
-            co_await session_t::write_request(std::move(req));
+            co_await send_message(chat_id, std::move(data));
           };
 
           co_await Commands::NothingMessage{}(callback);

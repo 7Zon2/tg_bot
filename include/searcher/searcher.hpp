@@ -162,6 +162,8 @@ class Searcher : public session_interface<PR>
 
     auto ex = co_await net::this_coro::executor;
     session_interface<PROTOCOL::HTTPS> ses{11, host, "443", ex};
+    ses.set_timeout(5000);
+
     co_await ses.run();
 
     auto res = co_await ses.redirect(req, target);
@@ -192,6 +194,7 @@ class Searcher : public session_interface<PR>
 
     auto refs = parse_html(res.body());
     refs = filter_by_extension(std::move(refs), "jpg");
+    print("\n\nImage Reference Vector Size: ", refs.size(),"\n\n");
     for(auto&&i:refs)
     {
       try

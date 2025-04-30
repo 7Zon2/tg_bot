@@ -1,4 +1,6 @@
 #pragma once
+#include "entities/PhotoSize.hpp"
+#include "entities/concept_entities.hpp"
 #include "entities/tg_message.hpp"
 #include "head.hpp"
 #include "json_head.hpp"
@@ -41,6 +43,7 @@ namespace Pars
 
         SendPhoto()
         noexcept{}
+
 
         SendPhoto(const message& mes):
         SendMessage(mes){}
@@ -90,6 +93,43 @@ namespace Pars
         }
 
       public:
+
+
+        template<as_message_based T>
+        [[nodiscard]]
+        static std::pmr::vector<PhotoSize>
+        find_photo(T && mes)
+        {
+          if (mes.photo && mes.photo.value().empty() == false)
+          {
+            return Utils::forward_like<T>(mes.photo).value();
+          }
+
+          print("\nPhoto Vector wasn't found\n");
+
+          auto && doc = Utils::forward_like<T>(mes.document).value();
+
+          if (doc.mime_type.value() != "image/jpeg")
+          {
+            throw std::runtime_error{"\nmime type for photo doesn't match"};
+          }
+
+          PhotoSize thumb = Utils::forward_like<T>(doc.thumbnail).value();
+
+          std::pmr::vector<PhotoSize> vec{std::move(thumb)};
+
+          return vec;
+        }
+
+
+        template<typename Self>
+        [[nodiscard]]
+        std::pmr::vector<PhotoSize>
+        find_photo(this Self && self)
+        {
+          return find_photo(Utils::forward_like<Self>(self));
+        }
+
 
         template<typename Self> 
         [[nodiscard]]
