@@ -151,9 +151,9 @@ namespace Pars
                 auto message_map = MainParser::mapped_pointers_validation
                 (
                     std::forward<T>(val),
-                    std::make_pair(JS_POINTER(message, message_id), json::kind::int64),
-                    std::make_pair(JS_POINTER(message, date), json::kind::int64),
-                    std::make_pair(JS_POINTER(message, chat), json::kind::object)
+                    std::make_pair(JSP(message_id), json::kind::int64),
+                    std::make_pair(JSP(date), json::kind::int64),
+                    std::make_pair(JSP(chat), json::kind::object)
                 );
 
                 if (message_map.size() != req_fields)
@@ -174,25 +174,25 @@ namespace Pars
                 return MainParser::mapped_pointers_validation
                 (
                     std::forward<T>(val),
-                    std::make_pair(JS_POINTER(message, message_thread_id), json::kind::uint64),
-                    std::make_pair(JS_POINTER(message, from), json::kind::object),
-                    std::make_pair(JS_POINTER(message, sender_chat), json::kind::object),
-                    std::make_pair(JS_POINTER(message, sender_boost_count), json::kind::uint64),
-                    std::make_pair(JS_POINTER(message, sender_business_bot), json::kind::object),
-                    std::make_pair(JS_POINTER(message, forward_origin), json::kind::object),
-                    std::make_pair(JS_POINTER(message, is_topic_message), json::kind::bool_),
-                    std::make_pair(JS_POINTER(message, is_automatic_forward), json::kind::bool_),
-                    std::make_pair(JS_POINTER(message, reply_to_message), json::kind::object),
-                    std::make_pair(JS_POINTER(message, via_bot), json::kind::object),
-                    std::make_pair(JS_POINTER(message, edit_date), json::kind::uint64),
-                    std::make_pair(JS_POINTER(message, has_protected_content), json::kind::bool_),
-                    std::make_pair(JS_POINTER(message, is_from_offline), json::kind::bool_),
-                    std::make_pair(JS_POINTER(message, media_group_id), json::kind::string),
-                    std::make_pair(JS_POINTER(message, author_signature), json::kind::string),
-                    std::make_pair(JS_POINTER(message, text), json::kind::string),
-                    std::make_pair(JS_POINTER(message, document), json::kind::object),
-                    std::make_pair(JS_POINTER(message, photo), json::kind::array),
-                    std::make_pair(JS_POINTER(message, caption), json::kind::string)
+                    std::make_pair(JSP(message_thread_id), json::kind::uint64),
+                    std::make_pair(JSP(from), json::kind::object),
+                    std::make_pair(JSP(sender_chat), json::kind::object),
+                    std::make_pair(JSP(sender_boost_count), json::kind::uint64),
+                    std::make_pair(JSP(sender_business_bot), json::kind::object),
+                    std::make_pair(JSP(forward_origin), json::kind::object),
+                    std::make_pair(JSP(is_topic_message), json::kind::bool_),
+                    std::make_pair(JSP(is_automatic_forward), json::kind::bool_),
+                    std::make_pair(JSP(reply_to_message), json::kind::object),
+                    std::make_pair(JSP(via_bot), json::kind::object),
+                    std::make_pair(JSP(edit_date), json::kind::uint64),
+                    std::make_pair(JSP(has_protected_content), json::kind::bool_),
+                    std::make_pair(JSP(is_from_offline), json::kind::bool_),
+                    std::make_pair(JSP(media_group_id), json::kind::string),
+                    std::make_pair(JSP(author_signature), json::kind::string),
+                    std::make_pair(JSP(text), json::kind::string),
+                    std::make_pair(JSP(document), json::kind::object),
+                    std::make_pair(JSP(photo), json::kind::array),
+                    std::make_pair(JSP(caption), json::kind::string)
                 );
             };
 
@@ -267,6 +267,14 @@ namespace Pars
 
                MainParser::field_from_map
                <json::kind::object>(std::forward<T>(map), MAKE_PAIR(document, document));
+
+               if (document)
+               {
+                  if(document.value().thumbnail)
+                    print("\n\n!!!!!!!!!!!!message document has thumbnail!!!!!!!!!!!!!!!!!!\n\n");
+                  else
+                    print("\n\n!!!!!!!!!!!!message document hasn't thumbnail!!!!!!!!!!!!!!!\n\n");
+               }
 
 
                json::array photo_sizes;

@@ -118,8 +118,8 @@ namespace Pars
                 auto message_map = MainParser::mapped_pointers_validation
                 (
                     std::forward<T>(val),
-                    std::make_pair(JS_POINTER(sendmessage, text), json::kind::string),
-                    std::make_pair(JS_POINTER(sendmessage, chat_id), json::kind::int64)
+                    std::make_pair(JSP(text), json::kind::string),
+                    std::make_pair(JSP(chat_id), json::kind::int64)
                 );
 
                 if (message_map.size() != req_fields)

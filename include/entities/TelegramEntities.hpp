@@ -2,6 +2,7 @@
 #include "concept_entities.hpp"
 #include "json_head.hpp"
 #include "tg_requestes.hpp"
+#include <type_traits>
 
 namespace Pars
 {
@@ -16,17 +17,17 @@ namespace Pars
             void create(this Self&& self, T&& val)
             {
                 json::value val_ = std::forward<T>(val);
-                auto map = self.verify_fields(std::move(val_));
+                auto map = verify_fields<Self>(std::move(val_));
                 if (map.has_value())
                 {
-                  self.fields_from_map(std::move(map.value()));
+                  self.fields_from_map(std::move(map).value());
                 }
             }
 
             public:
 
-            using selfType = TelegramEntities<Derived>;
-            using type = Derived;
+            using self_t = TelegramEntities<Derived>;
+            using derived_t = Derived;
 
             static const inline  json::string entity_name = Derived::entity_name;
 
@@ -168,29 +169,31 @@ namespace Pars
             }
 
 
-            template<as_json_value T>
+            template<typename Der = Derived, as_json_value T>
             [[nodiscard]]
             static opt_fields_map
             requested_fields(T&& val)
             {
-                return Derived::requested_fields(std::forward<T>(val)); 
+                using D = std::remove_reference_t<Der>;
+                return D::requested_fields(std::forward<T>(val)); 
             }
 
 
-            template<as_json_value T>
+            template<typename Der = Derived, as_json_value T>
             [[nodiscard]]
             static fields_map
             optional_fields(T&& val)
             {
-                return Derived::optional_fields(std::forward<T>(val));
+                using D = std::remove_reference_t<Der>;
+                return D::optional_fields(std::forward<T>(val));
             }
 
 
-            template<typename D = Derived, is_fields_map T>
+            template<typename Self, is_fields_map T>
             void
-            fields_from_map(T&& map)
+            fields_from_map(this Self && self, T && map)
             {
-                return static_cast<D&>(*this).fields_from_map(std::forward<T>(map));
+                return self.fields_from_map(std::forward<T>(map));
             }
 
 
@@ -214,19 +217,21 @@ namespace Pars
             }
 
 
-            template<as_json_value T>
+            template<typename Der = Derived, as_json_value T>
             [[nodiscard]]
             static 
             opt_fields_map
             verify_fields(T&& val)
             {
-                auto req_map = Derived::requested_fields(val);
+                using D = std::remove_reference_t<Der>;  
+
+                auto req_map = D::requested_fields(val);
                 if(! req_map.has_value())
                 {
                     return std::nullopt;
                 }
 
-                auto opt_map = Derived::optional_fields(std::forward<T>(val));
+                auto opt_map = D::optional_fields(std::forward<T>(val));
 
                 auto map = std::move(req_map).value();
 

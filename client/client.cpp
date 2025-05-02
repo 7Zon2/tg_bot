@@ -480,8 +480,7 @@ class tg_session : public session_interface<PROTOCOL::HTTPS>
                 return {};
             }
 
-            Pars::TG::message msg{};
-            msg = std::move(val->as_object());
+            Pars::TG::message msg = std::move(val)->as_object();
             return msg;
         };
 

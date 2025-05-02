@@ -94,9 +94,9 @@ namespace Pars
                 auto map = MainParser::mapped_pointers_validation
                 (
                     std::forward<T>(val),
-                    std::make_pair("/user/id", json::kind::uint64),
-                    std::make_pair("/user/is_bot", json::kind::bool_),
-                    std::make_pair("/user/first_name", json::kind::string)
+                    std::make_pair(JSP(id), json::kind::uint64),
+                    std::make_pair(JSP(is_bot), json::kind::bool_),
+                    std::make_pair(JSP(first_name), json::kind::string)
                 );
 
                 if(map.size() != req_fields)
@@ -117,15 +117,15 @@ namespace Pars
                 return MainParser::mapped_pointers_validation
                 (
                     std::forward<T>(val),
-                    std::make_pair("/user/last_name", json::kind::string),
-                    std::make_pair("/user/username",  json::kind::string),
-                    std::make_pair("/user/language_code", json::kind::string),
-                    std::make_pair("/user/is_premium", json::kind::bool_),
-                    std::make_pair("/user/added_to_attachment_menu", json::kind::bool_),
-                    std::make_pair("/user/can_join_groups", json::kind::bool_),
-                    std::make_pair("/user/can_read_all_group_messages", json::kind::bool_),
-                    std::make_pair("/user/supports_inline_queries", json::kind::bool_),
-                    std::make_pair("/user/can_connect_to_business", json::kind::bool_)
+                    std::make_pair(JSP(last_name), json::kind::string),
+                    std::make_pair(JSP(username),  json::kind::string),
+                    std::make_pair(JSP(language_code), json::kind::string),
+                    std::make_pair(JSP(is_premium), json::kind::bool_),
+                    std::make_pair(JSP(added_to_attachment_menu), json::kind::bool_),
+                    std::make_pair(JSP(can_join_groups), json::kind::bool_),
+                    std::make_pair(JSP(can_read_all_group_messages), json::kind::bool_),
+                    std::make_pair(JSP(supports_inline_queries), json::kind::bool_),
+                    std::make_pair(JSP(can_connect_to_business), json::kind::bool_)
                 );
             }
 

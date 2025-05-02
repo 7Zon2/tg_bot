@@ -496,17 +496,12 @@ namespace Pars
 
             boost::system::error_code er;
 
+            print("\nJS_POINTER:", pair.first,"\n");
             auto it = val.find_pointer(pair.first, er);
             if(er)
             {
-                size_t pos = pair.first.find_last_of("/");
-                if(pos == pair.first.npos)
-                    return std::nullopt;
-                
-                json::string_view temp{pair.first.begin() + pos, pair.first.end()}; 
-                it = val.find_pointer(temp, er);
-                if(er)
-                    return std::nullopt;
+                print("\nJSON pointer wasn't found\n");
+                return std::nullopt;
             }
 
             std::optional<json::value> opt{};
@@ -693,8 +688,7 @@ namespace Pars
             {
                 if (opt.has_value())
                 {
-                    MainParser::pretty_print(std::cout, opt.value());
-                    map.insert_or_assign(cleanUp_pointer(pointer), std::move(opt.value()));
+                    map.insert_or_assign(cleanUp_pointer(pointer), std::move(opt).value());
                 }
             }; 
 

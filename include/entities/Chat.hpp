@@ -119,8 +119,8 @@ namespace Pars
                 auto map = MainParser::mapped_pointers_validation
                 (
                     std::forward<T>(val),
-                    std::make_pair(JS_POINTER(сhat, id), json::kind::int64),
-                    std::make_pair(JS_POINTER(сhat, type), json::kind::string)
+                    std::make_pair(JSP(id), json::kind::int64),
+                    std::make_pair(JSP(type), json::kind::string)
                 );            
 
                 if (map.size() != req_fields)
@@ -139,11 +139,11 @@ namespace Pars
                 return MainParser::mapped_pointers_validation
                 ( 
                     std::forward<T>(val),
-                    std::make_pair(JS_POINTER(сhat, title), json::kind::string),
-                    std::make_pair(JS_POINTER(сhat, username), json::kind::string),
-                    std::make_pair(JS_POINTER(сhat, first_name), json::kind::string),
-                    std::make_pair(JS_POINTER(сhat, last_name), json::kind::string),
-                    std::make_pair(JS_POINTER(сhat, is_forum),  json::kind::bool_)
+                    std::make_pair(JSP(title), json::kind::string),
+                    std::make_pair(JSP(username), json::kind::string),
+                    std::make_pair(JSP(first_name), json::kind::string),
+                    std::make_pair(JSP(last_name), json::kind::string),
+                    std::make_pair(JSP(is_forum),  json::kind::bool_)
                 );
             }
 

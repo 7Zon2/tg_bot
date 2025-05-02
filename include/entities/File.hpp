@@ -83,13 +83,13 @@ namespace Pars
         [[nodiscard]]
         static 
         opt_fields_map
-        requested_fields(T&& val, json::string inherited_name = "file")
+        requested_fields(T&& val)
         {
           auto map = MainParser::mapped_pointers_validation
             (
               std::forward<T>(val),
-              std::make_pair(MainParser::make_json_pointer(inherited_name, FIELD_NAME(file_id)), json::kind::string),
-              std::make_pair(MainParser::make_json_pointer(inherited_name, FIELD_NAME(file_unique_id)), json::kind::string)
+              std::make_pair(JSP(file_id), json::kind::string),
+              std::make_pair(JSP(file_unique_id), json::kind::string)
             );
 
           if(req_fields != map.size())
@@ -110,8 +110,8 @@ namespace Pars
         return MainParser::mapped_pointers_validation
         (
             std::forward<T>(val),
-            std::make_pair(MainParser::make_json_pointer(inherited_name, FIELD_NAME(file_size)), json::kind::double_),
-            std::make_pair(MainParser::make_json_pointer(inherited_name, FIELD_NAME(file_path)), json::kind::string)
+            std::make_pair(JSP(file_size), json::kind::double_),
+            std::make_pair(JSP(file_path), json::kind::string)
         );
       }
 

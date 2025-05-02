@@ -82,7 +82,7 @@ namespace Pars
       opt_fields_map
       requested_fields(T&& val)
       {
-        return File::requested_fields(std::forward<T>(val), "document");
+        return File::requested_fields(std::forward<T>(val));
       }
 
 
@@ -90,15 +90,15 @@ namespace Pars
       [[nodiscard]]
       static 
       fields_map 
-      optional_fields(T&& val, json::string inherited_name = entity_name)
+      optional_fields(T&& val)
       {
         return MainParser::mapped_pointers_validation
         (
             std::forward<T>(val),
-            std::make_pair(MainParser::make_json_pointer(inherited_name, FIELD_NAME(thumbnail)), json::kind::object),
-            std::make_pair(MainParser::make_json_pointer(inherited_name, FIELD_NAME(file_name)), json::kind::string),
-            std::make_pair(MainParser::make_json_pointer(inherited_name, FIELD_NAME(mime_type)), json::kind::string),
-            std::make_pair(MainParser::make_json_pointer(inherited_name, FIELD_NAME(file_size)), json::kind::double_)
+            std::make_pair(JSP(thumbnail), json::kind::object),
+            std::make_pair(JSP(file_name), json::kind::string),
+            std::make_pair(JSP(mime_type), json::kind::string),
+            std::make_pair(JSP(file_size), json::kind::double_)
         );
       }
 

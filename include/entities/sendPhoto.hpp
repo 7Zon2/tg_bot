@@ -45,7 +45,8 @@ namespace Pars
         noexcept{}
 
 
-        SendPhoto(const message& mes):
+        SendPhoto(const message& mes)
+        :
         SendMessage(mes){}
 
 
@@ -194,9 +195,9 @@ namespace Pars
           auto map = MainParser::mapped_pointers_validation
           (
             std::forward<T>(val),
-            std::make_pair(JS_POINTER(sendphoto, chat_id), json::kind::int64),
-            std::make_pair(JS_POINTER(sendphoto, photo_url), json::kind::string),
-            std::make_pair(JS_POINTER(sendphoto, photo_data), json::kind::string)
+            std::make_pair(JSP(chat_id), json::kind::int64),
+            std::make_pair(JSP(photo_url), json::kind::string),
+            std::make_pair(JSP(photo_data), json::kind::string)
           );
 
           if(map.size() != req_fields)
