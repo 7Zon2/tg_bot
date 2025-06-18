@@ -8,6 +8,7 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/beast/core/buffers_generator.hpp>
 #include <boost/config.hpp>
+#include <ios>
 #include <lexbor/core/base.h>
 #include <lexbor/html/base.h>
 #include <lexbor/core/types.h>
@@ -67,6 +68,72 @@
  using tcp = boost::asio::ip::tcp;       // from <boost/asio/ip/tcp.hpp>
 
 
+
+template<typename T>
+concept is_http_message = requires(T&& mes)
+{
+  typename std::decay_t<T>::fields_type;
+  typename std::decay_t<T>::header_type;
+  typename std::decay_t<T>::body_type;
+};
+
+
+[[nodiscard]]
+inline json::string 
+encode_base64(const json::string& str)
+{
+  json::string dest(str.size()*2,' ');
+  boost::beast::detail::base64::encode(dest.data(), str.data(), str.size());
+  return dest;
+}
+
+
+[[nodiscard]]
+inline json::string
+decode_base64(const json::string& str)
+{
+  json::string dest(str.size()*2, ' ');
+  boost::beast::detail::base64::decode(dest.data(), str.data(), str.size());
+  return dest;
+}
+
+
+template<is_http_message T>
+[[nodiscard]]
+inline json::string 
+decode_data(T && mes)
+{
+  auto it = mes.find(http::field::content_encoding);
+  if(it == mes.end())
+  {
+    print("\n\nContent encoding field wasn't found\n\n");
+    return {};
+  }
+
+  json::string encoding_type = it->value();
+  if(encoding_type != "gzip")
+  {
+    print("\n\nEncoding Type is not gzip\n\n");
+    return {};
+  }
+
+  boost::iostreams::array_source src{mes.body().data(), mes.body().size()};
+  boost::iostreams::filtering_istream is;
+  boost::iostreams::gzip_decompressor gz{};
+
+  is.push(gz);
+  is.push(src);
+
+  std::string decode_str{};
+  decode_str.reserve(mes.body().size());
+
+  boost::iostreams::back_insert_device ins {decode_str};
+  boost::iostreams::copy(is, ins);
+
+  return json::string{std::move(decode_str)};
+}
+
+
 [[nodiscard]]
 inline json::string 
 load_file(json::string_view filename)
@@ -86,11 +153,17 @@ load_file(json::string_view filename)
 
 inline void 
 store_file
-(json::string_view filename, const char * data, size_t sz)
+(json::string_view filename, const char * data, size_t sz, bool append)
 {
-  print("\nstore file: ", filename,"\n");
   std::fstream ff;
-  ff.open(filename, std::ios::out|std::ios::binary);
+
+  std::ios::openmode mode = std::ios::out | std::ios::binary;
+  if(append)
+  {
+    mode|=std::ios::app;
+  }
+
+  ff.open(filename, mode);
   ff.write(data, sz);
 }
 
@@ -111,76 +184,6 @@ filter_by_extension(T&& cont, std::string_view ext)
     }
   }
   return temp;
-}
-
-
-[[nodiscard]]
-inline auto 
-parse_html(json::string_view html, json::string_view tag ="href", json::string_view value = "http")
-{
-  print("\n\nStart parsing html...\n\n");
-
-  std::pmr::vector<json::string> vec;
-
-  auto filter = [&vec,&value](json::string_view val)
-  {
-    if (value.size() > val.size())
-      return;
-
-    json::string_view view{val.begin(), val.begin() + value.size()};
-    if(view == value)
-      vec.push_back(val);
-  };
-
-  using unique_html = std::unique_ptr
-  <lxb_html_document_t, decltype([](auto* p){lxb_html_document_destroy(p);})>;
-
-  using unique_coll = std::unique_ptr
-  <lxb_dom_collection_t, decltype([](auto*p){lxb_dom_collection_destroy(p,true);})>;
-
-
-  print("\nCreating HTML parser...\n");
-  lxb_html_parser_t* parser = lxb_html_parser_create();
-  lxb_status_t status = lxb_html_parser_init(parser);
-  if(status != LXB_STATUS_OK)
-  {
-    throw std::runtime_error{"\nFailed to create HTML parser\n"};
-  }
-
-  const unsigned char * data = reinterpret_cast<const unsigned char*>(html.data());
-  const size_t sz = html.size() - 1;
-
-  print("\nParsing html document...\n");
-  unique_html  doc{lxb_html_parse(parser, data , sz)};
-  if(doc == nullptr)
-  {
-    throw std::runtime_error{"\nFaield to create Document object\n"};
-  }
-
-  unique_coll collection{lxb_dom_collection_make(&doc->dom_document, 128)};
-  auto * body = lxb_html_document_body_element(doc.get());
-  auto * element = lxb_dom_interface_element(body);
-  status = lxb_dom_elements_by_attr_contain
-  (
-      element, 
-      collection.get(), 
-      (const lxb_char_t*)tag.data(), tag.size(),
-      (const lxb_char_t*)value.data(),value.size(),
-      true
-  );
-  if(status != LXB_STATUS_OK)
-  {
-    throw std::runtime_error{"\nFailed to get elements by tag name\n"};
-  }
-
-  for(size_t i=0;i<lxb_dom_collection_length(collection.get()); i++)
-  {
-    element = lxb_dom_collection_element(collection.get(), i);
-    auto  * fdata = (const char*) element->first_attr->value->data;
-    filter(fdata);
-  }
-
-  return vec;
 }
 
 
@@ -262,7 +265,7 @@ inline void print_result_type(const tcp::resolver::results_type& res)
 }
 
 
-enum class RequestErrors : char
+enum class RequestErrors
 {
     bad_request,
     not_found,

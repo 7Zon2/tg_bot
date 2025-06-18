@@ -1,12 +1,7 @@
 #pragma once
-#include "boost/asio/steady_timer.hpp"
-#include "boost/beast/core/stream_traits.hpp"
 #include "json_head.hpp"
-#include "print.hpp"
 #include "head.hpp"
 #include <chrono>
-#include <optional>
-#include <type_traits>
 
 class session_base
 {
@@ -111,9 +106,16 @@ class session_base
 
 
   net::awaitable<http::response<http::string_body>>
-  redirect(auto&& req, json::string relative_url, auto...statuses)
+  redirect
+  (
+    auto&& req, 
+    json::string relative_url,
+    size_t attempt_limit = 5,
+    auto...statuses
+  )
   {
     print("\n\nRedirect...\n\n");
+    
     auto temp_req{std::move(req)};
     http::response<http::string_body> res;
     auto status = http::status::temporary_redirect;
@@ -121,7 +123,7 @@ class session_base
     (
       (status == http::status::temporary_redirect)||
       (status == http::status::permanent_redirect)||
-      ((status == statuses) && ...)
+      ((status == statuses) || ...)
     )
     {
       res = co_await req_res(temp_req);
@@ -143,7 +145,11 @@ class session_base
         print("\nConnection was closed. Try to reconnect...\n");
         co_await run();
       }
-       
+      
+      if(--attempt_limit == 0)
+      {
+        break;
+      }
     }
 
     co_return std::move(res);
@@ -197,26 +203,6 @@ class session_base
     co_await write_request(stream, std::move(req));
     auto res = co_await read_response(stream);
     co_return res;
-  }
-
-
-  [[nodiscard]]
-  static json::string 
-  encode_base64(const json::string& str)
-  {
-    json::string dest(str.size()*2,' ');
-    boost::beast::detail::base64::encode(dest.data(), str.data(), str.size());
-    return dest;
-  }
-
-
-  [[nodiscard]]
-  static json::string
-  decode_base64(const json::string& str)
-  {
-    json::string dest(str.size()*2, ' ');
-    boost::beast::detail::base64::decode(dest.data(), str.data(), str.size());
-    return dest;
   }
 
 

@@ -1,10 +1,15 @@
 #pragma once
+#include "boost/beast/http/message.hpp"
 #include "boost/beast/http/string_body.hpp"
-#include "boost/interprocess/file_mapping.hpp"
+#include "boost/json/array.hpp"
 #include "head.hpp"
+#include "json_head.hpp"
+#include "entities/YandexRoot.hpp"
 #include "session_interface.hpp"
-#include <optional>
+#include "HTML/html_parser.hpp"
+#include <exception>
 #include <utility>
+#include <unordered_set>
 
 
 template<PROTOCOL PR = PROTOCOL::HTTPS>
@@ -18,6 +23,19 @@ class Searcher : public session_interface<PR>
   using session_base_t::write_request;
   using session_base_t::read_response;
   using session_base_t::stream_;
+
+  HTML::html_parser parser_;
+
+  protected:
+
+  [[nodiscard]]
+  HTML::html_document 
+  make_html_document
+  (json::string html)
+  {
+    HTML::html_document html_doc = parser_.parse(std::move(html));
+    return html_doc;
+  }
 
   public:
 
@@ -48,7 +66,8 @@ class Searcher : public session_interface<PR>
     co_await session_interface<PR>::run();
   }
 
-  
+ 
+  ///start searching function
   template<typename F>
   net::awaitable<void>
   operator()
@@ -75,6 +94,18 @@ class Searcher : public session_interface<PR>
         std::forward<F>(callback)
       );
     }
+  }
+
+
+  template<typename F>
+  net::awaitable<void>
+  operator()
+  (
+    HTML::html_document & doc,
+    F && callback
+  )
+  {
+    co_await start_browsing(doc, std::forward<F>(callback));
   }
 
   protected:
@@ -184,41 +215,169 @@ class Searcher : public session_interface<PR>
     json::string url = "/images/search?";
     url += parse_answer(std::move(res));
 
+    print("\n\n Parsed Url: ", url,"\n\n");
     auto req = session_base::make_header(http::verb::get, host_, url);
-    res = co_await session_base::redirect(req, "/", http::status::found);
+    res = co_await session_base::redirect(req, "/", 5, http::status::found);
     auto status = res.result();
     if(status != http::status::ok)
     {
       throw std::runtime_error{"\nhtml answer wasn't found\n"};
     }
 
-    auto refs = parse_html(res.body());
-    refs = filter_by_extension(std::move(refs), "jpg");
-    print("\n\nImage Reference Vector Size: ", refs.size(),"\n\n");
-    for(auto&&i:refs)
+    json::string html{std::move(res).body()};
+    auto html_doc = make_html_document(std::move(html));
+    co_await start_browsing(html_doc, std::forward<F>(callback));
+  }
+
+  
+  void parse_root_tag
+  (HTML::html_document& doc)
+  {
+    auto seek_cbirSimilar = 
+    [](const HTML::string_vector& vec) -> Pars::optarray
+    {
+      for(auto& i : vec)
+      {
+        json::value val = Pars::MainParser::align_braces(i);
+        
+        boost::system::error_code er;
+        json::value * pv = val.find_pointer("/initialState/cbirSimilar/thumbs", er);
+        if(!pv)
+          continue;
+
+        return std::move(pv)->as_array();
+      }
+      return {};
+    };
+
+
+    HTML::string_vector& vec = HTML::html_parser::parse_class_name(doc, "Root");
+    for(auto& i: vec)
     {
       try
       {
-        res = co_await make_oneshot_session(i);
-        auto it = res.find(http::field::content_type);
-        if(it == res.end() || it->value() != "image/jpeg")
+        HTML::string_vector tags = HTML::html_parser::html_tokenize(i);
+        Pars::optarray opt = seek_cbirSimilar(tags);
+        if(!opt)
           continue;
-
-        co_await callback(std::move(res));
+        
+        json::array& arr = opt.value();
       }
-      catch(std::exception const & ex)
+      catch(const std::exception& ex)
       {
-        print("\n\nOneShot session exception:\n",ex.what(),"\n\n");
+        print(ex.what(),"\n\n");
       }
     }
   }
+  
+  
+  [[nodiscard]]
+  bool 
+  is_relative_shot
+  (json::string_view url) const noexcept 
+  {
+    const static json::string rel_url{"/images/search?"};
+
+    if(url.size() <= rel_url.size())
+    {
+      return false;
+    }
+
+    json::string_view vw{url.begin(), url.begin() + rel_url.size()};
+    if(vw != rel_url)
+    {
+      return false;
+    }
+
+    return true;
+  }
+
+  
+  template<typename F>
+  net::awaitable<void>
+  start_browsing 
+  (
+    HTML::html_document & html_doc,
+    F && callback
+  )
+  {
+    auto it = html_doc.map_.find("href:http");
+    if(it == html_doc.map_.end())
+    {
+      parser_.parse_attributes(html_doc, {{"href", "http"}});
+    }
+
+    it = html_doc.map_.find("src:http");
+    if(it == html_doc.map_.end())
+    {
+      parser_.parse_attributes(html_doc, {{"src", "http"}});
+    }
+
+    it = html_doc.map_.find("img");
+    if (it == html_doc.map_.end())
+    {
+      (void)parser_.parse_tag(html_doc, "img");
+    }
+
+    std::pmr::unordered_set<json::string> set;
+
+    auto & src_vec = html_doc.map_["src:http"];
+    print("\nsrc vec size: ", src_vec.size(),"\n");
+    auto & img_vec = html_doc.map_["img"];
+    print(img_vec);
+    print("\nimg vec size: ", img_vec.size(),"\n");
+    auto & vec = html_doc.map_["href:http"];
+    print("\nhref vec size: ", vec.size(), "\n");
+    Pars::MainParser::container_move(src_vec, vec);
+    Pars::MainParser::container_move(img_vec, vec);
+
+    for(auto & url : vec)
+    {
+      print("\n",url,"\n");
+      auto it = set.insert(url);
+      if(it.second == false)
+      {
+        continue;
+      }
+
+      
+      try
+      {
+        http::response<http::string_body> res;
+        if(is_relative_shot(url))
+        {
+          print("\nLocal Shot\n");
+          auto req = session_base::make_header(http::verb::get, host_, url);
+          req.set(http::field::accept_encoding, default_encoding_);
+          req.set(http::field::accept, "*/*");
+          req.set(http::field::connection, "keep-alive");
+          
+          print_response(req);
+          
+          res = co_await session_base_t::req_res(std::move(req));
+        }
+        else
+        {
+          res = co_await make_oneshot_session(url);
+        }
+
+        json::string data = decode_data(res);
+        print(data);
+      }
+      catch(const std::exception& ex)
+      {
+        print("\n",ex.what(),"\n");
+      }
+    }
+  }
+  
 
   template<typename F>
   net::awaitable<void> 
   start_redirection
   (
-   http::request<http::string_body> req,
-   F&& callback
+    http::request<http::string_body> req,
+    F && callback
   )
   {
     print("\nSTART REDIRECTION...\n");
@@ -234,23 +393,12 @@ class Searcher : public session_interface<PR>
 
 
   [[nodiscard]]
-  json::string parse_answer(http::response<http::string_body> res)
+  json::string parse_answer
+  (http::response<http::string_body> res)
   {
     print("\n\nStart parsing answer...\n\n");
-    boost::iostreams::array_source src{res.body().data(), res.body().size()};
-    boost::iostreams::filtering_istream is;
-    boost::iostreams::gzip_decompressor gz{};
 
-    is.push(gz);
-    is.push(src);
-
-    std::string encode_js{};
-    encode_js.reserve(res.body().size());
-
-    boost::iostreams::back_insert_device ins {encode_js};
-    boost::iostreams::copy(is, ins);
-
-    json::value var = json::string{std::move(encode_js)};
+    json::value var = decode_data(std::move(res));
     var = Pars::MainParser::try_parse_value(std::move(var));
     Pars::MainParser::pretty_print(std::cout, var);
 
@@ -258,7 +406,7 @@ class Searcher : public session_interface<PR>
     auto * it = var.find_pointer("/blocks/0/params/url", er);
     if(er)
     {
-      throw std::runtime_error{"\npointer wasn't found/n"};
+      throw std::runtime_error{"\n\n block pointer wasn't found\n\n"};
     }
 
     json::string url = it->as_string();

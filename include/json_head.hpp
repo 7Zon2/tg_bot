@@ -534,12 +534,30 @@ namespace Pars
 
 
         template<typename T, typename U>
+        requires requires(T&& from, U&& to)
+        {
+          to.insert(from.begin(), from.end());
+        }
         static void
-        container_move(T&& from, U& to)
+        container_move(T&& from, U&& to)
         {
             auto b = std::make_move_iterator(from.begin());
             auto e = std::make_move_iterator(from.end());
             to.insert(b,e);
+        }
+
+
+        template<typename T, typename U>
+        requires requires(T&& from, U&& to)
+        {
+          to.insert(std::end(to), from.begin(), from.end());
+        }
+        static void
+        container_move(T&& from, U&& to)
+        {
+          auto b = std::make_move_iterator(from.begin());
+          auto e = std::make_move_iterator(from.end());
+          to.insert(std::end(to), b, e);
         }
 
 
@@ -1060,14 +1078,61 @@ namespace Pars
                 os << "\n";
         }
 
-    };
+
+        [[nodiscard]]
+        static json::value
+        align_braces(json::string_view view)
+        {
+            auto validate_json = [](json::string_view str) -> std::optional<json::string>
+            {
+              size_t open_count  = 0;
+              size_t close_count = 0;
+              size_t fp = str.find_first_of("{");
+              if(fp == json::string::npos)
+                return {};
+
+              open_count++;
+              for(size_t i = fp; i < str.size(); i++)
+              {
+                char ch = str[i];
+                if (ch == '}')
+                {
+                  close_count++;
+                }
+                if(ch == '{')
+                {
+                  open_count++;
+                }
+              }
+
+              json::string substr {str.begin() + fp, str.end()};
+              for(size_t i = 0; i < open_count - close_count; i++)
+              {
+                substr.push_back('}');
+              }
+              return substr;
+            };
 
 
-  void dump_data(std::string filename, auto&& req)
+            auto opt = validate_json(view); 
+            if(!opt)
+            {
+              throw std::runtime_error{"is not a valid json"};
+            }
+
+            json::string str = opt.value();
+            return Pars::MainParser::try_parse_message(str);
+        }
+
+      }; // MainParser
+
+
+  void inline dump_data(std::string filename, auto&& req)
   {
     std::ofstream ofile{filename, std::ios::binary};
     ofile<<req;
     ofile.close();
   }
+
 
 };// namespace Pars

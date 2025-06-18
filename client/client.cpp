@@ -1,26 +1,14 @@
-#include "boost/asio/awaitable.hpp"
-#include "boost/asio/ssl/context.hpp"
-#include "boost/beast/http/message.hpp"
-#include "boost/beast/http/string_body.hpp"
-#include "boost/beast/http/verb.hpp"
-#include "boost/json/string_view.hpp"
-#include "entities/File.hpp"
-#include "entities/Document.hpp"
-#include "entities/TelegramResponse.hpp"
+#include "head.hpp"
+#include "entities/entities.hpp"
 #include "entities/concept_entities.hpp"
 #include "entities/sendMessage.hpp"
 #include "entities/sendPhoto.hpp"
-#include "head.hpp"
-#include "entities/entities.hpp"
-#include <optional>
 #include <stacktrace>
-#include <boost/stacktrace/stacktrace.hpp>
 #include "json_head.hpp"
 #include "tg_exceptions.hpp"
 #include "responses/interface.hpp"
 #include "LFS/LF_stack.hpp"
 #include "LFS/LF_set.hpp"
-#include "session_interface.hpp"
 
 
 template<typename T>
@@ -683,7 +671,7 @@ int main(int argc, char** argv)
     {
       print
       (
-        "Please, input your bot-telegram token\n"
+        "Please, input your telegram-bot token\n"
       );
       return 1;
     }
