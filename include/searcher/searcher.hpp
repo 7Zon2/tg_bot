@@ -230,44 +230,38 @@ class Searcher : public session_interface<PR>
   }
 
   
-  void parse_root_tag
+  [[nodiscard]]
+  HTML::string_vector 
+  parse_root_tag 
   (HTML::html_document& doc)
   {
     auto seek_cbirSimilar = 
-    [](const HTML::string_vector& vec) -> Pars::optarray
+    [](HTML::string_vector& tags)
     {
-      for(auto& i : vec)
+      HTML::string_vector vec;
+      for(auto&& tag : tags)
       {
-        json::value val = Pars::MainParser::align_braces(i);
-        
-        boost::system::error_code er;
-        json::value * pv = val.find_pointer("/initialState/cbirSimilar/thumbs", er);
-        if(!pv)
-          continue;
-
-        return std::move(pv)->as_array();
+        json::value val = Pars::MainParser::align_braces(tag);
+        auto vec_thumbs = YandexEntities::find_cbirSimilar(std::move(val));
       }
-      return {};
     };
 
-
+    HTML::string_vector urls;
     HTML::string_vector& vec = HTML::html_parser::parse_class_name(doc, "Root");
     for(auto& i: vec)
     {
       try
       {
         HTML::string_vector tags = HTML::html_parser::html_tokenize(i);
-        Pars::optarray opt = seek_cbirSimilar(tags);
-        if(!opt)
-          continue;
-        
-        json::array& arr = opt.value();
+        HTML::string_vector new_urls = seek_cbirSimilar(tags);
+        Pars::MainParser::container_move(std::move(new_urls), urls); 
       }
       catch(const std::exception& ex)
       {
         print(ex.what(),"\n\n");
       }
     }
+    return urls;
   }
   
   

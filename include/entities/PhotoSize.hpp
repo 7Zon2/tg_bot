@@ -108,10 +108,10 @@ namespace Pars
                 File::fields_from_map(std::forward<T>(map));
 
                 MainParser::field_from_map
-                <json::kind::double_>(std::forward<T>(map), MAKE_PAIR(width, width));
+                <json::kind::double_>(std::forward<T>(map), RFP(width, width));
 
                 MainParser::field_from_map
-                <json::kind::double_>(std::forward<T>(map), MAKE_PAIR(height, height));
+                <json::kind::double_>(std::forward<T>(map), RFP(height, height));
             }
 
 

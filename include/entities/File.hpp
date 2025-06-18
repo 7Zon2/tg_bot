@@ -121,16 +121,16 @@ namespace Pars
       fields_from_map(T && map)
       {
         MainParser::field_from_map
-        <json::kind::string>(std::forward<T>(map), MAKE_PAIR(file_id, file_id));
+        <json::kind::string>(std::forward<T>(map), RFP(file_id, file_id));
 
         MainParser::field_from_map
-        <json::kind::string>(std::forward<T>(map), MAKE_PAIR(file_unique_id, file_unique_id));
+        <json::kind::string>(std::forward<T>(map), RFP(file_unique_id, file_unique_id));
 
         MainParser::field_from_map
-        <json::kind::double_>(std::forward<T>(map), MAKE_PAIR(file_size, file_size));
+        <json::kind::double_>(std::forward<T>(map), RFP(file_size, file_size));
 
         MainParser::field_from_map
-        <json::kind::string>(std::forward<T>(map), MAKE_PAIR(file_path, file_path));
+        <json::kind::string>(std::forward<T>(map), RFP(file_path, file_path));
       }
 
 

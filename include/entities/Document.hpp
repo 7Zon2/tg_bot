@@ -110,13 +110,13 @@ namespace Pars
         File::fields_from_map(std::forward<T>(map));
 
         MainParser::field_from_map
-        <json::kind::object>(std::forward<T>(map), MAKE_PAIR(thumbnail, thumbnail));
+        <json::kind::object>(std::forward<T>(map), RFP(thumbnail, thumbnail));
 
         MainParser::field_from_map
-        <json::kind::string>(std::forward<T>(map), MAKE_PAIR(file_name, file_name));
+        <json::kind::string>(std::forward<T>(map), RFP(file_name, file_name));
 
         MainParser::field_from_map
-        <json::kind::string>(std::forward<T>(map), MAKE_PAIR(mime_type, mime_type));
+        <json::kind::string>(std::forward<T>(map), RFP(mime_type, mime_type));
       }
 
 

@@ -78,19 +78,19 @@ namespace Pars
             (T && map)
             {
                 MainParser::fields_from_map
-                <json::kind::bool>(std::forward<T>(map), MAKE_PAIR(is_disabled));
+                <json::kind::bool>(std::forward<T>(map), RFP(is_disabled));
 
                 MainParser::fields_from_map
-                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(url));
+                <json::kind::string>(std::forward<T>(map), RFP(url));
 
                 MainParser::fields_from_map
-                <json::kind::bool>(std::forward<T>(map), MAKE_PAIR(prefer_small_media));
+                <json::kind::bool>(std::forward<T>(map), RFP(prefer_small_media));
 
                 MainParser::fields_from_map
-                <json::kind::bool>(std::forward<T>(map), MAKE_PAIR(prefer_large_media));
+                <json::kind::bool>(std::forward<T>(map), RFP(prefer_large_media));
 
                 MainParser::fields_from_map
-                <json::kind::bool>(std::forward<T>(map), MAKE_PAIR(show_above_text));
+                <json::kind::bool>(std::forward<T>(map), RFP(show_above_text));
             }
 
             template<typename Self>

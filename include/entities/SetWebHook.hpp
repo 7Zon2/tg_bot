@@ -107,25 +107,25 @@ namespace Pars
             (T&& map)
             {
                 MainParser::field_from_map
-                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(url, Utils::forward_like<T>(url)));
+                <json::kind::string>(std::forward<T>(map), RFP(url, Utils::forward_like<T>(url)));
 
                 MainParser::field_from_map
-                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(certificate, Utils::forward_like<T>(certificate)));
+                <json::kind::string>(std::forward<T>(map), RFP(certificate, Utils::forward_like<T>(certificate)));
 
                 MainParser::field_from_map
-                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(ip_address, ip_address));
+                <json::kind::string>(std::forward<T>(map), RFP(ip_address, ip_address));
 
                 MainParser::field_from_map
-                <json::kind::int64>(std::forward<T>(map), MAKE_PAIR(max_connections, max_connections));
+                <json::kind::int64>(std::forward<T>(map), RFP(max_connections, max_connections));
 
                 MainParser::field_from_map
-                <json::kind::array>(std::forward<T>(map), MAKE_PAIR(allowed_updates, Utils::forward_like<T>(allowed_updates)));
+                <json::kind::array>(std::forward<T>(map), RFP(allowed_updates, Utils::forward_like<T>(allowed_updates)));
 
                 MainParser::field_from_map
-                <json::kind::bool_>(std::forward<T>(map), MAKE_PAIR(drop_pending_updates, drop_pending_updates));
+                <json::kind::bool_>(std::forward<T>(map), RFP(drop_pending_updates, drop_pending_updates));
 
                 MainParser::field_from_map
-                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(secret_token, Utils::forward_like<T>(secret_token)));
+                <json::kind::string>(std::forward<T>(map), RFP(secret_token, Utils::forward_like<T>(secret_token)));
             }
 
 

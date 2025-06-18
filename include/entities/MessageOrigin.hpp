@@ -108,7 +108,7 @@ namespace Pars
             (fields_map && map)
             {
                 MainParser::field_from_map
-                <json::kind::string>(std::move(map), MAKE_PAIR(type, type));
+                <json::kind::string>(std::move(map), RFP(type, type));
 
                 MainParser::field_from_map
                 <json::kind::uint64>(std::move(map), std::make_pair("date",std::ref(date_)));
@@ -120,10 +120,10 @@ namespace Pars
             (fields_map & map)
             {
                 MainParser::field_from_map
-                <json::kind::string>(map, MAKE_PAIR(type, type));
+                <json::kind::string>(map, RFP(type, type));
 
                 MainParser::field_from_map
-                <json::kind::uint64>(map, MAKE_PAIR(date, date_));
+                <json::kind::uint64>(map, RFP(date, date_));
             }
 
 
@@ -295,7 +295,7 @@ namespace Pars
                 MessageOrigin::fields_from_map(std::move(map));
 
                 MainParser::field_from_map
-                <json::kind::object>(std::move(map), MAKE_PAIR(semder_user, sender_user));
+                <json::kind::object>(std::move(map), RFP(semder_user, sender_user));
             }
 
 
@@ -306,7 +306,7 @@ namespace Pars
                 MessageOrigin::fields_from_map(map);
 
                 MainParser::field_from_map
-                <json::kind::object>(map, MAKE_PAIR(sender_user, sender_user));
+                <json::kind::object>(map, RFP(sender_user, sender_user));
             }
 
 
@@ -497,7 +497,7 @@ namespace Pars
                 MessageOrigin::fields_from_map(std::move(map));
 
                 MainParser::field_from_map
-                <json::kind::string>(std::move(map), MAKE_PAIR(sender_user_name, sender_user_name));
+                <json::kind::string>(std::move(map), RFP(sender_user_name, sender_user_name));
             }
 
 
@@ -508,7 +508,7 @@ namespace Pars
                 MessageOrigin::fields_from_map(map);
 
                 MainParser::field_from_map
-                <json::kind::string>(map, MAKE_PAIR(sender_user_name, sender_user_name));
+                <json::kind::string>(map, RFP(sender_user_name, sender_user_name));
             }
 
 
@@ -701,10 +701,10 @@ namespace Pars
                 MessageOrigin::fields_from_map(std::move(map));
 
                 MainParser::field_from_map
-                <json::kind::object>(std::move(map), MAKE_PAIR(sender_chat, sender_chat));
+                <json::kind::object>(std::move(map), RFP(sender_chat, sender_chat));
 
                 MainParser::field_from_map
-                <json::kind::string>(std::move(map), MAKE_PAIR(author_signature, author_signature));
+                <json::kind::string>(std::move(map), RFP(author_signature, author_signature));
             }
 
 
@@ -715,10 +715,10 @@ namespace Pars
                 MessageOrigin::fields_from_map(map);
 
                 MainParser::field_from_map
-                <json::kind::object>(map, MAKE_PAIR(sender_chat, sender_chat));
+                <json::kind::object>(map, RFP(sender_chat, sender_chat));
 
                 MainParser::field_from_map
-                <json::kind::string>(map, MAKE_PAIR(author_signature, author_signature));
+                <json::kind::string>(map, RFP(author_signature, author_signature));
             }
 
 
@@ -923,10 +923,10 @@ namespace Pars
                 MessageOrigin::fields_from_map(std::move(map));
 
                 MainParser::field_from_map
-                <json::kind::object>(std::move(map), MAKE_PAIR(chat, chat));
+                <json::kind::object>(std::move(map), RFP(chat, chat));
 
                 MainParser::field_from_map
-                <json::kind::string>(std::move(map), MAKE_PAIR(author_signature, author_signature));
+                <json::kind::string>(std::move(map), RFP(author_signature, author_signature));
             }
 
 
@@ -937,10 +937,10 @@ namespace Pars
                 MessageOrigin::fields_from_map(map);
 
                 MainParser::field_from_map
-                <json::kind::object>(map, MAKE_PAIR(chat, chat));
+                <json::kind::object>(map, RFP(chat, chat));
 
                 MainParser::field_from_map
-                <json::kind::string>(map, MAKE_PAIR(author_signature, author_signature));
+                <json::kind::string>(map, RFP(author_signature, author_signature));
             }
 
 

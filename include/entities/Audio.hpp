@@ -113,31 +113,31 @@ namespace Pars
             fields_from_map(T && map)
             {
                 MainParser::field_from_map
-                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(file_id, file_id));
+                <json::kind::string>(std::forward<T>(map), RFP(file_id, file_id));
 
                 MainParser::field_from_map
-                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(file_unique_id, file_unique_id));
+                <json::kind::string>(std::forward<T>(map), RFP(file_unique_id, file_unique_id));
 
                 MainParser::field_from_map
-                <json::kind::double_>(std::forward<T>(map), MAKE_PAIR(file_size, file_size));
+                <json::kind::double_>(std::forward<T>(map), RFP(file_size, file_size));
 
                 MainParser::field_from_map
-                <json::kind::double_>(std::forward<T>(map), MAKE_PAIR(duration, duration));
+                <json::kind::double_>(std::forward<T>(map), RFP(duration, duration));
 
                 MainParser::field_from_map
-                <json::kind::object>(std::forward<T>(map), MAKE_PAIR(thumbnail, thumbnail));
+                <json::kind::object>(std::forward<T>(map), RFP(thumbnail, thumbnail));
 
                 MainParser::field_from_map
-                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(file_name, file_name));
+                <json::kind::string>(std::forward<T>(map), RFP(file_name, file_name));
 
                 MainParser::field_from_map
-                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(mime_type, mime_type));
+                <json::kind::string>(std::forward<T>(map), RFP(mime_type, mime_type));
 
                 MainParser::field_from_map
-                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(performer, performer));
+                <json::kind::string>(std::forward<T>(map), RFP(performer, performer));
 
                 MainParser::field_from_map
-                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(title, title));
+                <json::kind::string>(std::forward<T>(map), RFP(title, title));
             }
 
 

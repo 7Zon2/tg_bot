@@ -204,31 +204,31 @@ namespace Pars
             (T && map)
             {
                MainParser::field_from_map
-               <json::kind::int64>(map, MAKE_PAIR(message_id, message_id));
+               <json::kind::int64>(map, RFP(message_id, message_id));
 
                MainParser::field_from_map
-               <json::kind::int64>(map, MAKE_PAIR(date, date));
+               <json::kind::int64>(map, RFP(date, date));
      
                MainParser::field_from_map
-               <json::kind::object>(std::forward<T>(map), MAKE_PAIR(chat, chat));
+               <json::kind::object>(std::forward<T>(map), RFP(chat, chat));
                    
                MainParser::field_from_map
-               <json::kind::int64>(map, MAKE_PAIR(message_thread_id, message_thread_id));
+               <json::kind::int64>(map, RFP(message_thread_id, message_thread_id));
                             
                MainParser::field_from_map
-               <json::kind::object>(std::forward<T>(map), MAKE_PAIR(from, from));
+               <json::kind::object>(std::forward<T>(map), RFP(from, from));
                            
                MainParser::field_from_map
-               <json::kind::object>(map, MAKE_PAIR(sender_chat, sender_chat));
+               <json::kind::object>(map, RFP(sender_chat, sender_chat));
                               
                MainParser::field_from_map
-               <json::kind::int64>(map, MAKE_PAIR(sender_boost_count, sender_boost_count));
+               <json::kind::int64>(map, RFP(sender_boost_count, sender_boost_count));
                                           
                MainParser::field_from_map
-               <json::kind::int64>(map, MAKE_PAIR(sender_boost_count, sender_boost_count));
+               <json::kind::int64>(map, RFP(sender_boost_count, sender_boost_count));
                                           
                MainParser::field_from_map
-               <json::kind::object>(std::forward<T>(map), MAKE_PAIR(sender_business_bot, sender_business_bot));
+               <json::kind::object>(std::forward<T>(map), RFP(sender_business_bot, sender_business_bot));
 
 
                 forward_origin = Pars::TG::find_MessageOriginHeirs(map);
@@ -239,34 +239,34 @@ namespace Pars
                 }
                                                                             
                MainParser::field_from_map
-               <json::kind::bool_>(map, MAKE_PAIR(is_topic_message, is_topic_message));
+               <json::kind::bool_>(map, RFP(is_topic_message, is_topic_message));
                                                                           
                MainParser::field_from_map
-               <json::kind::bool_>(map, MAKE_PAIR(is_automatic_forward, is_automatic_forward));
+               <json::kind::bool_>(map, RFP(is_automatic_forward, is_automatic_forward));
                                                                                          
                MainParser::field_from_map
-               <json::kind::object>(std::forward<T>(map), MAKE_PAIR(reply_to_message, reply_to_message));
+               <json::kind::object>(std::forward<T>(map), RFP(reply_to_message, reply_to_message));
 
                MainParser::field_from_map
-               <json::kind::object>(std::forward<T>(map), MAKE_PAIR(via_bot, via_bot));
+               <json::kind::object>(std::forward<T>(map), RFP(via_bot, via_bot));
 
                MainParser::field_from_map
-               <json::kind::int64>(map, MAKE_PAIR(edit_date, edit_date));
+               <json::kind::int64>(map, RFP(edit_date, edit_date));
 
                MainParser::field_from_map
-               <json::kind::bool_>(map, MAKE_PAIR(is_from_offline, is_from_offline));
+               <json::kind::bool_>(map, RFP(is_from_offline, is_from_offline));
 
                MainParser::field_from_map
-               <json::kind::string>(std::forward<T>(map), MAKE_PAIR(media_group_id, media_group_id));
+               <json::kind::string>(std::forward<T>(map), RFP(media_group_id, media_group_id));
                
                MainParser::field_from_map
-               <json::kind::string>(std::forward<T>(map), MAKE_PAIR(author_signature, author_signature));
+               <json::kind::string>(std::forward<T>(map), RFP(author_signature, author_signature));
 
                MainParser::field_from_map
-               <json::kind::string>(std::forward<T>(map), MAKE_PAIR(text, text));
+               <json::kind::string>(std::forward<T>(map), RFP(text, text));
 
                MainParser::field_from_map
-               <json::kind::object>(std::forward<T>(map), MAKE_PAIR(document, document));
+               <json::kind::object>(std::forward<T>(map), RFP(document, document));
 
                if (document)
                {
@@ -279,7 +279,7 @@ namespace Pars
 
                json::array photo_sizes;
                MainParser::field_from_map
-               <json::kind::array>(std::forward<T>(map), MAKE_PAIR(photo, photo_sizes));
+               <json::kind::array>(std::forward<T>(map), RFP(photo, photo_sizes));
 
                if( ! photo_sizes.empty())
                {
@@ -303,7 +303,7 @@ namespace Pars
                }
 
                MainParser::field_from_map
-               <json::kind::string>(std::forward<T>(map), MAKE_PAIR(caption, caption));
+               <json::kind::string>(std::forward<T>(map), RFP(caption, caption));
             }
 
 

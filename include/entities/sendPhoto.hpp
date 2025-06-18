@@ -224,13 +224,13 @@ namespace Pars
         (T && map)
         {
           MainParser::field_from_map
-          <json::kind::int64>(std::forward<T>(map), MAKE_PAIR(chat_id, chat_id));
+          <json::kind::int64>(std::forward<T>(map), RFP(chat_id, chat_id));
 
           MainParser::field_from_map
-          <json::kind::string>(std::forward<T>(map), MAKE_PAIR(photo_url, photo_url));
+          <json::kind::string>(std::forward<T>(map), RFP(photo_url, photo_url));
 
           MainParser::field_from_map
-          <json::kind::string>(std::forward<T>(map), MAKE_PAIR(photo_data, photo_data));
+          <json::kind::string>(std::forward<T>(map), RFP(photo_data, photo_data));
         }
 
 

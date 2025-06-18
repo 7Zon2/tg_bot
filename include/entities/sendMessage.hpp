@@ -146,10 +146,10 @@ namespace Pars
             (T && map)
             {
                 MainParser::field_from_map
-               <json::kind::int64>(std::forward<T>(map), MAKE_PAIR(chat_id, chat_id));
+               <json::kind::int64>(std::forward<T>(map), RFP(chat_id, chat_id));
 
                 MainParser::field_from_map
-                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(text, text));
+                <json::kind::string>(std::forward<T>(map), RFP(text, text));
             }
 
 

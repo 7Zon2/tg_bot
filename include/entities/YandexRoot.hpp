@@ -7,9 +7,11 @@ namespace YandexEntities
 {
   using namespace Pars;
 
-  class Thumbs : Pars::TG::TelegramEntities<Thumbs>
+  class Thumb : TG::TelegramEntities<Thumb>
   {
-    protected:
+    public:
+
+    using TG::TelegramEntities<Thumb>::operator=;
 
     json::string imageUrl;
     size_t width = 0;
@@ -19,21 +21,29 @@ namespace YandexEntities
 
     public:
 
-    static const inline json::string entity_name{"Thumbs"};
+    static const inline json::string entity_name{FIELD_NAME(Thumb)};
     static const constexpr size_t req_fields = 4;
     static const constexpr size_t opt_fields = 0;
 
     json::string 
     get_entity_name() noexcept override
     {
-      return "Thumbs";
+      return Thumb::entity_name;
     }
 
     public:
 
-    Thumbs() noexcept {}
+    Thumb() noexcept {}
 
-    Thumbs
+
+    template<is_all_json_entities T>
+    Thumb(T&& obj)
+    {
+      create(std::forward<T>(obj));
+    }
+
+
+    Thumb
     (
       json::string imageUrl,
       size_t width,
@@ -91,19 +101,19 @@ namespace YandexEntities
     fields_from_map(T && map)
     {
       MainParser::field_from_map
-      <json::kind::string>(std::forward<T>(map), MAKE_PAIR(imageUrl, imageUrl));
+      <json::kind::string>(std::forward<T>(map), RFP(imageUrl, imageUrl));
       
       MainParser::field_from_map
-      <json::kind::double_>(std::forward<T>(map), MAKE_PAIR(width, width));
+      <json::kind::double_>(std::forward<T>(map), RFP(width, width));
 
       MainParser::field_from_map
-      <json::kind::double_>(std::forward<T>(map), MAKE_PAIR(height, height));
+      <json::kind::double_>(std::forward<T>(map), RFP(height, height));
 
       MainParser::field_from_map
-      <json::kind::string>(std::forward<T>(map), MAKE_PAIR(title, title));
+      <json::kind::string>(std::forward<T>(map), RFP(title, title));
 
       MainParser::field_from_map
-      <json::kind::string>(std::forward<T>(map), MAKE_PAIR(linkUrl, linkUrl));
+      <json::kind::string>(std::forward<T>(map), RFP(linkUrl, linkUrl));
     }
 
 
@@ -112,7 +122,7 @@ namespace YandexEntities
     json::value
     fields_to_value(this Self&& self)
     {
-      return Thumbs::fields_to_value
+      return Thumb::fields_to_value
         (
           Utils::forward_like<Self>(self.imageUrl),
           Utils::forward_like<Self>(self.width),
@@ -145,14 +155,39 @@ namespace YandexEntities
         );
 
       json::object res{MainParser::get_storage_ptr()};
-      res["Thumbs"] = std::move(ob);
+      res[Thumb::entity_name] = std::move(ob);
       return res;
     }
 
   };
 
 
-  class YandexRoot : Pars::TG::TelegramEntities<YandexRoot>
+  template<as_json_value T>
+  auto find_cbirSimilar
+  (T && val) -> std::optional<std::pmr::vector<YandexEntities::Thumb>>
+  {
+    std::pmr::vector<YandexEntities::Thumb> vec_thumbs;
+
+    boost::system::error_code er;
+    json::value * pv = val.find_pointer("/initialState/cbirSimilar/thumbs", er);
+    if(!pv)
+    {
+      return {};
+    }
+
+    json::array& arr = pv->as_array();
+    vec_thumbs.reserve(arr.size());
+    for(auto && obj : arr)
+    {
+      YandexEntities::Thumb thumb{std::move(obj)};
+      vec_thumbs.push_back(std::move(thumb));
+    }
+    return vec_thumbs;
+  };
+
+
+
+  class YandexRoot : TG::TelegramEntities<YandexRoot>
   {
 
   };

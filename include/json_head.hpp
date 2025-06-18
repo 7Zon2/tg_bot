@@ -1,6 +1,8 @@
 #pragma once
+#include <functional>
 #include <iostream>
 #include <fstream>
+#include <openssl/x509.h>
 #include <ostream>
 #include <boost/json.hpp>
 #include <boost/url.hpp>
@@ -53,9 +55,11 @@ namespace Pars
     using optint    = std::optional<int64_t>;
     using optuint   = std::optional<uint64_t>;
     using optdouble = std::optional<double>; 
-    using op        = std::pair<json::string,std::optional<json::value>>;
+    using op        = std::pair<json::string, std::optional<json::value>>;
     using p         = std::pair<json::string,json::value>;
 
+    template<typename T>
+    using rfp = std::pair<json::string, std::reference_wrapper<std::remove_reference_t<T>>>;
 
     #define FIELD_NAME(field)  #field
 
@@ -67,7 +71,7 @@ namespace Pars
 
     #define JS_POINTER(method, field) boost::algorithm::to_lower_copy(json::string{"/"#method"/"#field})
 
-    #define MAKE_PAIR(name, field) std::make_pair(FIELD_NAME(name), std::ref(field))
+    #define RFP(name, field) rfp<decltype(field)>{FIELD_NAME(name), field}
 
     #define MAKE_OP(name, field)  op{FIELD_NAME(name), field}
 

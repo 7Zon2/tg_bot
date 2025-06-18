@@ -154,25 +154,25 @@ namespace Pars
             (T&&  map)
             {   
                 MainParser::field_from_map
-                <json::kind::int64>(std::forward<T>(map), MAKE_PAIR(id, id));
+                <json::kind::int64>(std::forward<T>(map), RFP(id, id));
 
                 MainParser::field_from_map
-                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(type, type));
+                <json::kind::string>(std::forward<T>(map), RFP(type, type));
 
                 MainParser::field_from_map
-                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(title, title));
+                <json::kind::string>(std::forward<T>(map), RFP(title, title));
 
                 MainParser::field_from_map
-                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(username, username));
+                <json::kind::string>(std::forward<T>(map), RFP(username, username));
 
                 MainParser::field_from_map
-                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(first_name, first_name));
+                <json::kind::string>(std::forward<T>(map), RFP(first_name, first_name));
 
                 MainParser::field_from_map
-                <json::kind::string>(std::forward<T>(map), MAKE_PAIR(last_name, last_name));
+                <json::kind::string>(std::forward<T>(map), RFP(last_name, last_name));
 
                 MainParser::field_from_map
-                <json::kind::bool_>(std::forward<T>(map), MAKE_PAIR(is_forum, is_forum));
+                <json::kind::bool_>(std::forward<T>(map), RFP(is_forum, is_forum));
             }
 
 
