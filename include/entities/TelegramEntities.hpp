@@ -1,7 +1,6 @@
 #pragma once
 #include "concept_entities.hpp"
 #include "json_head.hpp"
-#include "tg_requestes.hpp"
 #include <type_traits>
 
 namespace Pars
@@ -78,6 +77,7 @@ namespace Pars
 
             [[nodiscard]]
             virtual json::string get_entity_name() noexcept = 0;
+
 
             [[nodiscard]]
             virtual

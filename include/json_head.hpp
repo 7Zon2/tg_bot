@@ -12,6 +12,8 @@
 #include <concepts>
 #include <iterator>
 #include <ranges>
+#include <stdexcept>
+#include "boost/json/stream_parser.hpp"
 #include "boost/url/encoding_opts.hpp"
 #include "boost/url/grammar/all_chars.hpp"
 #include "boost/url/grammar/lut_chars.hpp"
@@ -58,20 +60,17 @@ namespace Pars
     using op        = std::pair<json::string, std::optional<json::value>>;
     using p         = std::pair<json::string,json::value>;
 
-    template<typename T>
-    using rfp = std::pair<json::string, std::reference_wrapper<std::remove_reference_t<T>>>;
-
     #define FIELD_NAME(field)  #field
 
     #define FIELD_TO_LOWER(field) boost::algorithm::to_lower_copy(json::string{FIELD_NAME(field)})
 
     #define FIELD_EQUAL(field) FIELD_NAME(field)"="
 
-    #define JSP(field) boost::algorithm::to_lower_copy(json::string{"/"#field})
+    #define JSP(field) json::string{"/"#field}
 
     #define JS_POINTER(method, field) boost::algorithm::to_lower_copy(json::string{"/"#method"/"#field})
 
-    #define RFP(name, field) rfp<decltype(field)>{FIELD_NAME(name), field}
+    #define RFP(name, field) std::make_pair(FIELD_NAME(name), std::ref(field))
 
     #define MAKE_OP(name, field)  op{FIELD_NAME(name), field}
 
@@ -126,12 +125,9 @@ namespace Pars
     template<typename...Types>
     concept is_all_json_entities = 
     (
-        (as_json_value<Types>  && ...)
-        ||
-        (as_json_object<Types> && ...)
-        ||
-        (as_json_string<Types> && ...)
-        ||
+        (as_json_value<Types>  && ...)||
+        (as_json_object<Types> && ...)||
+        (as_json_string<Types> && ...)||
         (as_json_array<Types>  && ...)
     );
 
@@ -292,40 +288,36 @@ namespace Pars
         {
             try
             {
+                json::stream_parser pars;
                 static const size_t count = 512;
                 size_t sz = 0;
-                pars_.reset();
                 while(sz != vw.size())
                 {
                     boost::system::error_code er;
                     if (vw.size() < count)
                     {
-                        sz+=pars_.write(vw, er);
+                        sz+=pars.write(vw, er);
                     }
                     else
                     {
-                        sz += pars_.write_some(vw.data() + sz, count, er);
+                        sz += pars.write_some(vw.data() + sz, count, er);
                     }
                     if(er)
                     { 
-                        print(er.message(),"\n"); 
-                        throw std::runtime_error{"json parse message error\n"};
+                        throw std::runtime_error{er.message()};
                     }
 
-                    if(pars_.done())
+                    if(pars.done())
                     {
                         break;
                     }
                 }
 
-                json::value v = pars_.release();
-                pars_.reset();
+                json::value v = pars.release();
                 return v;
             }
             catch(const std::exception& e)
             {
-                std::cerr << e.what() << '\n';
-                pars_.reset();
                 throw e;
             }
         }
@@ -499,12 +491,9 @@ namespace Pars
 
 
             boost::system::error_code er;
-
-            print("\nJS_POINTER:", pair.first,"\n");
             auto it = val.find_pointer(pair.first, er);
             if(er)
             {
-                print("\nJSON pointer wasn't found\n");
                 return std::nullopt;
             }
 
@@ -545,6 +534,11 @@ namespace Pars
         static void
         container_move(T&& from, U&& to)
         {
+            if constexpr (requires {to.reserve(1); from.size(); })
+            {
+              to.reserve(from.size());
+            }
+
             auto b = std::make_move_iterator(from.begin());
             auto e = std::make_move_iterator(from.end());
             to.insert(b,e);
@@ -559,6 +553,11 @@ namespace Pars
         static void
         container_move(T&& from, U&& to)
         {
+          if constexpr(requires { to.reserve(1); from.size(); })
+          {
+            to.reserve(from.size());
+          }
+
           auto b = std::make_move_iterator(from.begin());
           auto e = std::make_move_iterator(from.end());
           to.insert(std::end(to), b, e);
@@ -1084,48 +1083,85 @@ namespace Pars
 
 
         [[nodiscard]]
-        static json::value
-        align_braces(json::string_view view)
+        static json::string
+        align_braces
+        (json::string_view str)
         {
-            auto validate_json = [](json::string_view str) -> std::optional<json::string>
+          int open_braces  = 0;
+          int close_braces = 0;
+
+          for(long long i = 0; i < str.size(); i++)
+          {
+            char ch = str[i];
+            if(ch == '{')
             {
-              size_t open_count  = 0;
-              size_t close_count = 0;
-              size_t fp = str.find_first_of("{");
-              if(fp == json::string::npos)
-                return {};
-
-              open_count++;
-              for(size_t i = fp; i < str.size(); i++)
-              {
-                char ch = str[i];
-                if (ch == '}')
-                {
-                  close_count++;
-                }
-                if(ch == '{')
-                {
-                  open_count++;
-                }
-              }
-
-              json::string substr {str.begin() + fp, str.end()};
-              for(size_t i = 0; i < open_count - close_count; i++)
-              {
-                substr.push_back('}');
-              }
-              return substr;
-            };
-
-
-            auto opt = validate_json(view); 
-            if(!opt)
-            {
-              throw std::runtime_error{"is not a valid json"};
+              open_braces++;
             }
+            if(ch == '}')
+            {
+              close_braces++;
+            }
+          }
 
-            json::string str = opt.value();
-            return Pars::MainParser::try_parse_message(str);
+          json::string substr;
+          size_t brace_size = std::abs(close_braces - open_braces);
+          substr.reserve(str.size() + brace_size);
+
+          int dif = close_braces - open_braces;
+          if(dif > 0)
+          {
+            substr += json::string{brace_size, '{'};
+          }
+
+          substr += str;
+
+          if(dif < 0)
+          {
+            substr += json::string{brace_size, '}'};
+          }
+
+          return substr;  
+        }
+
+      
+        [[nodiscard]]
+        static json::string
+        find_object_from_string
+        (json::string_view vw, json::string_view objName)
+        {
+          size_t pos = vw.find(objName);
+          if(pos == json::string::npos)
+          {
+            return {};
+          }
+
+          size_t open_pos = vw.find("{", pos);
+          if(open_pos == json::string::npos)
+          {
+            return {};
+          }
+
+          long long open_braces = 0;
+          long long close_braces = 0;
+          for(int i = open_pos; i < vw.size(); i++)
+          {
+            char ch = vw[i];
+            if(ch == '{')
+            {
+              open_braces++;
+            }
+            if(ch == '}')
+            {
+              close_braces++;
+            } 
+
+            if(open_braces == close_braces)
+            {
+              return  json::string{vw.begin() + pos, vw.begin() + i};
+            }
+          }
+
+          return {};
         }
 
       }; // MainParser

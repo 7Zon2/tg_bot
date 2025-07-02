@@ -1,5 +1,6 @@
 #include "TelegramEntities.hpp"
 #include "boost/json/kind.hpp"
+#include "boost/system/detail/error_code.hpp"
 #include "json_head.hpp"
 
 
@@ -7,7 +8,7 @@ namespace YandexEntities
 {
   using namespace Pars;
 
-  class Thumb : TG::TelegramEntities<Thumb>
+  class Thumb : public TG::TelegramEntities<Thumb>
   {
     public:
 
@@ -22,7 +23,7 @@ namespace YandexEntities
     public:
 
     static const inline json::string entity_name{FIELD_NAME(Thumb)};
-    static const constexpr size_t req_fields = 4;
+    static const constexpr size_t req_fields = 5;
     static const constexpr size_t opt_fields = 0;
 
     json::string 
@@ -65,7 +66,7 @@ namespace YandexEntities
 
     template<typename T>
     [[nodiscard]]
-    static opt_fields_map 
+    static fields_map 
     optional_fields(T&& val)
     {
       return {};
@@ -74,7 +75,7 @@ namespace YandexEntities
 
     template<typename T>
     [[nodiscard]]
-    static fields_map 
+    static opt_fields_map 
     requested_fields(T&& val)
     {
       auto map = MainParser::mapped_pointers_validation
@@ -104,10 +105,10 @@ namespace YandexEntities
       <json::kind::string>(std::forward<T>(map), RFP(imageUrl, imageUrl));
       
       MainParser::field_from_map
-      <json::kind::double_>(std::forward<T>(map), RFP(width, width));
+      <json::kind::int64>(std::forward<T>(map), RFP(width, width));
 
       MainParser::field_from_map
-      <json::kind::double_>(std::forward<T>(map), RFP(height, height));
+      <json::kind::int64>(std::forward<T>(map), RFP(height, height));
 
       MainParser::field_from_map
       <json::kind::string>(std::forward<T>(map), RFP(title, title));
@@ -125,8 +126,8 @@ namespace YandexEntities
       return Thumb::fields_to_value
         (
           Utils::forward_like<Self>(self.imageUrl),
-          Utils::forward_like<Self>(self.width),
-          Utils::forward_like<Self>(self.height),
+          self.width,
+          self.height,
           Utils::forward_like<Self>(self.title),
           Utils::forward_like<Self>(self.linkUrl)
         );
@@ -163,25 +164,32 @@ namespace YandexEntities
 
 
   template<as_json_value T>
-  auto find_cbirSimilar
+  json::value *
+  find_InitialState
+  (T && val)
+  {
+    boost::system::error_code er;
+    json::value * pv = val.find_pointer("/initialState", er);
+    return pv;
+  }
+
+
+  template<as_json_value T>
+  auto find_cbirSimilar_Thumbs
   (T && val) -> std::optional<std::pmr::vector<YandexEntities::Thumb>>
   {
     std::pmr::vector<YandexEntities::Thumb> vec_thumbs;
-
     boost::system::error_code er;
-    json::value * pv = val.find_pointer("/initialState/cbirSimilar/thumbs", er);
+    json::value * pv = val.find_pointer("/cbirSimilar/thumbs", er);
     if(!pv)
     {
+      print("\nCbirSibilar thumbs wasn't found\n");
       return {};
     }
 
     json::array& arr = pv->as_array();
     vec_thumbs.reserve(arr.size());
-    for(auto && obj : arr)
-    {
-      YandexEntities::Thumb thumb{std::move(obj)};
-      vec_thumbs.push_back(std::move(thumb));
-    }
+    MainParser::container_move(arr, vec_thumbs);
     return vec_thumbs;
   };
 

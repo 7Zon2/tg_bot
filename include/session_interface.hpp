@@ -662,10 +662,8 @@ class session_interface<PROTOCOL::HTTP> : public session_base
   (const tcp::resolver::results_type& res) override
   {
     auto ep = co_await stream_->async_connect(res);
-
     print("Connecting...\n\n", "connected endpoint:\n");
     print_endpoint(ep);
-    print("\n\n");
   }
 
   
@@ -679,7 +677,7 @@ class session_interface<PROTOCOL::HTTP> : public session_base
   void
   virtual shutdown() override
   {
-    std::cout<<"\nShutdown...\n"<<std::endl;
+    print("\nShutdown...\n");
     stream_->close();
   }
 

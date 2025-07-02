@@ -2,12 +2,9 @@
 #include "boost/beast/http/message.hpp"
 #include "boost/beast/http/string_body.hpp"
 #include "boost/json/array.hpp"
-#include "head.hpp"
-#include "json_head.hpp"
 #include "entities/YandexRoot.hpp"
 #include "session_interface.hpp"
-#include "HTML/html_parser.hpp"
-#include <exception>
+#include "parsing/html_pars.hpp"
 #include <utility>
 #include <unordered_set>
 
@@ -24,16 +21,16 @@ class Searcher : public session_interface<PR>
   using session_base_t::read_response;
   using session_base_t::stream_;
 
-  HTML::html_parser parser_;
+  Pars::HTML::html_parser parser_;
 
   protected:
 
   [[nodiscard]]
-  HTML::html_document 
+  Pars::HTML::html_document 
   make_html_document
   (json::string html)
   {
-    HTML::html_document html_doc = parser_.parse(std::move(html));
+    Pars::HTML::html_document html_doc = parser_.parse(std::move(html));
     return html_doc;
   }
 
@@ -77,6 +74,8 @@ class Searcher : public session_interface<PR>
     F&& callback
   )
   {
+    assert(data || filename);
+
     if(data)
     {
       co_await request_upload_image
@@ -101,7 +100,7 @@ class Searcher : public session_interface<PR>
   net::awaitable<void>
   operator()
   (
-    HTML::html_document & doc,
+    Pars::HTML::html_document & doc,
     F && callback
   )
   {
@@ -231,29 +230,69 @@ class Searcher : public session_interface<PR>
 
   
   [[nodiscard]]
-  HTML::string_vector 
+  Pars::HTML::string_vector 
   parse_root_tag 
-  (HTML::html_document& doc)
+  (Pars::HTML::html_document& doc)
   {
     auto seek_cbirSimilar = 
-    [](HTML::string_vector& tags)
+    [](Pars::HTML::string_vector& tags)
     {
-      HTML::string_vector vec;
-      for(auto&& tag : tags)
+      Pars::HTML::string_vector vec;
+      for(auto && tag : tags)
       {
-        json::value val = Pars::MainParser::align_braces(tag);
-        auto vec_thumbs = YandexEntities::find_cbirSimilar(std::move(val));
+        if (tag[0] != '{')
+        {
+          continue;
+        }
+
+        tag = Pars::MainParser::align_braces(std::move(tag));
+        print("\n",tag,"\n");
+        json::value val;
+
+        try
+        {
+          val = Pars::MainParser::try_parse_message(tag);
+          json::value * pv = YandexEntities::find_InitialState(val);
+          if(!pv)
+          {
+            print("\nInitialState wasn't found\n");
+            continue;
+          }
+          val = std::move(*pv);
+        }
+        catch(const std::exception& ex)
+        {
+          print("\n", ex.what(), "\n");
+          tag = Pars::MainParser::find_object_from_string(tag, "cbirSimilar");
+          val = Pars::MainParser::try_parse_message(tag);
+        }
+
+        Pars::MainParser::pretty_print(std::cout, val);
+        auto opt_thumbs = YandexEntities::find_cbirSimilar_Thumbs(val);
+        if(!opt_thumbs)
+        {
+          continue;
+        }
+
+        auto &thumbs = opt_thumbs.value();
+        vec.reserve(thumbs.size() * 2);
+        for(YandexEntities::Thumb & thumb : thumbs)
+        {
+          vec.push_back(std::move(thumb.linkUrl));
+        }
       }
+      return vec;
     };
 
-    HTML::string_vector urls;
-    HTML::string_vector& vec = HTML::html_parser::parse_class_name(doc, "Root");
+    Pars::HTML::string_vector urls;
+    Pars::HTML::string_vector& vec = Pars::HTML::html_parser::parse_class_name(doc, "Root");
+    print("\n\nRoot class:","\nRoot vec size:", vec.size(),"\n\n");
     for(auto& i: vec)
     {
       try
       {
-        HTML::string_vector tags = HTML::html_parser::html_tokenize(i);
-        HTML::string_vector new_urls = seek_cbirSimilar(tags);
+        Pars::HTML::string_vector tags = Pars::HTML::html_parser::html_tokenize(i);
+        Pars::HTML::string_vector new_urls = seek_cbirSimilar(tags);
         Pars::MainParser::container_move(std::move(new_urls), urls); 
       }
       catch(const std::exception& ex)
@@ -270,15 +309,14 @@ class Searcher : public session_interface<PR>
   is_relative_shot
   (json::string_view url) const noexcept 
   {
-    const static json::string rel_url{"/images/search?"};
+    static const json::string http_head{"http://"};
+    static const json::string https_head{"https://"};
 
-    if(url.size() <= rel_url.size())
-    {
-      return false;
-    }
+    json::string substr_http{url.begin(), url.begin() + http_head.size()};
+    json::string substr_https{url.begin(), url.begin() + https_head.size()};
 
-    json::string_view vw{url.begin(), url.begin() + rel_url.size()};
-    if(vw != rel_url)
+    if(substr_http == http_head || 
+       substr_https == https_head)
     {
       return false;
     }
@@ -291,20 +329,20 @@ class Searcher : public session_interface<PR>
   net::awaitable<void>
   start_browsing 
   (
-    HTML::html_document & html_doc,
+    Pars::HTML::html_document & html_doc,
     F && callback
   )
   {
     auto it = html_doc.map_.find("href:http");
     if(it == html_doc.map_.end())
     {
-      parser_.parse_attributes(html_doc, {{"href", "http"}});
+      (void)parser_.parse_attributes(html_doc, {{"href", "http"}});
     }
 
     it = html_doc.map_.find("src:http");
     if(it == html_doc.map_.end())
     {
-      parser_.parse_attributes(html_doc, {{"src", "http"}});
+      (void)parser_.parse_attributes(html_doc, {{"src", "http"}});
     }
 
     it = html_doc.map_.find("img");
@@ -317,15 +355,22 @@ class Searcher : public session_interface<PR>
 
     auto & src_vec = html_doc.map_["src:http"];
     print("\nsrc vec size: ", src_vec.size(),"\n");
-    auto & img_vec = html_doc.map_["img"];
-    print(img_vec);
-    print("\nimg vec size: ", img_vec.size(),"\n");
-    auto & vec = html_doc.map_["href:http"];
-    print("\nhref vec size: ", vec.size(), "\n");
-    Pars::MainParser::container_move(src_vec, vec);
-    Pars::MainParser::container_move(img_vec, vec);
 
-    for(auto & url : vec)
+    auto & img_vec = html_doc.map_["img"];
+    print(img_vec, "\nimg vec size: ", img_vec.size(),"\n");
+
+    auto & href_vec = html_doc.map_["href:http"];
+    print("\nhref vec size: ", href_vec.size(), "\n");
+
+    auto root_vec = parse_root_tag(html_doc);
+    print("\n\n root vec size:", root_vec.size(), "\n\n");
+   
+    Pars::MainParser::container_move(src_vec,  root_vec);
+    Pars::MainParser::container_move(img_vec,  root_vec);
+    Pars::MainParser::container_move(href_vec, root_vec);
+    set.reserve(root_vec.size());
+
+    for(auto & url : root_vec)
     {
       print("\n",url,"\n");
       auto it = set.insert(url);
@@ -345,7 +390,6 @@ class Searcher : public session_interface<PR>
           req.set(http::field::accept_encoding, default_encoding_);
           req.set(http::field::accept, "*/*");
           req.set(http::field::connection, "keep-alive");
-          
           print_response(req);
           
           res = co_await session_base_t::req_res(std::move(req));
@@ -382,7 +426,7 @@ class Searcher : public session_interface<PR>
       throw std::runtime_error{"\nredirection for finding an image wasn't successful\n"};
     }
    
-   co_await start_browsing(std::move(res), std::forward<F>(callback)); 
+    co_await start_browsing(std::move(res), std::forward<F>(callback)); 
   }
 
 
