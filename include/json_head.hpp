@@ -17,6 +17,8 @@
 #include "boost/url/encoding_opts.hpp"
 #include "boost/url/grammar/all_chars.hpp"
 #include "boost/url/grammar/lut_chars.hpp"
+#include "boost/url/grammar/string_token.hpp"
+#include "boost/url/pct_string_view.hpp"
 #include "print.hpp"
 
 
@@ -984,6 +986,19 @@ namespace Pars
           
             mes = boost::urls::encode(mes, local_charSet{});
             return mes;
+        }
+
+
+        [[nodiscard]]
+        static json::string
+        decode_url
+        (json::string_view url)
+        {
+          boost::urls::pct_string_view vw{url};
+          std::string buf;
+          buf.resize(vw.decoded_size());
+          vw.decode({}, boost::urls::string_token::assign_to(buf));
+          return json::string{std::move(buf)};
         }
 
         public:

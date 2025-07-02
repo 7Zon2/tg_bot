@@ -22,6 +22,10 @@ namespace Pars
     inline const char*
     lxb_cast(const lxb_char_t* data) noexcept
     {
+      if(!data)
+      {
+        return "";
+      }
       return reinterpret_cast<const char*>(data);
     }
 

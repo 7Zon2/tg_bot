@@ -8,8 +8,6 @@
 #include <lexbor/html/interfaces/document.h>
 #include <lexbor/html/serialize.h>
 #include <lexbor/html/tokenizer.h>
-#include <lexbor/unicode/idna.h>
-#include <lexbor/url/url.h>
 
 namespace Pars
 {

@@ -198,7 +198,7 @@ skip_http (json::string_view v) noexcept
     return pos + barrier.size()+1;
   }
   return 0;
-};
+}
 
 
 [[nodiscard]]

@@ -2,7 +2,11 @@
 #include "boost/beast/http/message.hpp"
 #include "boost/beast/http/string_body.hpp"
 #include "boost/json/array.hpp"
+#include "boost/url/decode_view.hpp"
 #include "entities/YandexRoot.hpp"
+#include "head.hpp"
+#include "json_head.hpp"
+#include "parsing/url_pars.hpp"
 #include "session_interface.hpp"
 #include "parsing/html_pars.hpp"
 #include <utility>
@@ -278,7 +282,13 @@ class Searcher : public session_interface<PR>
         vec.reserve(thumbs.size() * 2);
         for(YandexEntities::Thumb & thumb : thumbs)
         {
-          vec.push_back(std::move(thumb.linkUrl));
+          auto opt_url = Pars::URL::find_url_field(thumb.linkUrl, "img_url");
+          if(!opt_url)
+          {
+            continue;
+          }
+          json::string url = Pars::MainParser::decode_url(opt_url.value());
+          vec.push_back(std::move(url));
         }
       }
       return vec;
@@ -309,14 +319,10 @@ class Searcher : public session_interface<PR>
   is_relative_shot
   (json::string_view url) const noexcept 
   {
-    static const json::string http_head{"http://"};
-    static const json::string https_head{"https://"};
+    static const json::string http_head{"http"};
 
     json::string substr_http{url.begin(), url.begin() + http_head.size()};
-    json::string substr_https{url.begin(), url.begin() + https_head.size()};
-
-    if(substr_http == http_head || 
-       substr_https == https_head)
+    if(substr_http == http_head)
     {
       return false;
     }
