@@ -65,6 +65,16 @@
  using tcp = boost::asio::ip::tcp;       // from <boost/asio/ip/tcp.hpp>
 
 
+
+template<typename T>
+concept is_http_message = requires(T&& mes)
+{
+  typename std::decay_t<T>::fields_type;
+  typename std::decay_t<T>::header_type;
+  typename std::decay_t<T>::body_type;
+};
+
+
 [[nodiscard]]
 inline json::string 
 load_file(json::string_view filename)
@@ -114,50 +124,6 @@ filter_by_extension(T&& cont, std::string_view ext)
       temp.push_back(Utils::forward_like<T>(cont[i]));
     }
   }
-  return temp;
-}
-
-
-[[nodiscard]]
-inline size_t 
-skip_http (json::string_view v) noexcept
-{
-  const static json::string barrier{"://"};
-  size_t pos = v.find(barrier);
-  if(pos != json::string::npos)
-  {
-    return pos + barrier.size()+1;
-  }
-  return 0;
-}
-
-
-[[nodiscard]]
-inline json::string
-make_host(json::string_view url, json::string_view pattern = "/")
-{
-  size_t skip_pos = skip_http(url);
-  size_t pos = url.find(pattern, skip_pos);
-  if(pos != json::string::npos)
-  {
-    return json::string{url.begin()+skip_pos-1,url.begin()+pos};
-  }
-  return {};
-}
-
-
-[[nodiscard]]
-inline json::string 
-make_relative_url(const json::string& url, json::string_view pattern = "/")
-{
-  size_t skip_pos = skip_http(url);
-  size_t pos = url.find(pattern, skip_pos);
-  json::string temp{};
-  if(pos != json::string::npos)
-  {
-    temp = json::string(url.begin()+pos, url.end()); 
-  }
-
   return temp;
 }
 

@@ -4,7 +4,6 @@
 #include "boost/json/array.hpp"
 #include "entities/YandexRoot.hpp"
 #include "head.hpp"
-#include "json_head.hpp"
 #include "parsing/url_pars.hpp"
 #include "session_interface.hpp"
 #include "parsing/html_pars.hpp"
@@ -185,13 +184,14 @@ class Searcher : public session_interface<PR>
   make_oneshot_session(json::string_view url)
   {
     print("\nStart OneShot session\n");
-    json::string host = make_host(url);
-    json::string target = make_relative_url(url);
+    auto uri = boost::urls::parse_uri(url).value();
+    json::string host{uri.host()};
+    json::string target{uri.encoded_target()};
+
     auto req = session_base::make_header(http::verb::get, host, target); 
     req.set(http::field::accept_encoding, default_encoding_);
     req.set(http::field::accept, "*/*");
     req.set(http::field::connection,"keep-alive");
-    
     print_response(req);
 
     auto ex = co_await net::this_coro::executor;
@@ -199,8 +199,8 @@ class Searcher : public session_interface<PR>
     ses.set_timeout(1000);
 
     co_await ses.run();
-
     auto res = co_await ses.redirect(req, target);
+    co_await ses.shutdown();
     co_return std::move(res);
   }
 
@@ -388,27 +388,14 @@ class Searcher : public session_interface<PR>
         continue;
       }
 
+      if(is_relative_shot(url))
+      {
+        continue;
+      }
+
       try
       {
-        http::response<http::string_body> res;
-        if(is_relative_shot(url))
-        {
-          print("\nLocal Shot\n");
-          auto req = session_base::make_header(http::verb::get, host_, url);
-          req.set(http::field::accept_encoding, default_encoding_);
-          req.set(http::field::accept, "*/*");
-          req.set(http::field::connection, "keep-alive");
-          print_response(req);
-          
-          res = co_await session_base_t::req_res(std::move(req));
-        }
-        else
-        {
-          url = Pars::URL::is_valid_url(url);
-          res = co_await make_oneshot_session(url);
-        }
-
-        print("\n\nDump Data\n\n");
+        auto res = co_await make_oneshot_session(url);
         Decoder::data_storage data = Decoder::decode_data(std::move(res));
         data.dump_data(std::to_string(i));
       }

@@ -240,6 +240,32 @@ namespace URL
     };
   }
 
+  
+  [[nodiscard]]
+  inline json::string
+  get_scheme(json::string_view url)
+  {
+    size_t pos = url.find_first_of(":");
+    if(pos == json::string::npos)
+    {
+      return {};
+    }
+    return json::string{url.begin(), url.begin() + pos};
+  }
+
+
+  [[nodiscard]]
+  inline json::string
+  is_valid_url
+  (json::string_view url)
+  {
+    json::string str{URL::get_scheme(url)};
+    auto uri =  boost::urls::parse_uri(url).value();
+    str += uri.host();
+    str += uri.path();
+    print("\nVALID URL:", url, "\n");
+    return str;
+  }
 
 }//namespace URL
 

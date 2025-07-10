@@ -137,7 +137,8 @@ class session_base
 
       
       json::string url = it->value();
-      url = make_relative_url(std::move(url), relative_url);
+      auto uri = boost::urls::parse_uri(url).value();
+      url = uri.encoded_target();
       print("RELATIVE REDIRECT URL:", url,"\n");
       temp_req.target(std::move(url));
 
@@ -471,11 +472,9 @@ class session_interface<PROTOCOL::HTTPS> : public session_base
   {
     // Make the connection on the IP address we get from a lookup
     auto ep = co_await beast::get_lowest_layer(*stream_).async_connect(res);
-  
     print("Connecting...\n\n", "connected endpoint:\n");
     print_endpoint(ep);
     print("\n\n");
-
     co_await handshake();
   }
 
@@ -484,7 +483,6 @@ class session_interface<PROTOCOL::HTTPS> : public session_base
   virtual handshake() override
   {
     print("Handshake...\n"); 
-
     if(timeout_)
     {
       beast::get_lowest_layer(*stream_).expires_after(std::chrono::milliseconds(timeout_.value())); 
@@ -497,8 +495,10 @@ class session_interface<PROTOCOL::HTTPS> : public session_base
   virtual shutdown() override
   {
     std::cout<<"\nShutdown...\n"<<std::endl;
-
-    beast::get_lowest_layer(*stream_).expires_after(std::chrono::milliseconds(200));
+    if(timeout_)
+    {
+      beast::get_lowest_layer(*stream_).expires_after(std::chrono::milliseconds(timeout_.value()));
+    }
     co_await stream_->async_shutdown();
   }
 
@@ -537,9 +537,7 @@ class session_interface<PROTOCOL::HTTPS> : public session_base
   {}
 
   ~session_interface()
-  {
-    net::co_spawn(stream_->get_executor(), shutdown(), net::detached);
-  }
+  {}
 
   public:
 
@@ -593,9 +591,7 @@ class session_interface<PROTOCOL::HTTP> : public session_base
   {}
 
   ~session_interface()
-  {
-    co_spawn(stream_->get_executor(), session_interface::shutdown(), net::detached);
-  }
+  {}
 
   public:
 

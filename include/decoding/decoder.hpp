@@ -1,15 +1,6 @@
 #include "head.hpp"
 
 
-template<typename T>
-concept is_http_message = requires(T&& mes)
-{
-  typename std::decay_t<T>::fields_type;
-  typename std::decay_t<T>::header_type;
-  typename std::decay_t<T>::body_type;
-};
-
-
 class Decoder final  
 {
 
