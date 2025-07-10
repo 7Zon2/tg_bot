@@ -41,12 +41,10 @@
 #include "boost/beast/core/flat_buffer.hpp"
 #include "boost/beast/http/write.hpp"
 #include "boost/beast/core/detail/base64.hpp"
-#include "boost/beast/core/tcp_stream.hpp"
 #include "boost/beast/http/status.hpp"
 #include "boost/beast/http/message.hpp"
 #include "boost/beast/http/status.hpp"
 #include "boost/beast/http/string_body.hpp"
-#include "boost/beast/http/verb.hpp"
 
 #include "boost/iostreams/filter/gzip.hpp"
 #include "boost/iostreams/device/array.hpp"
@@ -54,7 +52,6 @@
 #include "boost/iostreams/copy.hpp"
 #include "boost/iostreams/device/back_inserter.hpp"
 
-#include "boost/system/detail/error_code.hpp"
 #include "boost/json/string.hpp"
 #include "boost/json/string_view.hpp"
 #include "json_head.hpp"
@@ -66,72 +63,6 @@
  namespace net = boost::asio;            // from <boost/asio.hpp>
  namespace ssl = boost::asio::ssl;       // from <boost/asio/ssl.hpp>
  using tcp = boost::asio::ip::tcp;       // from <boost/asio/ip/tcp.hpp>
-
-
-
-template<typename T>
-concept is_http_message = requires(T&& mes)
-{
-  typename std::decay_t<T>::fields_type;
-  typename std::decay_t<T>::header_type;
-  typename std::decay_t<T>::body_type;
-};
-
-
-[[nodiscard]]
-inline json::string 
-encode_base64(const json::string& str)
-{
-  json::string dest(str.size()*2,' ');
-  boost::beast::detail::base64::encode(dest.data(), str.data(), str.size());
-  return dest;
-}
-
-
-[[nodiscard]]
-inline json::string
-decode_base64(const json::string& str)
-{
-  json::string dest(str.size()*2, ' ');
-  boost::beast::detail::base64::decode(dest.data(), str.data(), str.size());
-  return dest;
-}
-
-
-template<is_http_message T>
-[[nodiscard]]
-inline json::string 
-decode_data(T && mes)
-{
-  auto it = mes.find(http::field::content_encoding);
-  if(it == mes.end())
-  {
-    print("\n\nContent encoding field wasn't found\n\n");
-    return {};
-  }
-
-  json::string encoding_type = it->value();
-  if(encoding_type != "gzip")
-  {
-    print("\n\nEncoding Type is not gzip\n\n");
-    return {};
-  }
-
-  boost::iostreams::array_source src{mes.body().data(), mes.body().size()};
-  boost::iostreams::filtering_istream is;
-  boost::iostreams::gzip_decompressor gz{};
-
-  is.push(gz);
-  is.push(src);
-
-  std::string decode_str{};
-  decode_str.reserve(mes.body().size());
-
-  boost::iostreams::back_insert_device ins {decode_str};
-  boost::iostreams::copy(is, ins);
-
-  return json::string{std::move(decode_str)};
-}
 
 
 [[nodiscard]]

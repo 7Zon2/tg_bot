@@ -1,4 +1,7 @@
 #pragma once
+#include "boost/asio/co_spawn.hpp"
+#include "boost/asio/detached.hpp"
+#include "boost/beast/core/stream_traits.hpp"
 #include "json_head.hpp"
 #include "head.hpp"
 #include <chrono>
@@ -30,7 +33,7 @@ class session_base
   virtual run () = 0;
 
 
-  void
+  net::awaitable<void>
   virtual shutdown() = 0;
 
   public:
@@ -490,26 +493,13 @@ class session_interface<PROTOCOL::HTTPS> : public session_base
   }
 
 
-  void 
+  net::awaitable<void> 
   virtual shutdown() override
   {
     std::cout<<"\nShutdown...\n"<<std::endl;
 
-    boost::system::error_code er;
-    auto _ = stream_->shutdown(er);
-    print(er.what());
-
-    if(er == net::error::eof)
-    {
-      // Rationale:
-      // http://stackoverflow.com/questions/25587403/boost-asio-ssl-async-shutdown-always-finishes-with-an-error
-      print("\nconnection was closed with the eof error\n");
-      er = {};
-    }
-    else
-    {
-        print("\nconnection was closed gracefully\n");
-    }
+    beast::get_lowest_layer(*stream_).expires_after(std::chrono::milliseconds(200));
+    co_await stream_->async_shutdown();
   }
 
   public:
@@ -548,7 +538,7 @@ class session_interface<PROTOCOL::HTTPS> : public session_base
 
   ~session_interface()
   {
-    session_interface::shutdown();
+    net::co_spawn(stream_->get_executor(), shutdown(), net::detached);
   }
 
   public:
@@ -604,7 +594,7 @@ class session_interface<PROTOCOL::HTTP> : public session_base
 
   ~session_interface()
   {
-    session_interface::shutdown();
+    co_spawn(stream_->get_executor(), session_interface::shutdown(), net::detached);
   }
 
   public:
@@ -674,11 +664,12 @@ class session_interface<PROTOCOL::HTTP> : public session_base
   }
 
 
-  void
+  net::awaitable<void>
   virtual shutdown() override
   {
     print("\nShutdown...\n");
     stream_->close();
+    co_return;
   }
 
 };

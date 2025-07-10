@@ -15,8 +15,6 @@
 #include <stdexcept>
 #include "boost/json/stream_parser.hpp"
 #include "boost/url/encoding_opts.hpp"
-#include "boost/url/grammar/all_chars.hpp"
-#include "boost/url/grammar/lut_chars.hpp"
 #include "boost/url/grammar/string_token.hpp"
 #include "boost/url/pct_string_view.hpp"
 #include "print.hpp"
@@ -1182,7 +1180,16 @@ namespace Pars
       }; // MainParser
 
 
-  void inline dump_data(std::string filename, auto&& req)
+  void inline 
+  dump_data(std::string_view filename, std::string_view data)
+  {
+    std::ofstream ofile{std::string(filename), std::ios::binary};
+    ofile<<data;
+    ofile.close();
+  }
+
+  void inline 
+  dump_data(std::string filename, auto&& req)
   {
     std::ofstream ofile{filename, std::ios::binary};
     ofile<<req;

@@ -223,7 +223,6 @@ struct html_parser
     auto html_callback = [](const lxb_char_t* data, size_t len, void * ctx) -> lxb_status_t
     {
       json::string str{data, data + len};
-      store_file("data", str.data(), len, true);
       return LXB_STATUS_OK;
     };
 

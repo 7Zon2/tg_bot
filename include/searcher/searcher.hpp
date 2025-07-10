@@ -2,13 +2,13 @@
 #include "boost/beast/http/message.hpp"
 #include "boost/beast/http/string_body.hpp"
 #include "boost/json/array.hpp"
-#include "boost/url/decode_view.hpp"
 #include "entities/YandexRoot.hpp"
 #include "head.hpp"
 #include "json_head.hpp"
 #include "parsing/url_pars.hpp"
 #include "session_interface.hpp"
 #include "parsing/html_pars.hpp"
+#include "decoding/decoder.hpp"
 #include <utility>
 #include <unordered_set>
 
@@ -196,7 +196,7 @@ class Searcher : public session_interface<PR>
 
     auto ex = co_await net::this_coro::executor;
     session_interface<PROTOCOL::HTTPS> ses{11, host, "443", ex};
-    ses.set_timeout(5000);
+    ses.set_timeout(1000);
 
     co_await ses.run();
 
@@ -287,16 +287,17 @@ class Searcher : public session_interface<PR>
           {
             continue;
           }
-          json::string url = Pars::MainParser::decode_url(opt_url.value());
+          json::string url = Decoder::decode_url(opt_url.value());
           vec.push_back(std::move(url));
         }
       }
+
       return vec;
-    };
+
+    };// lambda seek_cbirSimilar
 
     Pars::HTML::string_vector urls;
     Pars::HTML::string_vector& vec = Pars::HTML::html_parser::parse_class_name(doc, "Root");
-    print("\n\nRoot class:","\nRoot vec size:", vec.size(),"\n\n");
     for(auto& i: vec)
     {
       try
@@ -307,7 +308,7 @@ class Searcher : public session_interface<PR>
       }
       catch(const std::exception& ex)
       {
-        print(ex.what(),"\n\n");
+        print("\n\n", ex.what(), "\n\n");
       }
     }
     return urls;
@@ -376,16 +377,17 @@ class Searcher : public session_interface<PR>
     Pars::MainParser::container_move(href_vec, root_vec);
     set.reserve(root_vec.size());
 
-    for(auto & url : root_vec)
+    for(size_t i = 0; i < root_vec.size(); i++)
     {
-      print("\n",url,"\n");
+      json::string_view url = root_vec[i];
+      print("\nurl: ",url,"\n");
+
       auto it = set.insert(url);
       if(it.second == false)
       {
         continue;
       }
 
-      
       try
       {
         http::response<http::string_body> res;
@@ -402,11 +404,13 @@ class Searcher : public session_interface<PR>
         }
         else
         {
+          url = Pars::URL::is_valid_url(url);
           res = co_await make_oneshot_session(url);
         }
 
-        json::string data = decode_data(res);
-        print(data);
+        print("\n\nDump Data\n\n");
+        Decoder::data_storage data = Decoder::decode_data(std::move(res));
+        data.dump_data(std::to_string(i));
       }
       catch(const std::exception& ex)
       {
@@ -441,8 +445,8 @@ class Searcher : public session_interface<PR>
   (http::response<http::string_body> res)
   {
     print("\n\nStart parsing answer...\n\n");
-
-    json::value var = decode_data(std::move(res));
+     
+    json::value var = Decoder::decode_data(std::move(res)).data;
     var = Pars::MainParser::try_parse_value(std::move(var));
     Pars::MainParser::pretty_print(std::cout, var);
 
