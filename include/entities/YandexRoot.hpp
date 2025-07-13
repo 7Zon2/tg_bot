@@ -163,6 +163,7 @@ namespace YandexEntities
   };
 
 
+  //main json object that stores all other entities
   template<as_json_value T>
   json::value *
   find_InitialState

@@ -53,27 +53,6 @@ namespace Pars
             {
 
             }
-
-            private:
-
-            template<typename Self>
-            [[nodiscard]]
-            json::value
-            fields_to_value(this Self&& self) 
-            {
-                return TelegramRequestes::get_webhook_request
-                (
-                    forward_like<Self>(self.url),
-                    self.has_custom_certificate,
-                    self.pending_update_count,
-                    forward_like<Self>(self.ip_address),
-                    self.last_error_date,
-                    forward_like<Self>(self.last_error_message),
-                    self.last_synchronization_error_date,
-                    self.max_connections,
-                    forward_like<Self>(self.allowed_updates)
-                );
-            }
             
         };
 

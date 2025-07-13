@@ -275,8 +275,8 @@ class tg_session : public session_interface<PROTOCOL::HTTPS>
       (http::response<http::string_body> resp) -> net::awaitable<void>
       {
         print("\n\n_______SEARCH CALLBACK______\n\n");
-        json::string data{std::move(resp).body()};
-        TG::SendPhoto photo{chat_id, std::move(data), std::nullopt};
+        Decoder::data_storage s_data = Decoder::decode_data(std::move(resp));
+        TG::SendPhoto photo{chat_id, std::move(s_data.data), std::nullopt};
         auto req = prepare_request(std::move(photo));
         auto res = co_await req_res<>(std::move(req));
         print_response(resp);
@@ -289,8 +289,8 @@ class tg_session : public session_interface<PROTOCOL::HTTPS>
       url += file_path;
 
       req = make_header(http::verb::get, host_, url);
-      http::response<http::string_body> res_b = co_await 
-      session_t::req_res(std::move(req));
+      http::response<http::string_body> res_b = 
+        co_await session_t::req_res(std::move(req));
 
       if(res_b.body().empty())
       {
@@ -540,6 +540,8 @@ class tg_session : public session_interface<PROTOCOL::HTTPS>
         {
           if(reconnect)
           {
+            co_await session_interface<PROTOCOL::HTTPS>::shutdown();
+            stream_ = std::make_unique<stream_type>(ex_, ctx_);
             reconnect = false;
             co_await run();
           }
@@ -562,8 +564,6 @@ class tg_session : public session_interface<PROTOCOL::HTTPS>
           catch(const std::exception& ex)
           {
             print(ex.what());
-            session_interface<PROTOCOL::HTTPS>::shutdown();
-            stream_ = std::make_unique<stream_type>(ex_, ctx_);
             reconnect = true;
           }
       }

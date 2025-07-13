@@ -244,19 +244,19 @@ class Searcher : public session_interface<PR>
       Pars::HTML::string_vector vec;
       for(auto && tag : tags)
       {
-        if (tag[0] != '{')
+        if (tag[0] != '{') //request should be received as json data at least it was until recently
         {
           continue;
         }
 
-        tag = Pars::MainParser::align_braces(std::move(tag));
+        tag = Pars::MainParser::align_braces(std::move(tag)); //usually last brace doesn't exist
         print("\n",tag,"\n");
         json::value val;
 
         try
         {
           val = Pars::MainParser::try_parse_message(tag);
-          json::value * pv = YandexEntities::find_InitialState(val);
+          json::value * pv = YandexEntities::find_InitialState(val); 
           if(!pv)
           {
             print("\nInitialState wasn't found\n");
@@ -267,8 +267,8 @@ class Searcher : public session_interface<PR>
         catch(const std::exception& ex)
         {
           print("\n", ex.what(), "\n");
-          tag = Pars::MainParser::find_object_from_string(tag, "cbirSimilar");
-          val = Pars::MainParser::try_parse_message(tag);
+          tag = Pars::MainParser::find_object_from_string(tag, "cbirSimilar"); // maybe it might work
+          val = Pars::MainParser::try_parse_message(tag); 
         }
 
         Pars::MainParser::pretty_print(std::cout, val);
@@ -282,7 +282,7 @@ class Searcher : public session_interface<PR>
         vec.reserve(thumbs.size() * 2);
         for(YandexEntities::Thumb & thumb : thumbs)
         {
-          auto opt_url = Pars::URL::find_url_field(thumb.linkUrl, "img_url");
+          auto opt_url = Pars::URL::find_url_field(thumb.linkUrl, "img_url"); //searching for suburl in url
           if(!opt_url)
           {
             continue;
@@ -388,21 +388,22 @@ class Searcher : public session_interface<PR>
         continue;
       }
 
-      if(is_relative_shot(url))
+      if(is_relative_shot(url)) //until it will be fixed
       {
         continue;
       }
 
+      http::response<http::string_body> res;
       try
       {
-        auto res = co_await make_oneshot_session(url);
-        Decoder::data_storage data = Decoder::decode_data(std::move(res));
-        data.dump_data(std::to_string(i));
+        res = co_await make_oneshot_session(url);
       }
       catch(const std::exception& ex)
       {
         print("\n",ex.what(),"\n");
       }
+
+      co_await callback(std::move(res));
     }
   }
   
